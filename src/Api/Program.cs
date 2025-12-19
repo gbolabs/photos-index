@@ -28,7 +28,6 @@ app.UseHttpsRedirection();
 
 // Placeholder API endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "Photos Index API" }))
-    .WithName("HealthCheck")
-    .WithOpenApi();
+    .WithName("HealthCheck");
 
 app.Run();
