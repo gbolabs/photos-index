@@ -4,65 +4,99 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Photo indexing and deduplication application designed for Synology NAS deployment. Scans directories for images, computes hashes for deduplication, and provides a web interface for managing duplicates.
+Photo indexing and deduplication application designed for Synology NAS deployment. Scans directories for images, computes SHA256 hashes for deduplication, and provides a web interface for managing duplicates.
 
 ## Technology Stack
 
 - **Backend**: .NET 10 (ASP.NET Core API, Console apps)
 - **Frontend**: Angular 21
-- **Database**: PostgreSQL
-- **Orchestration**: .NET Aspire
-- **Deployment**: Docker Compose (production/NAS), Kubernetes/Podman (local dev)
+- **Database**: PostgreSQL with EF Core migrations
+- **Observability**: Aspire Dashboard (standalone container) for logs, traces, metrics
+- **Deployment**: Docker Compose (production/NAS), Podman/Kubernetes (local dev)
 - **Testing**: xUnit, TestContainers, Playwright, BenchmarkDotNet
 
 ## Project Structure
 
 ```
 src/
-├── api/                    # ASP.NET Core REST API service
-├── indexing-service/       # .NET Console app for file scanning/hashing
-├── cleaner-service/        # .NET service for safe duplicate removal
-├── web/                    # Angular 21 web interface
-├── database/               # PostgreSQL schema and migrations
-├── shared/                 # Shared libraries
-└── integration-tests/      # Cross-service integration tests
+├── PhotosIndex.sln
+├── Api/                    # ASP.NET Core REST API
+├── IndexingService/        # .NET Console app for file scanning/hashing
+├── CleanerService/         # .NET service for safe duplicate removal
+├── Database/               # EF Core DbContext, entities, migrations
+├── Shared/                 # Shared DTOs and contracts
+└── Web/                    # Angular 21 web interface
+
+tests/
+├── Api.Tests/
+├── IndexingService.Tests/
+├── Database.Tests/
+├── Integration.Tests/      # TestContainers-based
+└── E2E.Tests/              # Playwright
 
 deploy/
 ├── docker/                 # Docker Compose for Synology NAS
-├── kubernetes/             # K8s manifests for local Podman dev
-└── azure-pipelines/        # CI/CD pipelines
+└── kubernetes/             # K8s manifests for local Podman dev
+```
 
-tests/
-├── integration/            # Service-to-service tests (xUnit + TestContainers)
-├── e2e/                    # End-to-end tests (Playwright)
-└── performance/            # BenchmarkDotNet performance tests
+## Build Commands
+
+```bash
+# Backend
+dotnet restore src/PhotosIndex.sln
+dotnet build src/PhotosIndex.sln
+dotnet run --project src/Api/Api.csproj
+dotnet test src/PhotosIndex.sln
+
+# Frontend
+cd src/Web && npm install && ng serve
+
+# EF Core Migrations
+dotnet ef migrations add <Name> --project src/Database --startup-project src/Api
+dotnet ef database update --project src/Database --startup-project src/Api
+
+# Docker
+cd deploy/docker && docker compose up -d
 ```
 
 ## Architecture
 
 ### Services
-1. **Indexing Service**: Scans directories, extracts metadata, computes file hashes, reports progress to API
-2. **API Service**: REST endpoints for data ingestion, duplicate handling, directory configuration, health checks
-3. **Database Service**: PostgreSQL with optimized indexing for queried fields
-4. **Web Interface**: Angular app for search, filtering, duplicate management, progress visualization
-5. **Cleaner Service**: Safe file removal with confirmation workflow, backup logging
+1. **Indexing Service**: Scans directories, extracts metadata, computes SHA256 hashes, generates thumbnails
+2. **API Service**: REST endpoints for data ingestion, duplicate handling, directory configuration
+3. **Database**: PostgreSQL with EF Core, entities: IndexedFiles, ScanDirectories, DuplicateGroups
+4. **Web Interface**: Angular app for search, filtering, duplicate management
+5. **Cleaner Service**: Safe file removal with soft delete, dry-run, transaction logging
+
+### Observability
+- Aspire Dashboard at `http://localhost:18888` receives OpenTelemetry data
+- All .NET services configured with OTLP exporter
+- Environment: `OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889`
 
 ### Key Patterns
 - Services communicate via REST API within Docker network
 - Configuration via environment variables
 - Change detection using file modification timestamps or hashes
-- Test-first development with 80% coverage minimum for backend, 70% for frontend
+- Streaming hash computation for memory efficiency
 
 ## Development Guidelines
 
 ### Test Coverage Requirements
-- Core Services: 80% minimum
-- API Service: 85% minimum
-- Web Interface: 70% minimum
-- Integration Tests: 90% coverage of critical paths
+- API: 85% | IndexingService: 80% | CleanerService: 80% | Database: 75% | Web: 70%
 
 ### Supported Image Formats
-`.jpg`, `.jpeg`, `.png`, `.gif`, `.heic` (case-insensitive)
+`.jpg`, `.jpeg`, `.png`, `.gif`, `.heic`, `.webp`, `.bmp`, `.tiff` (case-insensitive)
 
 ### Resource Constraints
-Optimize for Synology NAS deployment - memory-efficient processing for large directories with streaming where possible.
+Optimize for Synology NAS - use streaming for large files, pagination for queries, memory limits in Docker.
+
+## Parallel Development
+
+Multiple agents can work simultaneously on different components:
+- Agent 1: API + Database (start here, defines contracts)
+- Agent 2: Indexing Service (depends on Database schema)
+- Agent 3: Angular Web UI (depends on API contracts)
+- Agent 4: CI/CD + Docker
+- Agent 5: Cleaner Service
+
+Coordinate via shared DTOs in `src/Shared/` and avoid concurrent EF Core migrations.

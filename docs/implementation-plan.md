@@ -1,6 +1,6 @@
 # Implementation Plan for Picture File Indexing and Deduplication
 
-This document outlines the detailed implementation plan, task breakdown, and parallel development strategy for the Docker-based picture file indexing and deduplication application.
+This document outlines the implementation plan for the Docker-based picture file indexing and deduplication application.
 
 ## Project Overview
 
@@ -10,437 +10,345 @@ This document outlines the detailed implementation plan, task breakdown, and par
 - Provide web interface for duplicate management
 - Optimize for Synology NAS deployment
 
-### Key Features
-- File scanning with hash computation for deduplication
-- REST API for data management
-- PostgreSQL database for efficient storage
-- Angular 21 web interface
-- Cleaner service for safe file removal
+### Technology Stack
+- **Backend**: .NET 10 (ASP.NET Core, Console apps)
+- **Frontend**: Angular 21
+- **Database**: PostgreSQL with EF Core migrations
+- **Observability**: Aspire Dashboard (standalone) for logs, traces, metrics
+- **Deployment**: Docker Compose (Synology NAS), Podman/Kubernetes (local dev)
+- **Testing**: xUnit, TestContainers, Playwright, BenchmarkDotNet
 
 ## Project Structure
-
-### Repository Organization
-
-The project will follow a clear modular structure to support both Docker (Synology NAS) and Podman/Kubernetes (local development) environments:
 
 ```
 photos-index/
 ├── .github/
-│   └── workflows/          # GitHub CI/CD pipelines
-├── docs/                   # Documentation
+│   └── workflows/              # GitHub Actions CI/CD
+├── docs/                       # Documentation
 ├── src/
-│   ├── api/                # API Service (ASP.NET Core)
-│   │   ├── controllers/
-│   │   ├── models/
-│   │   ├── services/
-│   │   └── tests/
-│   ├── indexing-service/   # Indexing Service (.NET Console)
-│   │   ├── core/
-│   │   ├── file-processors/
-│   │   ├── hash-algorithms/
-│   │   └── tests/
-│   ├── database/           # Database Service (PostgreSQL)
-│   │   ├── migrations/
-│   │   ├── models/
-│   │   └── tests/
-│   ├── web/                # Web Interface (Angular 21)
-│   │   ├── src/
-│   │   └── tests/
-│   ├── cleaner-service/    # Cleaner Service (.NET)
-│   │   ├── core/
-│   │   └── tests/
-│   └── shared/             # Shared libraries and utilities
+│   ├── PhotosIndex.sln         # Solution file
+│   ├── Api/                    # ASP.NET Core Web API
+│   │   ├── Controllers/
+│   │   ├── Services/
+│   │   └── Api.csproj
+│   ├── IndexingService/        # .NET Console app
+│   │   ├── Workers/
+│   │   ├── FileProcessors/
+│   │   └── IndexingService.csproj
+│   ├── CleanerService/         # .NET Console app
+│   │   └── CleanerService.csproj
+│   ├── Database/               # EF Core DbContext & migrations
+│   │   ├── Entities/
+│   │   ├── Migrations/
+│   │   └── Database.csproj
+│   ├── Shared/                 # Shared DTOs, contracts
+│   │   └── Shared.csproj
+│   └── Web/                    # Angular 21 app
+│       ├── src/
+│       └── angular.json
+├── tests/
+│   ├── Api.Tests/
+│   ├── IndexingService.Tests/
+│   ├── Database.Tests/
+│   ├── Integration.Tests/      # TestContainers-based
+│   └── E2E.Tests/              # Playwright
 ├── deploy/
-│   ├── docker/             # Docker configurations (for Synology NAS)
-│   │   ├── api/
-│   │   ├── indexing-service/
-│   │   ├── database/
-│   │   ├── web/
-│   │   ├── cleaner-service/
-│   │   └── docker-compose.yml
-│   └── kubernetes/         # Kubernetes configurations (for local dev)
-│       ├── api/
-│       ├── indexing-service/
-│       ├── database/
-│       ├── web/
-│       ├── cleaner-service/
+│   ├── docker/
+│   │   ├── docker-compose.yml          # Production (Synology)
+│   │   ├── docker-compose.override.yml # Dev overrides
+│   │   └── */Dockerfile
+│   └── kubernetes/             # Local Podman/K8s dev
 │       └── kustomization.yaml
-├── tests/                  # Integration and E2E tests
-│   ├── integration/
-│   └── e2e/
-└── .gitignore
+└── CLAUDE.md
 ```
 
-### Environment-Specific Configurations
+## Build & Run Commands
 
-#### Docker (Synology NAS Production)
-- Uses `deploy/docker/docker-compose.yml`
-- Standard Docker networking
-- Optimized for NAS resource constraints
-- Persistent volume configuration
+### Prerequisites
+```bash
+# Required
+dotnet --version    # .NET 10 SDK
+node --version      # Node.js 22+
+docker --version    # Docker or Podman
+```
 
-#### Podman/Kubernetes (Local Development)
-- Uses `deploy/kubernetes/` configurations
-- Podman-compatible container definitions
-- Kubernetes deployment manifests
-- Local development optimizations
-- Ephemeral testing environments
+### Backend (.NET)
+```bash
+# Restore and build entire solution
+dotnet restore src/PhotosIndex.sln
+dotnet build src/PhotosIndex.sln
+
+# Run API
+dotnet run --project src/Api/Api.csproj
+
+# Run Indexing Service
+dotnet run --project src/IndexingService/IndexingService.csproj
+
+# Run all tests
+dotnet test src/PhotosIndex.sln
+
+# Run specific test project
+dotnet test tests/Api.Tests/Api.Tests.csproj
+
+# Run tests with coverage
+dotnet test --collect:"XPlat Code Coverage" --results-directory ./coverage
+```
+
+### Frontend (Angular)
+```bash
+cd src/Web
+
+# Install dependencies
+npm install
+
+# Development server
+ng serve
+
+# Build for production
+ng build --configuration production
+
+# Run tests
+ng test
+
+# Run tests headless (CI)
+ng test --watch=false --browsers=ChromeHeadless
+```
+
+### Database (EF Core)
+```bash
+# Add migration
+dotnet ef migrations add <MigrationName> --project src/Database --startup-project src/Api
+
+# Update database
+dotnet ef database update --project src/Database --startup-project src/Api
+
+# Generate SQL script
+dotnet ef migrations script --project src/Database --startup-project src/Api
+```
+
+### Docker Compose
+```bash
+cd deploy/docker
+
+# Start all services (development)
+docker compose up -d
+
+# Start with rebuild
+docker compose up -d --build
+
+# View logs
+docker compose logs -f
+
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (clean slate)
+docker compose down -v
+```
 
 ## Implementation Phases
 
-### Phase 1: Foundation and CI/CD Setup (Week 1-2)
+### Phase 1: Foundation
+**Goal**: Project scaffolding, CI/CD, basic infrastructure
 
-#### Tasks
-- [ ] Set up GitHub repository with proper structure
-- [ ] Create initial project scaffolding according to above structure
-- [ ] Implement GitHub Actions CI pipeline with multi-environment support
-- [ ] Configure test coverage reporting for all components
-- [ ] Set up Docker Compose for Synology NAS deployment
-- [ ] Set up Kubernetes manifests for local Podman development
-- [ ] Create basic test frameworks for all components
-- [ ] Implement environment detection in CI pipeline
+**Tasks**:
+1. Create .NET solution structure with all projects
+2. Set up Angular 21 app with Angular Material
+3. Configure EF Core with PostgreSQL, create initial schema
+4. Set up Docker Compose with:
+   - PostgreSQL container
+   - Aspire Dashboard container (observability)
+   - Service containers
+5. Create GitHub Actions workflow for CI
+6. Configure OpenTelemetry in all .NET services
 
-#### Deliverables
-- Functional CI pipeline with quality gates
-- Project structure with separate service folders as defined
-- Basic test frameworks for unit and integration tests
-- Docker Compose configuration for production (Synology NAS)
-- Kubernetes manifests for local development (Podman)
-- Environment-aware build and test scripts
+**Database Schema (Initial)**:
+```
+IndexedFiles
+├── Id (GUID, PK)
+├── FilePath (string, indexed)
+├── FileName (string)
+├── FileSize (long)
+├── FileHash (string, indexed)  -- SHA256
+├── CreatedAt (DateTime)
+├── ModifiedAt (DateTime)
+├── IndexedAt (DateTime)
+├── Width (int?)
+├── Height (int?)
+├── ThumbnailPath (string?)
+└── IsDuplicate (bool, indexed)
 
-### Phase 2: Core Services Development (Week 3-6)
+ScanDirectories
+├── Id (GUID, PK)
+├── Path (string)
+├── IsEnabled (bool)
+├── LastScannedAt (DateTime?)
+└── CreatedAt (DateTime)
 
-#### Parallel Development Streams
+DuplicateGroups
+├── Id (GUID, PK)
+├── Hash (string, indexed)
+├── FileCount (int)
+└── ResolvedAt (DateTime?)
+```
 
-**Stream A: Indexing Service (Backend Team)**
-- [ ] Implement file system scanning in `src/indexing-service/core/`
-- [ ] Develop hash computation algorithms in `src/indexing-service/hash-algorithms/`
-- [ ] Create metadata extraction functionality in `src/indexing-service/file-processors/`
-- [ ] Implement change detection logic with timestamp/hash comparison
-- [ ] Build duplicate identification system using computed hashes
-- [ ] Add progress reporting to API
-- [ ] Write unit tests in `src/indexing-service/tests/`
+### Phase 2: Core Services
+**Goal**: Working indexing and API services
 
-**Stream B: API Service (Backend Team)**
-- [ ] Design REST API endpoints in `src/api/controllers/`
-- [ ] Implement data ingestion from indexing service in `src/api/services/`
-- [ ] Create duplicate handling endpoints with proper error handling
-- [ ] Develop directory configuration API with validation
-- [ ] Add health check and monitoring endpoints
-- [ ] Implement pagination support for large datasets
-- [ ] Write unit and integration tests in `src/api/tests/`
+**Indexing Service Tasks**:
+1. Directory scanning with configurable file extensions
+2. SHA256 hash computation with streaming (memory-efficient)
+3. Metadata extraction (dimensions, EXIF dates)
+4. Thumbnail generation using ImageSharp
+5. Progress reporting via API
+6. Change detection (skip unchanged files)
 
-**Stream C: Database Service (Backend Team)**
-- [ ] Design PostgreSQL schema in `src/database/models/`
-- [ ] Implement data access layer with repository pattern
-- [ ] Create database migrations in `src/database/migrations/`
-- [ ] Implement indexing for performance-critical queries
-- [ ] Develop transaction management for batch operations
-- [ ] Implement data integrity checks and constraints
-- [ ] Write tests in `src/database/tests/`
+**API Service Tasks**:
+1. CRUD endpoints for ScanDirectories
+2. File ingestion endpoint (batch support)
+3. Duplicate detection queries
+4. Pagination for file listings
+5. Health check endpoint
+6. Progress/status endpoint for indexing service
 
-**Stream D: Web Interface (Frontend Team)**
-- [ ] Set up Angular 21 project structure in `src/web/`
-- [ ] Create basic UI components with Angular Material
-- [ ] Implement search and filter functionality with reactive forms
-- [ ] Develop duplicate management interface with confirmation dialogs
-- [ ] Build progress visualization with real-time updates
-- [ ] Create statistics dashboard with charts and metrics
-- [ ] Write component tests in `src/web/tests/`
+**Supported Image Formats**:
+`.jpg`, `.jpeg`, `.png`, `.gif`, `.heic`, `.webp`, `.bmp`, `.tiff` (case-insensitive)
 
-### Phase 3: Advanced Features (Week 7-8)
+### Phase 3: Web Interface
+**Goal**: Functional Angular UI for duplicate management
 
-#### Tasks
-- [ ] Implement cleaner service with safety mechanisms in `src/cleaner-service/core/`
-- [ ] Develop file removal confirmation workflow with multi-step verification
-- [ ] Create backup and recovery system with transaction logging
-- [ ] Implement similarity search using vector representations (optional)
-- [ ] Add vector representation for images in `src/indexing-service/file-processors/`
-- [ ] Develop performance optimization for large directories
-- [ ] Implement memory management with streaming processing
-- [ ] Write comprehensive tests for cleaner service in `src/cleaner-service/tests/`
+**Tasks**:
+1. Dashboard with statistics (total files, duplicates, storage saved)
+2. Directory configuration page
+3. File browser with thumbnails, search, filters
+4. Duplicate groups view with side-by-side comparison
+5. Bulk selection and actions
+6. Indexing progress visualization
+7. Responsive layout for desktop/tablet
 
-### Phase 4: Integration and Testing (Week 9-10)
+### Phase 4: Cleaner Service
+**Goal**: Safe duplicate removal with safeguards
 
-#### Tasks
-- [ ] Integrate all services using shared libraries in `src/shared/`
-- [ ] Develop end-to-end tests in `tests/e2e/`
-- [ ] Perform integration testing between services
-- [ ] Optimize Docker configurations in `deploy/docker/`
-- [ ] Optimize Kubernetes manifests in `deploy/kubernetes/`
-- [ ] Fix bugs and issues identified in testing
-- [ ] Write comprehensive documentation in `docs/`
-- [ ] Create user guides and technical documentation
-- [ ] Finalize CI/CD pipeline with multi-environment support
+**Tasks**:
+1. Confirmation workflow (mark for deletion → review → execute)
+2. Soft delete first (move to trash directory)
+3. Transaction logging for all deletions
+4. Dry-run mode
+5. Rollback capability from logs
+6. API endpoints for cleanup operations
 
-## Parallel Development Strategy
+### Phase 5: Integration & Polish
+**Goal**: Production-ready deployment
 
-### Team Structure
+**Tasks**:
+1. End-to-end testing with Playwright
+2. Performance testing with large directories (10k+ files)
+3. Memory profiling and optimization
+4. Docker image optimization (multi-stage builds)
+5. Documentation and user guide
+6. Synology NAS deployment testing
 
-**Backend Team (3 agents)**
-- Agent 1: Indexing Service + File System Operations
-- Agent 2: API Service + REST Endpoints
-- Agent 3: Database Service + Schema Design
+## Observability with Aspire Dashboard
 
-**Frontend Team (2 agents)**
-- Agent 1: Angular Application Structure
-- Agent 2: UI Components and Duplicate Management
+### Docker Compose Configuration
+```yaml
+aspire-dashboard:
+  image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+  ports:
+    - "18888:18888"   # Dashboard UI
+    - "4317:18889"    # OTLP gRPC endpoint
+  environment:
+    - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+```
 
-**DevOps Team (1 agent)**
-- CI/CD Pipeline Setup
-- Docker Configuration
-- Infrastructure Management
+### Service Configuration
+All .NET services will include OpenTelemetry:
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation()
+        .AddOtlpExporter())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddOtlpExporter());
 
-**QA Team (2 agents)**
-- Test Framework Development
-- Automated Testing
-- Performance Testing
+builder.Logging.AddOpenTelemetry(logging => logging
+    .AddOtlpExporter());
+```
 
-### Communication Protocol
-- Daily stand-up reports in project management system
-- Weekly integration meetings
-- Shared documentation updates
-- Continuous code reviews
+Environment variables for services:
+```
+OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_SERVICE_NAME=<service-name>
+```
+
+### Future: Persistent Logging
+For production on Synology, can add Seq or Loki+Grafana for persistent log storage. Aspire Dashboard remains useful for real-time debugging.
 
 ## Testing Strategy
 
-### Test Coverage Requirements
-- **Core Services**: 80% minimum coverage (enforced in CI)
-- **API Service**: 85% minimum coverage (enforced in CI)
-- **Web Interface**: 70% minimum coverage (enforced in CI)
-- **Integration Tests**: 90% coverage of critical paths
-- **E2E Tests**: Full workflow validation
+### Coverage Requirements
+| Component | Minimum Coverage |
+|-----------|-----------------|
+| API | 85% |
+| IndexingService | 80% |
+| CleanerService | 80% |
+| Database | 75% |
+| Web (Angular) | 70% |
 
-### Test Types and Locations
-1. **Unit Tests**: Individual functions and components
-   - Location: `src/*/tests/` directories
-   - Framework: xUnit for .NET components
-   - Execution: Part of CI pipeline
-   - Coverage: Minimum 80% for backend, 70% for frontend
+### Test Types
+1. **Unit Tests**: Individual classes and methods
+2. **Integration Tests**: Service + database using TestContainers
+3. **E2E Tests**: Full workflow with Playwright
+4. **Performance Tests**: BenchmarkDotNet for critical paths
 
-2. **Integration Tests**: Service-to-service communication
-   - Location: `tests/integration/`
-   - Framework: xUnit with TestContainers for containerized services
-   - Execution: Nightly CI runs
-   - Scope: API-Database, API-Indexing Service, Web-API interactions
-   - Key Scenarios:
-     - Indexing service uploading data to API
-     - API querying database for duplicates
-     - Web interface calling API endpoints
-     - Cleaner service coordinating with database
-
-3. **End-to-End Tests**: Complete workflow validation
-   - Location: `tests/e2e/`
-   - Framework: Playwright for web UI, xUnit for backend workflows
-   - Execution: Pre-deployment gate and scheduled runs
-   - Key Workflows:
-     - Full indexing cycle: Scan → Hash → Store → Identify Duplicates
-     - Duplicate management: Detection → Review → Removal
-     - Configuration: Directory setup → Indexing → Results viewing
-
-4. **Performance Tests**: Memory and speed optimization
-   - Location: `tests/performance/`
-   - Framework: BenchmarkDotNet for .NET, custom scripts for system-level
-   - Execution: Weekly performance runs
-   - Key Metrics:
-     - Indexing speed (files/second)
-     - Memory usage with large directories
-     - Database query performance
-     - API response times
-
-5. **Regression Tests**: Prevent reintroduced bugs
-   - Location: Integrated with unit tests
-   - Framework: xUnit with historical test data
-   - Execution: Every CI run
-   - Focus Areas:
-     - Hash computation consistency
-     - Duplicate detection accuracy
-     - File system operations reliability
-
-### CI Pipeline Components
-- **Build Verification**: Compile all services and components using .NET CLI and Angular CLI
-- **Unit Test Execution**: Run all xUnit tests with coverage reporting
-- **Integration Test Execution**: Run xUnit integration tests with TestContainers
-- **E2E Test Execution**: Run Playwright tests for web interface
-- **Test Coverage Reporting**: Generate HTML/XML reports, enforce minimums (80%+)
-- **Container Image Building**: Build Docker images for production, Podman images for development
-- **Multi-Environment Testing**: Test both Docker Compose and Kubernetes configurations
-- **Security Scanning**: Vulnerability detection using Trivy or Snyk
-- **Quality Gate Enforcement**: Block merges on test failures or coverage below thresholds
-
-### Integration Test Implementation Ideas
-
-#### TestContainers Approach
-```csharp
-// Example integration test using TestContainers and xUnit
-public class ApiDatabaseIntegrationTests : IAsyncLifetime
-{
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlContainer();
-    private HttpClient _apiClient;
-
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-        // Initialize API with test database connection
-        _apiClient = new HttpClient() { BaseAddress = new Uri("http://localhost:5000") };
-    }
-
-    [Fact]
-    public async Task IndexingService_CanUploadData_ToApiAndDatabase()
-    {
-        // Arrange
-        var testFile = new FileData { 
-            Name = "test.jpg", 
-            Hash = "abc123",
-            Size = 1024
-        };
-
-        // Act
-        var response = await _apiClient.PostAsJsonAsync("/api/files", testFile);
-
-        // Assert
-        response.EnsureSuccessStatusCode();
-        var storedFile = await _apiClient.GetFromJsonAsync<FileData>("/api/files/abc123");
-        Assert.Equal("test.jpg", storedFile.Name);
-    }
-
-    public async Task DisposeAsync()
-    {
-        await _postgres.StopAsync();
-    }
-}
+### CI Pipeline
+```yaml
+# .github/workflows/ci.yml
+- Build all projects
+- Run unit tests with coverage
+- Run integration tests (TestContainers)
+- Build Docker images
+- Run E2E tests against containers
+- Report coverage to Codecov
+- Security scan with Trivy
 ```
 
-#### Key Integration Test Scenarios
-1. **Indexing → API → Database Flow**
-   - Test file data upload from indexing service to API
-   - Verify database persistence
-   - Test duplicate detection logic
+## Parallel Development
 
-2. **API → Web Interface Communication**
-   - Test REST API endpoints
-   - Verify data serialization/deserialization
-   - Test error handling and validation
+The modular structure supports multiple agents working simultaneously:
 
-3. **Cleaner Service Coordination**
-   - Test file removal workflows
-   - Verify database consistency after cleanup
-   - Test safety mechanisms and rollback
+| Agent | Focus Area | Dependencies |
+|-------|------------|--------------|
+| Agent 1 | API + Database | None (start here) |
+| Agent 2 | Indexing Service | Database schema |
+| Agent 3 | Angular Web UI | API contracts |
+| Agent 4 | CI/CD + Docker | Project structure |
+| Agent 5 | Cleaner Service | API + Database |
 
-4. **Cross-Service Duplicate Detection**
-   - Test hash computation consistency
-   - Verify duplicate identification across services
-   - Test conflict resolution
+**Coordination Points**:
+- Shared DTOs in `src/Shared/`
+- API contracts defined early
+- Database migrations managed by one agent at a time
 
-### Playwright E2E Test Examples
+## Risk Mitigation
 
-```csharp
-// Example Playwright test for duplicate management workflow
-[Fact]
-public async Task DuplicateManagement_CompleteWorkflow()
-{
-    // Launch browser
-    using var playwright = await Playwright.CreateAsync();
-    await using var browser = await playwright.Chromium.LaunchAsync();
-    var page = await browser.NewPageAsync();
-
-    // Login and navigate to duplicates page
-    await page.GotoAsync("http://localhost:4200/login");
-    await page.FillAsync("#username", "admin");
-    await page.FillAsync("#password", "password");
-    await page.ClickAsync("#login-button");
-    await page.WaitForURLAsync("http://localhost:4200/dashboard");
-    await page.ClickAsync("#duplicates-link");
-
-    // Verify duplicate detection
-    await page.WaitForSelectorAsync(".duplicate-group");
-    var duplicateCount = await page.Locator(".duplicate-group").CountAsync();
-    Assert.True(duplicateCount > 0, "Should find duplicates");
-
-    // Test duplicate resolution
-    await page.ClickAsync(".duplicate-group:first-child .keep-button");
-    await page.ClickAsync(".duplicate-group:first-child .remove-button");
-    await page.ClickAsync("#confirm-removal");
-
-    // Verify results
-    await page.WaitForSelectorAsync(".success-message");
-    var remainingDuplicates = await page.Locator(".duplicate-group").CountAsync();
-    Assert.True(remainingDuplicates < duplicateCount, "Should have fewer duplicates after resolution");
-}
-```
-
-### Environment-Specific Testing
-- **Docker Tests**: Run using `deploy/docker/docker-compose.yml`
-- **Kubernetes Tests**: Run using `deploy/kubernetes/` manifests
-- **Cross-Environment Validation**: Ensure compatibility
-
-## Task Breakdown and Timeline
-
-### Week 1-2: Foundation
-- Day 1-2: Project structure setup
-- Day 3-5: CI pipeline implementation
-- Day 6-7: Docker Compose configuration
-- Day 8-10: Test framework development
-
-### Week 3-4: Core Services (Parallel)
-- **Indexing Service**: File scanning, hash computation
-- **API Service**: Basic endpoints, data models
-- **Database**: Schema design, basic queries
-- **Web Interface**: Angular setup, basic components
-
-### Week 5-6: Feature Completion
-- **Indexing Service**: Metadata extraction, duplicate detection
-- **API Service**: Advanced endpoints, error handling
-- **Database**: Performance optimization, transactions
-- **Web Interface**: Duplicate management, search filters
-
-### Week 7-8: Advanced Features
-- Cleaner service implementation
-- Safety mechanisms for file removal
-- Optional features (similarity search)
-- Performance optimization
-
-### Week 9-10: Integration and Testing
-- Service integration
-- End-to-end testing
-- Bug fixing
-- Documentation
-- Final quality assurance
-
-## Risk Management
-
-### Potential Risks
-1. **Integration Issues**: Services not communicating properly
-2. **Performance Problems**: Memory usage with large datasets
-3. **Test Coverage Gaps**: Critical paths not adequately tested
-4. **Dependency Conflicts**: Version mismatches between services
-
-### Mitigation Strategies
-1. Early integration testing
-2. Performance testing from day one
-3. Comprehensive test planning
-4. Dependency management system
+| Risk | Mitigation |
+|------|------------|
+| Large file sets cause OOM | Streaming hash computation, pagination |
+| HEIC format issues | Use ImageSharp with HEIC plugin |
+| Synology resource limits | Test on actual NAS early, set memory limits |
+| Duplicate false positives | SHA256 + file size comparison |
+| Accidental file deletion | Soft delete, dry-run mode, transaction logs |
 
 ## Success Criteria
 
-### Technical Success
-- All services containerized and functional
-- 80%+ test coverage across all components
-- CI pipeline with quality gates
-- Successful duplicate identification and removal
-- Memory-optimized for large datasets
-
-### Project Success
-- On-time delivery according to timeline
-- All mandatory features implemented
-- Comprehensive documentation
-- Ready for Synology NAS deployment
-- User-friendly interface for duplicate management
-
-## Next Steps
-
-1. Assign tasks to development teams
-2. Set up project management tools
-3. Begin Phase 1 implementation
-4. Establish daily stand-up routine
-5. Monitor progress and adjust timeline as needed
+- [ ] Index 10,000+ photos without memory issues
+- [ ] Correctly identify all duplicates (same hash)
+- [ ] Web UI responsive and usable
+- [ ] Clean deployment on Synology NAS via Docker Compose
+- [ ] All tests passing, coverage thresholds met
+- [ ] Logs visible in Aspire Dashboard
