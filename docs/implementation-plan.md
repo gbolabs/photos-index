@@ -57,8 +57,9 @@ photos-index/
 │   │   ├── docker-compose.yml          # Production (Synology)
 │   │   ├── docker-compose.override.yml # Dev overrides
 │   │   └── */Dockerfile
-│   └── kubernetes/             # Local Podman/K8s dev
-│       └── kustomization.yaml
+│   └── kubernetes/             # Local Podman dev
+│       ├── photos-index.yaml   # Pod manifest for podman kube play
+│       └── local-dev.sh        # Helper script
 └── CLAUDE.md
 ```
 
@@ -68,7 +69,7 @@ photos-index/
 ```bash
 # Required
 dotnet --version    # .NET 10 SDK
-node --version      # Node.js 22+
+node --version      # Node.js 24+
 docker --version    # Docker or Podman
 ```
 
@@ -126,7 +127,7 @@ dotnet ef database update --project src/Database --startup-project src/Api
 dotnet ef migrations script --project src/Database --startup-project src/Api
 ```
 
-### Docker Compose
+### Docker Compose (Synology NAS)
 ```bash
 cd deploy/docker
 
@@ -144,6 +145,34 @@ docker compose down
 
 # Stop and remove volumes (clean slate)
 docker compose down -v
+```
+
+### Podman (Local Development)
+Uses `podman kube play` with a single Pod manifest. All services run in one pod and communicate via localhost.
+
+```bash
+cd deploy/kubernetes
+
+# Build all container images
+./local-dev.sh build
+
+# Start all services
+PHOTOS_PATH=~/Pictures ./local-dev.sh start
+
+# Check status
+./local-dev.sh status
+
+# View logs
+./local-dev.sh logs
+
+# Stop all services
+./local-dev.sh stop
+```
+
+**WSL2 Note**: For Windows access, enable mirrored networking in `%USERPROFILE%\.wslconfig`:
+```ini
+[wsl2]
+networkingMode=mirrored
 ```
 
 ## Implementation Phases
