@@ -62,15 +62,7 @@ public static class OpenTelemetryExtensions
                             activity.SetTag("http.response.status_code", (int)httpResponseMessage.StatusCode);
                         };
                     })
-                    .AddEntityFrameworkCoreInstrumentation(options =>
-                    {
-                        options.SetDbStatementForText = true;
-                        options.SetDbStatementForStoredProcedure = true;
-                        options.EnrichWithIDbCommand = (activity, command) =>
-                        {
-                            activity.SetTag("db.statement", command.CommandText);
-                        };
-                    });
+                    .AddEntityFrameworkCoreInstrumentation();
 
                 // Add ASP.NET Core instrumentation if available (for API service)
                 try
