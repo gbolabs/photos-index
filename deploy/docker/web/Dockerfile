@@ -50,18 +50,11 @@ COPY deploy/docker/web/nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built Angular application from build stage
 COPY --from=build /app/dist/Web /usr/share/nginx/html
 
-# Copy environment configuration script
-COPY deploy/docker/web/env.sh /docker-entrypoint.d/40-env.sh
-RUN chmod +x /docker-entrypoint.d/40-env.sh
+# Create assets directory for runtime config
+RUN mkdir -p /usr/share/nginx/html/assets
 
-# Create non-root user (nginx already exists in the image)
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d
-
-# Switch to non-root user
-USER nginx
+# Copy environment configuration script and set permissions
+COPY --chmod=755 deploy/docker/web/env.sh /docker-entrypoint.d/40-env.sh
 
 EXPOSE 80
 
