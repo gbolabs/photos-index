@@ -54,9 +54,51 @@ cd src/Web && npm install && ng serve
 # EF Core Migrations
 dotnet ef migrations add <Name> --project src/Database --startup-project src/Api
 dotnet ef database update --project src/Database --startup-project src/Api
+```
 
-# Docker
-cd deploy/docker && docker compose up -d
+## Deployment
+
+### Local Development (Podman + Kubernetes)
+
+```bash
+# Build all container images
+./deploy/kubernetes/local-dev.sh build
+
+# Start all services
+PHOTOS_PATH=~/Pictures ./deploy/kubernetes/local-dev.sh start
+
+# Check status
+./deploy/kubernetes/local-dev.sh status
+
+# View logs
+./deploy/kubernetes/local-dev.sh logs
+
+# Stop all services
+./deploy/kubernetes/local-dev.sh stop
+```
+
+Access points:
+- Web UI: http://localhost:8080
+- API: http://localhost:5000
+- Aspire Dashboard: http://localhost:18888
+
+### Synology NAS (Docker Compose)
+
+```bash
+cd deploy/docker
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
+
+# Start services
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
 ```
 
 ## Architecture

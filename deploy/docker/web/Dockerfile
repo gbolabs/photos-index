@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for Angular Web Application
 
 # Development stage - for hot reload
-FROM node:22-alpine AS development
+FROM node:24-alpine AS development
 WORKDIR /app
 
 # Copy package files
@@ -20,7 +20,7 @@ EXPOSE 4200
 CMD ["npm", "start", "--", "--host", "0.0.0.0", "--poll=2000"]
 
 # Build stage - compile Angular application
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 # Copy package files

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: photos-index-config
+  namespace: photos-index
+data:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  POSTGRES_DB: "photosindex"
+  POSTGRES_USER: "photosuser"
+  API_BASE_URL: "http://api:8080"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  PHOTOS_DIRECTORY: "/photos"
+  TRASH_DIRECTORY: "/photos/.trash"
+  INDEXING_INTERVAL_MINUTES: "60"
+  CLEANER_ENABLED: "false"
