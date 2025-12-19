@@ -1,13 +1,15 @@
 #!/bin/bash
 # Local development script for Podman
+# Uses podman kube play with Kubernetes Pod manifests
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+MANIFEST="$SCRIPT_DIR/photos-index.yaml"
 
 # Default photos path for local development
-export PHOTOS_PATH="${PHOTOS_PATH:-$HOME/Pictures}"
+PHOTOS_PATH="${PHOTOS_PATH:-$HOME/Pictures}"
 
 usage() {
     echo "Usage: $0 {build|start|stop|logs|status}"
@@ -16,8 +18,8 @@ usage() {
     echo "  build   - Build all container images"
     echo "  start   - Start all services with podman kube play"
     echo "  stop    - Stop all services"
-    echo "  logs    - Show logs for all pods"
-    echo "  status  - Show status of all pods"
+    echo "  logs    - Show logs for all containers"
+    echo "  status  - Show status of pods and containers"
     echo ""
     echo "Environment variables:"
     echo "  PHOTOS_PATH - Path to photos directory (default: ~/Pictures)"
@@ -42,40 +44,50 @@ build_images() {
         -f "$PROJECT_ROOT/deploy/docker/web/Dockerfile" \
         "$PROJECT_ROOT"
 
+    echo ""
     echo "All images built successfully"
+    podman images | grep photos-index
 }
 
 start_services() {
     echo "Starting services..."
 
-    # Generate manifests with kustomize and apply with podman
-    kubectl kustomize "$SCRIPT_DIR" | podman kube play --replace -
+    # Create photos directory if it doesn't exist
+    mkdir -p "$PHOTOS_PATH"
+
+    # Generate manifest with photos path substituted
+    sed "s|path: /tmp/photos|path: $PHOTOS_PATH|g" "$MANIFEST" | podman kube play -
 
     echo ""
     echo "Services starting. Access:"
     echo "  Web UI:           http://localhost:8080"
     echo "  API:              http://localhost:5000"
     echo "  Aspire Dashboard: http://localhost:18888"
+    echo "  PostgreSQL:       localhost:5432"
     echo ""
-    echo "Run '$0 status' to check pod status"
+    echo "Photos directory: $PHOTOS_PATH"
+    echo ""
+    echo "Run '$0 status' to check container status"
+    echo "Run '$0 logs' to view logs"
 }
 
 stop_services() {
     echo "Stopping services..."
-    kubectl kustomize "$SCRIPT_DIR" | podman kube down -
+    podman kube play --down "$MANIFEST"
     echo "Services stopped"
 }
 
 show_logs() {
+    # Show logs for all containers in the pod
     podman pod logs -f photos-index
 }
 
 show_status() {
-    echo "Pods:"
-    podman pod ps --filter name=photos-index
+    echo "=== Pods ==="
+    podman pod ps
     echo ""
-    echo "Containers:"
-    podman ps --filter pod=photos-index
+    echo "=== Containers ==="
+    podman ps -a --pod --filter "pod=photos-index"
 }
 
 case "${1:-}" in

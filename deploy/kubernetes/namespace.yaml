@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: photos-index
-  labels:
-    app.kubernetes.io/name: photos-index

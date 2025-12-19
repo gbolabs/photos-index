@@ -58,13 +58,15 @@ dotnet ef database update --project src/Database --startup-project src/Api
 
 ## Deployment
 
-### Local Development (Podman + Kubernetes)
+### Local Development (Podman)
+
+Uses `podman kube play` with a Pod manifest (`deploy/kubernetes/photos-index.yaml`).
 
 ```bash
 # Build all container images
 ./deploy/kubernetes/local-dev.sh build
 
-# Start all services
+# Start all services (uses podman kube play)
 PHOTOS_PATH=~/Pictures ./deploy/kubernetes/local-dev.sh start
 
 # Check status
@@ -81,6 +83,7 @@ Access points:
 - Web UI: http://localhost:8080
 - API: http://localhost:5000
 - Aspire Dashboard: http://localhost:18888
+- PostgreSQL: localhost:5432
 
 ### Synology NAS (Docker Compose)
 
@@ -116,7 +119,8 @@ docker compose down
 - Environment: `OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889`
 
 ### Key Patterns
-- Services communicate via REST API within Docker network
+- Local dev: All services in one Pod, communicate via localhost
+- Docker Compose: Services communicate via Docker network (service names)
 - Configuration via environment variables
 - Change detection using file modification timestamps or hashes
 - Streaming hash computation for memory efficiency

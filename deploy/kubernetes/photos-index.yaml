@@ -1,0 +1,220 @@
+# Photos Index - Podman Kube Play manifest
+# Usage: podman kube play photos-index.yaml
+# Stop:  podman kube play --down photos-index.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: photos-index-config
+data:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  POSTGRES_USER: "photosuser"
+  POSTGRES_DB: "photosindex"
+  # In a pod, all containers share localhost
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:18889"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  API_BASE_URL: "http://localhost:8080"
+  INDEXING_INTERVAL_MINUTES: "60"
+  CLEANER_ENABLED: "false"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: photos-index-secrets
+stringData:
+  POSTGRES_PASSWORD: "photospass"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: photos-index
+  labels:
+    app: photos-index
+spec:
+  restartPolicy: Never
+  containers:
+    # PostgreSQL Database
+    - name: postgres
+      image: docker.io/library/postgres:16-alpine
+      ports:
+        - containerPort: 5432
+          hostPort: 5432
+      env:
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: POSTGRES_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: POSTGRES_DB
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: POSTGRES_PASSWORD
+      volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+
+    # Aspire Dashboard for observability
+    - name: aspire-dashboard
+      image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+      ports:
+        - containerPort: 18888
+          hostPort: 18888
+        - containerPort: 18889
+          hostPort: 18889
+      env:
+        - name: DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS
+          value: "true"
+
+    # API Service
+    - name: api
+      image: localhost/photos-index-api:latest
+      ports:
+        - containerPort: 8080
+          hostPort: 5000
+      env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: ASPNETCORE_URLS
+          value: "http://+:8080"
+        - name: ConnectionStrings__DefaultConnection
+          value: "Host=localhost;Port=5432;Database=photosindex;Username=photosuser;Password=photospass"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_PROTOCOL
+        - name: OTEL_SERVICE_NAME
+          value: "photos-index-api"
+
+    # Web UI
+    - name: web
+      image: localhost/photos-index-web:latest
+      ports:
+        - containerPort: 80
+          hostPort: 8080
+      env:
+        - name: API_URL
+          value: "http://localhost:5000"
+
+    # Indexing Service
+    - name: indexing-service
+      image: localhost/photos-index-indexing-service:latest
+      env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: ConnectionStrings__DefaultConnection
+          value: "Host=localhost;Port=5432;Database=photosindex;Username=photosuser;Password=photospass"
+        - name: API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: API_BASE_URL
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_PROTOCOL
+        - name: OTEL_SERVICE_NAME
+          value: "photos-index-indexing"
+        - name: PHOTOS_DIRECTORY
+          value: "/photos"
+        - name: INDEXING_INTERVAL_MINUTES
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: INDEXING_INTERVAL_MINUTES
+      volumeMounts:
+        - name: photos
+          mountPath: /photos
+          readOnly: true
+        - name: thumbnails
+          mountPath: /app/thumbnails
+
+    # Cleaner Service
+    - name: cleaner-service
+      image: localhost/photos-index-cleaner-service:latest
+      env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: ConnectionStrings__DefaultConnection
+          value: "Host=localhost;Port=5432;Database=photosindex;Username=photosuser;Password=photospass"
+        - name: API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: API_BASE_URL
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_PROTOCOL
+        - name: OTEL_SERVICE_NAME
+          value: "photos-index-cleaner"
+        - name: PHOTOS_DIRECTORY
+          value: "/photos"
+        - name: TRASH_DIRECTORY
+          value: "/photos/.trash"
+        - name: CLEANER_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: CLEANER_ENABLED
+      volumeMounts:
+        - name: photos
+          mountPath: /photos
+        - name: cleaner-logs
+          mountPath: /app/logs
+
+  volumes:
+    - name: postgres-data
+      persistentVolumeClaim:
+        claimName: postgres-pvc
+    - name: photos
+      hostPath:
+        path: /tmp/photos
+        type: DirectoryOrCreate
+    - name: thumbnails
+      emptyDir: {}
+    - name: cleaner-logs
+      emptyDir: {}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
