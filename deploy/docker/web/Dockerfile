@@ -48,7 +48,7 @@ RUN rm -rf /etc/nginx/conf.d/*
 COPY deploy/docker/web/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built Angular application from build stage
-COPY --from=build /app/dist/web/browser /usr/share/nginx/html
+COPY --from=build /app/dist/Web /usr/share/nginx/html
 
 # Copy environment configuration script
 COPY deploy/docker/web/env.sh /docker-entrypoint.d/40-env.sh
