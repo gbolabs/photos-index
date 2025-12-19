@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for Angular Web Application
 
 # Development stage - for hot reload
-FROM node:24-alpine AS development
+FROM docker.io/library/node:24-alpine AS development
 WORKDIR /app
 
 # Copy package files
@@ -20,7 +20,7 @@ EXPOSE 4200
 CMD ["npm", "start", "--", "--host", "0.0.0.0", "--poll=2000"]
 
 # Build stage - compile Angular application
-FROM node:24-alpine AS build
+FROM docker.io/library/node:24-alpine AS build
 WORKDIR /app
 
 # Copy package files
@@ -36,7 +36,7 @@ COPY src/Web/ ./
 RUN npm run build -- --configuration production
 
 # Runtime stage - nginx to serve static files
-FROM nginx:1.27-alpine AS runtime
+FROM docker.io/library/nginx:1.27-alpine AS runtime
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl
