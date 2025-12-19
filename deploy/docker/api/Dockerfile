@@ -4,6 +4,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS development
 WORKDIR /app
 
+# Copy Directory.Build.props for centralized package versions
+COPY Directory.Build.props ./
+
 # Copy solution and project files
 COPY src/PhotosIndex.sln ./src/
 COPY src/Api/Api.csproj ./src/Api/
@@ -27,6 +30,9 @@ CMD ["dotnet", "watch", "run", "--no-launch-profile"]
 # Build stage - compile the application
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
+
+# Copy Directory.Build.props for centralized package versions
+COPY Directory.Build.props ./
 
 # Copy solution and project files
 COPY src/PhotosIndex.sln ./
