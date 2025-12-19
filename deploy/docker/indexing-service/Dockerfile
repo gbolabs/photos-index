@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for IndexingService
 
 # Development stage - includes SDK for hot reload
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS development
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS development
 WORKDIR /app
 
 # Copy solution and project files
@@ -24,7 +24,7 @@ WORKDIR /app/src/IndexingService
 CMD ["dotnet", "watch", "run", "--no-launch-profile"]
 
 # Build stage - compile the application
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files
@@ -50,7 +50,7 @@ FROM build AS publish
 RUN dotnet publish IndexingService.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - minimal image for production
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
 # Install required libraries for image processing
