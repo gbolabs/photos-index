@@ -1,0 +1,15 @@
+.drawer-container {
+  height: calc(100vh - 64px);
+}
+
+.drawer-sidenav {
+  width: 250px;
+}
+
+.drawer-content {
+  padding: 20px;
+}
+
+.active-link {
+  background-color: rgba(0, 0, 0, 0.04);
+}

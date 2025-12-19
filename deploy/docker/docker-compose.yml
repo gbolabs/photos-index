@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: photos-index-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-photosuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-photospass}
+      POSTGRES_DB: ${POSTGRES_DB:-photosindex}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-photosuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+    container_name: photos-index-aspire
+    ports:
+      - "${ASPIRE_DASHBOARD_PORT:-18888}:18888"
+      - "${ASPIRE_OTLP_PORT:-4317}:18889"
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/api/Dockerfile
+    container_name: photos-index-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      aspire-dashboard:
+        condition: service_started
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-photosindex};Username=${POSTGRES_USER:-photosuser};Password=${POSTGRES_PASSWORD:-photospass}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_SERVICE_NAME=photos-index-api
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${API_VERSION:-1.0.0}
+    ports:
+      - "${API_PORT:-5000}:8080"
+    networks:
+      - photos-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  indexing-service:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/indexing-service/Dockerfile
+    container_name: photos-index-indexing
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-photosindex};Username=${POSTGRES_USER:-photosuser};Password=${POSTGRES_PASSWORD:-photospass}
+      - API_BASE_URL=http://api:8080
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_SERVICE_NAME=photos-index-indexing
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${INDEXING_VERSION:-1.0.0}
+      - PHOTOS_DIRECTORY=${PHOTOS_DIRECTORY:-/photos}
+      - INDEXING_INTERVAL_MINUTES=${INDEXING_INTERVAL_MINUTES:-60}
+    volumes:
+      - ${HOST_PHOTOS_DIRECTORY:-./photos}:/photos:ro
+      - indexing_thumbnails:/app/thumbnails
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  cleaner-service:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/cleaner-service/Dockerfile
+    container_name: photos-index-cleaner
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-photosindex};Username=${POSTGRES_USER:-photosuser};Password=${POSTGRES_PASSWORD:-photospass}
+      - API_BASE_URL=http://api:8080
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_SERVICE_NAME=photos-index-cleaner
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${CLEANER_VERSION:-1.0.0}
+      - PHOTOS_DIRECTORY=${PHOTOS_DIRECTORY:-/photos}
+      - TRASH_DIRECTORY=${TRASH_DIRECTORY:-/photos/.trash}
+      - CLEANER_ENABLED=${CLEANER_ENABLED:-false}
+    volumes:
+      - ${HOST_PHOTOS_DIRECTORY:-./photos}:/photos
+      - cleaner_logs:/app/logs
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/web/Dockerfile
+    container_name: photos-index-web
+    depends_on:
+      - api
+    environment:
+      - API_URL=${API_URL:-http://localhost:5000}
+      - NGINX_PORT=80
+    ports:
+      - "${WEB_PORT:-4200}:80"
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  indexing_thumbnails:
+    driver: local
+  cleaner_logs:
+    driver: local
+
+networks:
+  photos-network:
+    driver: bridge

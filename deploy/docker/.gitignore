@@ -1,0 +1,25 @@
+# Environment files with secrets
+.env
+
+# Development data directories
+dev-data/
+photos/
+
+# Docker volumes backup
+*.tar.gz
+backup.sql
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

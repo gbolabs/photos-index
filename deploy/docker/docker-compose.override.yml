@@ -1,0 +1,86 @@
+version: '3.8'
+
+# Development overrides for hot reload and debugging
+# Use: docker compose -f docker-compose.yml -f docker-compose.override.yml up
+
+services:
+  api:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/api/Dockerfile
+      target: development
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    volumes:
+      # Enable hot reload for development
+      - ../../src/Api:/app/src/Api:ro
+      - ../../src/Database:/app/src/Database:ro
+      - ../../src/Shared:/app/src/Shared:ro
+    command: ["dotnet", "watch", "run", "--project", "/app/src/Api/Api.csproj", "--no-launch-profile"]
+
+  indexing-service:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/indexing-service/Dockerfile
+      target: development
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ../../src/IndexingService:/app/src/IndexingService:ro
+      - ../../src/Database:/app/src/Database:ro
+      - ../../src/Shared:/app/src/Shared:ro
+      # Photos directory - read-only
+      - ${HOST_PHOTOS_DIRECTORY:-./photos}:/photos:ro
+      # Thumbnails - writable for development
+      - ./dev-data/thumbnails:/app/thumbnails
+    command: ["dotnet", "watch", "run", "--project", "/app/src/IndexingService/IndexingService.csproj", "--no-launch-profile"]
+
+  cleaner-service:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/cleaner-service/Dockerfile
+      target: development
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - CLEANER_ENABLED=false  # Disabled by default in dev for safety
+    volumes:
+      - ../../src/CleanerService:/app/src/CleanerService:ro
+      - ../../src/Database:/app/src/Database:ro
+      - ../../src/Shared:/app/src/Shared:ro
+      # Photos directory - writable for cleaner
+      - ${HOST_PHOTOS_DIRECTORY:-./photos}:/photos
+      # Development logs
+      - ./dev-data/cleaner-logs:/app/logs
+    command: ["dotnet", "watch", "run", "--project", "/app/src/CleanerService/CleanerService.csproj", "--no-launch-profile"]
+
+  web:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/web/Dockerfile
+      target: development
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://localhost:5000
+    volumes:
+      # Enable hot reload for Angular
+      - ../../src/Web:/app:rw
+      - /app/node_modules
+      - /app/.angular
+    ports:
+      - "4200:4200"
+    command: ["npm", "start", "--", "--host", "0.0.0.0", "--poll=2000"]
+
+  postgres:
+    ports:
+      # Expose PostgreSQL port for local DB tools
+      - "5432:5432"
+    volumes:
+      # Use local volume for dev data
+      - ./dev-data/postgres:/var/lib/postgresql/data
+
+  aspire-dashboard:
+    # Keep default configuration for development
+    ports:
+      - "18888:18888"
+      - "4317:18889"
