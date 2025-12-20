@@ -1,5 +1,7 @@
 # 004: Indexing Worker Integration
 
+**Status**: ✅ Complete
+**PR**: [#9](https://github.com/gbolabs/photos-index/pull/9)
 **Priority**: P1 (Core Features)
 **Agent**: A2
 **Branch**: `feature/indexing-worker`

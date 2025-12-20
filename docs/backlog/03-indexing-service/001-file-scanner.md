@@ -1,5 +1,7 @@
 # 001: File Scanner
 
+**Status**: ✅ Complete
+**PR**: [#5](https://github.com/gbolabs/photos-index/pull/5)
 **Priority**: P0 (Critical Path)
 **Agent**: A2
 **Branch**: `feature/indexing-file-scanner`

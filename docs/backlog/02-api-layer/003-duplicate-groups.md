@@ -1,8 +1,10 @@
 # 003: Duplicate Groups Controller
 
+**Status**: ✅ Complete
+**PR**: [#6](https://github.com/gbolabs/photos-index/pull/6)
 **Priority**: P1 (Core Features)
 **Agent**: A1
-**Branch**: `feature/api-duplicate-groups`
+**Branch**: `feature/api-indexed-files`
 **Estimated Complexity**: Medium
 
 ## Objective

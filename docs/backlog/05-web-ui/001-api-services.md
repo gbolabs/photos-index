@@ -1,5 +1,7 @@
 # 001: Angular API Services
 
+**Status**: ✅ Complete
+**PR**: [#8](https://github.com/gbolabs/photos-index/pull/8)
 **Priority**: P2 (User Interface)
 **Agent**: A4
 **Branch**: `feature/web-api-services`
