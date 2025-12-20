@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   ScanDirectoryDto,
   FileStatisticsDto,
   CreateScanDirectoryRequest,
   UpdateScanDirectoryRequest,
+  PagedResponse,
 } from './models';
 
 @Injectable({
@@ -24,7 +26,8 @@ export class ApiService {
 
   // Scan Directory endpoints
   getDirectories(): Observable<ScanDirectoryDto[]> {
-    return this.http.get<ScanDirectoryDto[]>(`${this.apiUrl}/api/scan-directories`);
+    return this.http.get<PagedResponse<ScanDirectoryDto>>(`${this.apiUrl}/api/scan-directories`)
+      .pipe(map(response => response.items));
   }
 
   getDirectory(id: string): Observable<ScanDirectoryDto> {
