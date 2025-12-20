@@ -19,6 +19,8 @@ builder.Services.AddDbContext<PhotosDbContext>(options =>
 
 // Register application services
 builder.Services.AddScoped<IScanDirectoryService, ScanDirectoryService>();
+builder.Services.AddScoped<IIndexedFileService, IndexedFileService>();
+builder.Services.AddScoped<IDuplicateService, DuplicateService>();
 
 var app = builder.Build();
 
