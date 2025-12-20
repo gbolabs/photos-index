@@ -87,8 +87,8 @@ PHOTOS_PATH=~/Pictures ./deploy/kubernetes/local-dev.sh start
 ```
 
 Access points (via Traefik):
-- Application: http://localhost (port 80)
-- API: http://localhost/api
+- Application: http://localhost:8080 (Podman uses 8080 for rootless)
+- API: http://localhost:8080/api
 - Traefik Dashboard: http://localhost:8081
 - Aspire Dashboard: http://localhost:18888
 - PostgreSQL: localhost:5432

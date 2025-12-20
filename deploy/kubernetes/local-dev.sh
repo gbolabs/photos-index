@@ -60,8 +60,8 @@ start_services() {
 
     echo ""
     echo "Services starting. Access:"
-    echo "  Application:      http://localhost (via Traefik)"
-    echo "  API:              http://localhost/api (via Traefik)"
+    echo "  Application:      http://localhost:8080 (via Traefik)"
+    echo "  API:              http://localhost:8080/api (via Traefik)"
     echo "  Traefik Dashboard: http://localhost:8081"
     echo "  Aspire Dashboard: http://localhost:18888"
     echo "  PostgreSQL:       localhost:5432"

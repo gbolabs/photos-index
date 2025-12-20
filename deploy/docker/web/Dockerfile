@@ -48,7 +48,8 @@ RUN rm -rf /etc/nginx/conf.d/*
 COPY deploy/docker/web/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built Angular application from build stage
-COPY --from=build /app/dist/Web /usr/share/nginx/html
+# Angular 17+ with application builder outputs to dist/<project>/browser/
+COPY --from=build /app/dist/Web/browser /usr/share/nginx/html
 
 # Create assets directory for runtime config
 RUN mkdir -p /usr/share/nginx/html/assets
