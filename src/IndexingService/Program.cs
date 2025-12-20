@@ -12,7 +12,9 @@ builder.Services.AddSingleton<IHashComputer, HashComputer>();
 builder.Services.AddSingleton<IMetadataExtractor, MetadataExtractor>();
 builder.Services.AddScoped<IIndexingOrchestrator, IndexingOrchestrator>();
 
-var apiBaseUrl = builder.Configuration.GetValue<string>("ApiBaseUrl") ?? "http://localhost:5000";
+var apiBaseUrl = builder.Configuration.GetValue<string>("API_BASE_URL")
+    ?? builder.Configuration.GetValue<string>("ApiBaseUrl")
+    ?? "http://localhost:5000";
 builder.Services.AddHttpClient<IPhotosApiClient, PhotosApiClient>(client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
