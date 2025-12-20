@@ -138,8 +138,6 @@ spec:
             configMapKeyRef:
               name: photos-index-config
               key: ASPNETCORE_ENVIRONMENT
-        - name: ConnectionStrings__DefaultConnection
-          value: "Host=localhost;Port=5432;Database=photosindex;Username=photosuser;Password=photospass"
         - name: API_BASE_URL
           valueFrom:
             configMapKeyRef:

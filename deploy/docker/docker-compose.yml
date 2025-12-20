@@ -152,13 +152,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
       aspire-dashboard:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-photosindex};Username=${POSTGRES_USER:-photosuser};Password=${POSTGRES_PASSWORD:-photospass}
       - API_BASE_URL=http://api:8080
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
