@@ -155,3 +155,30 @@ Multiple agents can work simultaneously on different components:
 - Agent 5: Cleaner Service
 
 Coordinate via shared DTOs in `src/Shared/` and avoid concurrent EF Core migrations.
+
+## Backlog & Task Management
+
+**Task tracking lives in `docs/backlog/`** - check `docs/backlog/README.md` for current status.
+
+### Agent Workflow
+
+1. **Before starting**: Check `docs/backlog/README.md` Status Overview for available tasks
+2. **Pick a task**: Select from your assigned track (see Agent Assignment Matrix)
+3. **Create branch**: Use the branch name specified in the task file
+4. **Implement**: Follow TDD steps and acceptance criteria in the task file
+5. **Create PR**: Include descriptive title and body
+6. **Update backlog**: **REQUIRED** - before considering work complete:
+
+   a. Update the task's `.md` file header:
+   ```markdown
+   **Status**: ✅ Complete
+   **PR**: [#N](https://github.com/gbolabs/photos-index/pull/N)
+   ```
+
+   b. Update `docs/backlog/README.md` Status Overview table:
+   - Change status from `🔲 Not Started` to `✅ Complete`
+   - Add PR link
+
+### Current Progress
+
+See `docs/backlog/README.md` for the live status of all 18 backlog tasks.
