@@ -1,5 +1,7 @@
 # 001: Shared DTOs and Contracts
 
+**Status**: ✅ Complete
+**PR**: [#3](https://github.com/gbolabs/photos-index/pull/3)
 **Priority**: P0 (Critical Path)
 **Agent**: A1
 **Branch**: `feature/api-shared-dtos`

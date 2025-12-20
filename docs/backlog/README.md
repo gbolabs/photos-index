@@ -2,6 +2,33 @@
 
 Ordered backlog for Photos Index application. Designed for parallel agent development with clear dependencies.
 
+## Status Overview
+
+| Task | Status | PR | Agent |
+|------|--------|-----|-------|
+| `01-001` Shared DTOs | ✅ Complete | [#3](https://github.com/gbolabs/photos-index/pull/3) | A1 |
+| `02-001` Scan Directories API | ✅ Complete | [#4](https://github.com/gbolabs/photos-index/pull/4) | A1 |
+| `02-002` Indexed Files API | ✅ Complete | [#6](https://github.com/gbolabs/photos-index/pull/6) | A1 |
+| `02-003` Duplicate Groups API | ✅ Complete | [#6](https://github.com/gbolabs/photos-index/pull/6) | A1 |
+| `03-001` File Scanner | ✅ Complete | [#5](https://github.com/gbolabs/photos-index/pull/5) | A2 |
+| `03-002` Hash Computer | 🔲 Not Started | - | A2 |
+| `03-003` Metadata Extractor | 🔲 Not Started | - | A2 |
+| `03-004` Indexing Worker | ✅ Complete | [#9](https://github.com/gbolabs/photos-index/pull/9) | A2 |
+| `04-001` Delete Manager | 🔲 Not Started | - | A3 |
+| `05-001` Angular API Services | ✅ Complete | [#8](https://github.com/gbolabs/photos-index/pull/8) | A4 |
+| `05-002` Dashboard | 🔲 Not Started | - | A4 |
+| `05-003` Directory Settings | 🔲 Not Started | - | A4 |
+| `05-004` File Browser | 🔲 Not Started | - | A4 |
+| `05-005` Duplicate Viewer | ✅ Complete | [#10](https://github.com/gbolabs/photos-index/pull/10) | A4 |
+| `06-001` API Integration Tests | 🔲 Not Started | - | A5 |
+| `06-002` Service Integration Tests | 🔲 Not Started | - | A5 |
+| `07-001` Playwright Setup | 🔲 Not Started | - | A6 |
+| `07-002` User Workflows | 🔲 Not Started | - | A6 |
+
+**Infrastructure (not in backlog):**
+- ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)
+- ✅ Claude Container Enhancement - [#7](https://github.com/gbolabs/photos-index/pull/7)
+
 ## Agent Assignment Matrix
 
 | Agent | Track | Dependencies | Branch Prefix |
@@ -78,6 +105,29 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 3. Coverage thresholds enforced per CLAUDE.md
 4. No concurrent EF Core migrations
 5. Shared DTOs changes require coordination
+
+## Agent Completion Protocol
+
+**When completing a task, agents MUST:**
+
+1. Create PR with descriptive title and body
+2. Update the task's `.md` file:
+   - Add `**Status**: ✅ Complete` at the top
+   - Add `**PR**: [#N](link)` with PR link
+   - Check off all completion checklist items
+3. Update `docs/backlog/README.md`:
+   - Update status in the Status Overview table
+   - Add PR link
+
+Example header for completed task:
+```markdown
+# 001: Task Name
+
+**Status**: ✅ Complete
+**PR**: [#8](https://github.com/gbolabs/photos-index/pull/8)
+**Priority**: P2
+...
+```
 
 ## Task File Format
 

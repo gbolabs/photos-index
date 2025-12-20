@@ -1,5 +1,7 @@
 # 001: Scan Directories Controller
 
+**Status**: ✅ Complete
+**PR**: [#4](https://github.com/gbolabs/photos-index/pull/4)
 **Priority**: P0 (Critical Path)
 **Agent**: A1
 **Branch**: `feature/api-scan-directories`

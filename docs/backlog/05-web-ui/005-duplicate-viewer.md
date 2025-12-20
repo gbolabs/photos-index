@@ -1,8 +1,10 @@
 # 005: Duplicate Viewer Component
 
+**Status**: ✅ Complete
+**PR**: [#10](https://github.com/gbolabs/photos-index/pull/10)
 **Priority**: P2 (User Interface)
 **Agent**: A4
-**Branch**: `feature/web-duplicate-viewer`
+**Branch**: `feature/web-duplicates`
 **Estimated Complexity**: High
 
 ## Objective
