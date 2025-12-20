@@ -1,10 +1,12 @@
 # 001: Playwright E2E Setup
 
+**Status**: ✅ Complete
+**PR**: [#16](https://github.com/gbolabs/photos-index/pull/16)
 **Priority**: P3 (Quality Assurance)
 **Agent**: A6
-**Branch**: `feature/e2e-playwright-setup`
+**Branch**: `feature/e2e-tests-clean`
 **Estimated Complexity**: Medium
-**Status**: ✅ Complete
+**Completed**: 2025-12-20
 
 ## Objective
 

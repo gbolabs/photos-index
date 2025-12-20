@@ -1,10 +1,12 @@
 # 002: API TraceId in Responses
 
-**Status**: 🔲 Not Started
+**Status**: ✅ Complete
+**PR**: [#14](https://github.com/gbolabs/photos-index/pull/14)
 **Priority**: P1
 **Agent**: A1 (API)
-**Branch**: `feature/api-trace-id`
+**Branch**: `feature/observability-enhancements`
 **Estimated Effort**: Medium
+**Completed**: 2025-12-20
 
 ## Objective
 
