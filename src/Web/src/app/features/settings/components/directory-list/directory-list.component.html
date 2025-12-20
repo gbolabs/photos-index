@@ -1,0 +1,88 @@
+<div class="directory-list">
+  <table mat-table [dataSource]="directories()" class="mat-elevation-z2">
+    <!-- Path Column -->
+    <ng-container matColumnDef="path">
+      <th mat-header-cell *matHeaderCellDef>Path</th>
+      <td mat-cell *matCellDef="let directory">
+        <div class="path-cell">
+          <mat-icon>folder</mat-icon>
+          <span>{{ directory.path }}</span>
+        </div>
+      </td>
+    </ng-container>
+
+    <!-- Status Column -->
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let directory">
+        <mat-chip-set>
+          <mat-chip
+            [highlighted]="directory.isEnabled"
+            [color]="directory.isEnabled ? 'primary' : 'warn'"
+          >
+            {{ directory.isEnabled ? 'Enabled' : 'Disabled' }}
+          </mat-chip>
+        </mat-chip-set>
+      </td>
+    </ng-container>
+
+    <!-- File Count Column -->
+    <ng-container matColumnDef="fileCount">
+      <th mat-header-cell *matHeaderCellDef>Files</th>
+      <td mat-cell *matCellDef="let directory">{{ directory.fileCount }}</td>
+    </ng-container>
+
+    <!-- Last Scanned Column -->
+    <ng-container matColumnDef="lastScanned">
+      <th mat-header-cell *matHeaderCellDef>Last Scanned</th>
+      <td mat-cell *matCellDef="let directory">
+        {{ formatDate(directory.lastScannedAt) }}
+      </td>
+    </ng-container>
+
+    <!-- Actions Column -->
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef>Actions</th>
+      <td mat-cell *matCellDef="let directory">
+        <div class="action-buttons">
+          <button
+            mat-icon-button
+            (click)="onToggle(directory)"
+            [disabled]="loading()"
+            [matTooltip]="directory.isEnabled ? 'Disable' : 'Enable'"
+          >
+            <mat-icon>{{ directory.isEnabled ? 'toggle_on' : 'toggle_off' }}</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            color="primary"
+            (click)="onEdit(directory)"
+            [disabled]="loading()"
+            matTooltip="Edit"
+          >
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            color="warn"
+            (click)="onDelete(directory)"
+            [disabled]="loading()"
+            matTooltip="Delete"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+  </table>
+
+  @if (directories().length === 0) {
+    <div class="empty-state">
+      <mat-icon>folder_open</mat-icon>
+      <p>No directories configured</p>
+    </div>
+  }
+</div>

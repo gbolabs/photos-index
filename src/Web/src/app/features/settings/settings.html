@@ -1,4 +1,41 @@
-<div class="settings-container">
-  <h1>Settings</h1>
-  <p>Configure your Photos Index application settings here.</p>
+<div class="settings">
+  <div class="settings__header">
+    <div>
+      <h1>Directory Settings</h1>
+      <p class="settings__subtitle">Manage directories to scan for photos</p>
+    </div>
+    <div class="settings__actions">
+      <button mat-icon-button (click)="onRefresh()" [disabled]="loading()" matTooltip="Refresh">
+        <mat-icon>refresh</mat-icon>
+      </button>
+      <button mat-raised-button color="primary" (click)="onAddDirectory()" [disabled]="loading()">
+        <mat-icon>add</mat-icon>
+        Add Directory
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="settings__error">
+      <p>{{ error() }}</p>
+      <button mat-raised-button color="primary" (click)="onRefresh()">Retry</button>
+    </div>
+  }
+
+  @if (loading() && directories().length === 0) {
+    <div class="settings__loading">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading directories...</p>
+    </div>
+  } @else {
+    <div class="settings__content">
+      <app-directory-list
+        [directories]="directories()"
+        [loading]="loading()"
+        (edit)="onEditDirectory($event)"
+        (delete)="onDeleteDirectory($event)"
+        (toggle)="onToggleDirectory($event)"
+      />
+    </div>
+  }
 </div>
