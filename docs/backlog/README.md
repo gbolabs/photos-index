@@ -24,6 +24,10 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `06-002` Service Integration Tests | 🔲 Not Started | - | A5 |
 | `07-001` Playwright Setup | 🔲 Not Started | - | A6 |
 | `07-002` User Workflows | 🔲 Not Started | - | A6 |
+| `08-001` Swagger in Production | 🔲 Not Started | - | A1 |
+| `08-002` API TraceId in Responses | 🔲 Not Started | - | A1 |
+| `08-003` Traefik OTEL Integration | 🔲 Not Started | - | A4 |
+| `08-004` Aspire Health Check | 🔲 Not Started | - | A4 |
 
 **Infrastructure (not in backlog):**
 - ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)
@@ -84,6 +88,12 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 6. `03-indexing-service/003-metadata-extractor.md`
 7. `02-api-layer/003-duplicate-groups.md`
 8. `04-cleaner-service/001-delete-manager.md`
+
+### P1.5 - Observability (Parallel)
+- `08-observability/001-swagger-production.md` (A1)
+- `08-observability/002-api-trace-id.md` (A1)
+- `08-observability/003-traefik-otel.md` (A4)
+- `08-observability/004-aspire-health.md` (A4)
 
 ### P2 - User Interface (Week 2)
 9. `05-web-ui/001-api-services.md`
