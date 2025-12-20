@@ -8,6 +8,8 @@
 **Estimated Effort**: Small
 **Completed**: 2025-12-20
 
+> **Note**: Kubernetes Traefik config was later refactored from inline ConfigMap to external files in `deploy/kubernetes/traefik/`. See `deploy/kubernetes/traefik/README.md` for current structure.
+
 ## Objective
 
 Configure Traefik to send traces to Aspire Dashboard via OpenTelemetry OTLP protocol.
@@ -75,7 +77,7 @@ TRAEFIK_TRACE_SAMPLE_RATE=1.0
 | File | Changes |
 |------|---------|
 | `deploy/docker/docker-compose.yml` | Add OTLP tracing args to Traefik service |
-| `deploy/kubernetes/photos-index.yaml` | Add tracing section to traefik.yml ConfigMap |
+| `deploy/kubernetes/traefik/traefik.yml` | Add tracing section (refactored from ConfigMap) |
 | `deploy/docker/.env.example` | Add TRAEFIK_TRACE_SAMPLE_RATE |
 
 ## Traefik OTLP Documentation

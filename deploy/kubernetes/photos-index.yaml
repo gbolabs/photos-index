@@ -17,71 +17,6 @@ data:
   INDEXING_INTERVAL_MINUTES: "60"
   CLEANER_ENABLED: "false"
 ---
-# Traefik static configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: traefik-config
-data:
-  traefik.yml: |
-    api:
-      dashboard: true
-      insecure: true
-    entryPoints:
-      web:
-        # Use port 8080 for rootless Podman (ports < 1024 require privileges)
-        address: ":8080"
-      traefik:
-        # Dashboard entrypoint
-        address: ":8081"
-    providers:
-      file:
-        filename: /etc/traefik/dynamic.yml
-    log:
-      level: INFO
-    # OpenTelemetry tracing
-    tracing:
-      serviceName: photos-index-traefik
-      sampleRate: 1.0
-      otlp:
-        grpc:
-          endpoint: "localhost:18889"
-          insecure: true
-  dynamic.yml: |
-    http:
-      routers:
-        api-swagger-router:
-          rule: "PathPrefix(`/api/swagger`)"
-          service: api-service
-          priority: 110
-          middlewares:
-            - strip-api-prefix
-        api-router:
-          rule: "PathPrefix(`/api`)"
-          service: api-service
-          priority: 100
-          middlewares:
-            - strip-api-prefix
-        web-router:
-          rule: "PathPrefix(`/`)"
-          service: web-service
-          priority: 1
-      middlewares:
-        strip-api-prefix:
-          stripPrefix:
-            prefixes:
-              - "/api"
-      services:
-        api-service:
-          loadBalancer:
-            servers:
-              - url: "http://localhost:8080"
-        web-service:
-          loadBalancer:
-            servers:
-              # nginx in web container listens on port 80
-              - url: "http://localhost:8090"
----
 apiVersion: v1
 kind: Secret
 metadata:
@@ -281,8 +216,9 @@ spec:
 
   volumes:
     - name: traefik-config
-      configMap:
-        name: traefik-config
+      hostPath:
+        path: ./traefik
+        type: Directory
     - name: postgres-data
       persistentVolumeClaim:
         claimName: postgres-pvc
