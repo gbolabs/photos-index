@@ -29,17 +29,17 @@ export class ApiErrorHandler {
    * Extracts API error response from HTTP error.
    */
   private extractApiError(error: HttpErrorResponse): ApiErrorResponse {
-    // Server returned an error response
-    if (error.error && typeof error.error === 'object' && 'message' in error.error) {
-      return error.error as ApiErrorResponse;
-    }
-
-    // Client-side or network error
+    // Client-side or network error (check first - ErrorEvent also has 'message' property)
     if (error.error instanceof ErrorEvent) {
       return {
         message: `Network error: ${error.error.message}`,
         code: 'NETWORK_ERROR'
       };
+    }
+
+    // Server returned an error response
+    if (error.error && typeof error.error === 'object' && 'message' in error.error) {
+      return error.error as ApiErrorResponse;
     }
 
     // HTTP error without API error response
