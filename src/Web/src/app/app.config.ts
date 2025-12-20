@@ -13,7 +13,7 @@ import { TelemetryInterceptor } from './core/telemetry.interceptor';
 function initializeTelemetry(telemetryService: TelemetryService) {
   return () => {
     // Get OTLP endpoint from environment (injected at runtime via env.js)
-    const otlpEndpoint = (window as Record<string, unknown>)['__OTEL_ENDPOINT__'] as string | undefined;
+    const otlpEndpoint = (window as unknown as Record<string, unknown>)['__OTEL_ENDPOINT__'] as string | undefined;
 
     telemetryService.initialize({
       serviceName: 'photos-index-web',
