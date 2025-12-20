@@ -6,13 +6,13 @@ using Shared.Dtos;
 using Shared.Requests;
 using Shared.Responses;
 
+namespace IndexingService.ApiClient;
+
 // Local class for deserializing paged response
 file record PagedDirectoryResponse
 {
     public List<ScanDirectoryDto> Items { get; init; } = [];
 }
-
-namespace IndexingService.ApiClient;
 
 /// <summary>
 /// HTTP client for communicating with the Photos Index API.
