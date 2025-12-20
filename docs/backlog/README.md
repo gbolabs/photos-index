@@ -31,6 +31,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `08-005` Angular OTEL Integration | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
 | `09-001` API Client Alignment | 🔧 In Progress | - | A2 |
 | `09-002` Angular API Client Generation | 🔲 Not Started | - | A4 |
+| `09-003` Service Bus Communication | 🔲 Not Started | - | A2/A3 |
 
 **Infrastructure (not in backlog):**
 - ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)
