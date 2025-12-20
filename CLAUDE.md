@@ -12,7 +12,7 @@ Photo indexing and deduplication application designed for Synology NAS deploymen
 - **Frontend**: Angular 21
 - **Database**: PostgreSQL with EF Core migrations
 - **Observability**: Aspire Dashboard (standalone container) for logs, traces, metrics
-- **Deployment**: Docker Compose (production/NAS), Podman/Kubernetes (local dev)
+- **Deployment**: Docker Compose (production/NAS), Podman/Kubernetes (local dev), Traefik reverse proxy
 - **Testing**: xUnit, TestContainers, Playwright, BenchmarkDotNet
 
 ## Project Structure
@@ -86,9 +86,10 @@ PHOTOS_PATH=~/Pictures ./deploy/kubernetes/local-dev.sh start
 ./deploy/kubernetes/local-dev.sh stop
 ```
 
-Access points:
-- Web UI: http://localhost:8080
-- API: http://localhost:5000
+Access points (via Traefik):
+- Application: http://localhost (port 80)
+- API: http://localhost/api
+- Traefik Dashboard: http://localhost:8081
 - Aspire Dashboard: http://localhost:18888
 - PostgreSQL: localhost:5432
 
@@ -114,11 +115,12 @@ docker compose down
 ## Architecture
 
 ### Services
-1. **Indexing Service**: Scans directories, extracts metadata, computes SHA256 hashes, generates thumbnails
-2. **API Service**: REST endpoints for data ingestion, duplicate handling, directory configuration
-3. **Database**: PostgreSQL with EF Core, entities: IndexedFiles, ScanDirectories, DuplicateGroups
-4. **Web Interface**: Angular app for search, filtering, duplicate management
-5. **Cleaner Service**: Safe file removal with soft delete, dry-run, transaction logging
+1. **Traefik**: Reverse proxy providing single entry point, routes `/` to Web and `/api` to API
+2. **Indexing Service**: Scans directories, extracts metadata, computes SHA256 hashes, generates thumbnails
+3. **API Service**: REST endpoints for data ingestion, duplicate handling, directory configuration
+4. **Database**: PostgreSQL with EF Core, entities: IndexedFiles, ScanDirectories, DuplicateGroups
+5. **Web Interface**: Angular app for search, filtering, duplicate management
+6. **Cleaner Service**: Safe file removal with soft delete, dry-run, transaction logging
 
 ### Observability
 - Aspire Dashboard at `http://localhost:18888` receives OpenTelemetry data
