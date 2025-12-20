@@ -127,26 +127,22 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      # Swagger router - handles /api/swagger/* without prefix stripping
+      # Swagger router - handles /api/swagger/* requests
       - "traefik.http.routers.api-swagger.rule=PathPrefix(`/api/swagger`)"
       - "traefik.http.routers.api-swagger.entrypoints=web"
       - "traefik.http.routers.api-swagger.priority=110"
-      - "traefik.http.routers.api-swagger.middlewares=api-stripprefix"
       - "traefik.http.routers.api-swagger.service=api"
       # API router - handles /api/* requests
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
       - "traefik.http.routers.api.entrypoints=web"
       - "traefik.http.routers.api.priority=100"
-      # Strip /api prefix before forwarding to backend
-      - "traefik.http.routers.api.middlewares=api-stripprefix"
-      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
       # Service configuration
       - "traefik.http.services.api.loadbalancer.server.port=8080"
       # HTTPS router (when SSL enabled)
       # - "traefik.http.routers.api-secure.rule=PathPrefix(`/api`)"
       # - "traefik.http.routers.api-secure.entrypoints=websecure"
       # - "traefik.http.routers.api-secure.tls.certresolver=letsencrypt"
-      # - "traefik.http.routers.api-secure.middlewares=api-stripprefix"
+      # - "traefik.http.routers.api-secure.service=api"
 
   indexing-service:
     build:

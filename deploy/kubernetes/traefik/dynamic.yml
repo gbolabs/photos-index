@@ -4,23 +4,14 @@ http:
       rule: "PathPrefix(`/api/swagger`)"
       service: api-service
       priority: 110
-      middlewares:
-        - strip-api-prefix
     api-router:
       rule: "PathPrefix(`/api`)"
       service: api-service
       priority: 100
-      middlewares:
-        - strip-api-prefix
     web-router:
       rule: "PathPrefix(`/`)"
       service: web-service
       priority: 1
-  middlewares:
-    strip-api-prefix:
-      stripPrefix:
-        prefixes:
-          - "/api"
   services:
     api-service:
       loadBalancer:
