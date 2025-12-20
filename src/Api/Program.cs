@@ -25,6 +25,13 @@ builder.Services.AddScoped<IDuplicateService, DuplicateService>();
 
 var app = builder.Build();
 
+// Apply pending database migrations at startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PhotosDbContext>();
+    db.Database.Migrate();
+}
+
 // Add TraceId header to all responses for telemetry correlation
 app.UseTraceId();
 
