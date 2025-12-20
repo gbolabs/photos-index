@@ -29,6 +29,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `08-003` Traefik OTEL Integration | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
 | `08-004` Aspire Health Check | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
 | `08-005` Angular OTEL Integration | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
+| `09-001` API Client Alignment | 🔧 In Progress | - | A2 |
 
 **Infrastructure (not in backlog):**
 - ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)

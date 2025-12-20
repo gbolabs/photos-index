@@ -12,7 +12,7 @@ MANIFEST="$SCRIPT_DIR/photos-index.yaml"
 PHOTOS_PATH="${PHOTOS_PATH:-$HOME/Pictures}"
 
 usage() {
-    echo "Usage: $0 {build|start|stop|logs|status}"
+    echo "Usage: $0 {build|start|stop|logs|status|psql}"
     echo ""
     echo "Commands:"
     echo "  build   - Build all container images"
@@ -20,6 +20,7 @@ usage() {
     echo "  stop    - Stop all services"
     echo "  logs    - Show logs for all containers"
     echo "  status  - Show status of pods and containers"
+    echo "  psql    - Open psql shell to PostgreSQL database"
     echo ""
     echo "Environment variables:"
     echo "  PHOTOS_PATH - Path to photos directory (default: ~/Pictures)"
@@ -91,6 +92,11 @@ show_status() {
     podman ps -a --pod --filter "pod=photos-index"
 }
 
+run_psql() {
+    echo "Connecting to PostgreSQL..."
+    podman exec -it photos-index-postgres psql -U photosuser -d photosindex
+}
+
 case "${1:-}" in
     build)
         build_images
@@ -106,6 +112,9 @@ case "${1:-}" in
         ;;
     status)
         show_status
+        ;;
+    psql)
+        run_psql
         ;;
     *)
         usage
