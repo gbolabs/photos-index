@@ -61,7 +61,7 @@ describe('ApiErrorHandler', () => {
       error: (error) => {
         expect(error.message).toBe('Validation failed');
         expect(error.code).toBe('VALIDATION_ERROR');
-        expect(notificationServiceMock.error).toHaveBeenCalledWith('Validation failed');
+        expect(notificationServiceMock.error).toHaveBeenCalledWith('Validation failed', 5000, undefined);
       }
     });
   });
