@@ -28,6 +28,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `08-002` API TraceId in Responses | 🔲 Not Started | - | A1 |
 | `08-003` Traefik OTEL Integration | 🔲 Not Started | - | A4 |
 | `08-004` Aspire Health Check | 🔲 Not Started | - | A4 |
+| `08-005` Angular OTEL Integration | 🔲 Not Started | - | A4 |
 
 **Infrastructure (not in backlog):**
 - ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)
@@ -94,6 +95,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 - `08-observability/002-api-trace-id.md` (A1)
 - `08-observability/003-traefik-otel.md` (A4)
 - `08-observability/004-aspire-health.md` (A4)
+- `08-observability/005-angular-otel.md` (A4)
 
 ### P2 - User Interface (Week 2)
 9. `05-web-ui/001-api-services.md`

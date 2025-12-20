@@ -30,9 +30,16 @@ export class NotificationService {
 
   /**
    * Shows an error notification with red styling.
+   * @param message The error message to display
+   * @param duration How long to show the notification (default 5000ms)
+   * @param traceId Optional trace ID for debugging - will be appended to message
    */
-  error(message: string, duration = 5000): void {
-    this.snackBar.open(message, 'Close', {
+  error(message: string, duration = 5000, traceId?: string): void {
+    const displayMessage = traceId
+      ? `${message} (Trace: ${traceId.substring(0, 8)}...)`
+      : message;
+
+    this.snackBar.open(displayMessage, 'Close', {
       ...this.defaultConfig,
       duration,
       panelClass: ['notification-error']
