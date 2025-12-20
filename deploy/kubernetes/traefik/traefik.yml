@@ -1,0 +1,23 @@
+api:
+  dashboard: true
+  insecure: true
+entryPoints:
+  web:
+    # Use port 8080 for rootless Podman (ports < 1024 require privileges)
+    address: ":8080"
+  traefik:
+    # Dashboard entrypoint
+    address: ":8081"
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yml
+log:
+  level: INFO
+# OpenTelemetry tracing
+tracing:
+  serviceName: photos-index-traefik
+  sampleRate: 1.0
+  otlp:
+    grpc:
+      endpoint: "localhost:18889"
+      insecure: true
