@@ -10,7 +10,6 @@
 #
 # Prerequisites:
 #   - Podman installed
-#   - ANTHROPIC_API_KEY environment variable set
 #   - GH_TOKEN environment variable set (for gh CLI)
 #   - Git configured with user.name and user.email
 
@@ -31,19 +30,49 @@ log() { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
+# Get GitHub token interactively
+get_gh_token() {
+    if [[ -n "${GH_TOKEN:-}" ]]; then
+        log "Using GH_TOKEN from environment"
+        return 0
+    fi
+
+    if command -v gh >/dev/null 2>&1; then
+        if gh auth status >/dev/null 2>&1; then
+            log "Getting GitHub token from gh CLI..."
+            GH_TOKEN=$(gh auth token)
+            export GH_TOKEN
+            log "GitHub token obtained successfully"
+            return 0
+        else
+            warn "gh CLI not authenticated. Run 'gh auth login' first"
+        fi
+    else
+        warn "gh CLI not installed"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}GitHub token not available.${NC}"
+    echo "Options:"
+    echo "  1. Run 'gh auth login' and re-run this script"
+    echo "  2. Set GH_TOKEN environment variable"
+    echo "  3. Continue without GitHub CLI (some features won't work)"
+    echo ""
+    read -p "Continue without GitHub token? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+}
+
 # Check prerequisites
 check_prereqs() {
     log "Checking prerequisites..."
 
     command -v podman >/dev/null 2>&1 || error "Podman is not installed"
 
-    if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-        error "ANTHROPIC_API_KEY is not set"
-    fi
-
-    if [[ -z "${GH_TOKEN:-}" ]]; then
-        warn "GH_TOKEN is not set - gh CLI won't work"
-    fi
+    # Interactive token setup
+    get_gh_token
 
     log "Prerequisites OK"
 }
@@ -52,78 +81,14 @@ check_prereqs() {
 build_image() {
     log "Building container image..."
 
-    podman build -t "$IMAGE_NAME" -f - . <<'DOCKERFILE'
-FROM mcr.microsoft.com/dotnet/sdk:10.0
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local dockerfile="$script_dir/Dockerfile.claude-sandbox"
 
-# Install Node.js 24
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
-    apt-get install -y nodejs
+    if [[ ! -f "$dockerfile" ]]; then
+        error "Dockerfile not found: $dockerfile"
+    fi
 
-# Install tools
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    jq \
-    vim \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
-    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y gh && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code
-
-# Create workspace
-WORKDIR /workspace
-
-# Create Claude settings directory
-RUN mkdir -p /root/.claude
-
-# YOLO mode settings - allow all tools without prompts
-RUN echo '{ \
-  "permissions": { \
-    "allow": [ \
-      "Bash(*)", \
-      "Read(*)", \
-      "Write(*)", \
-      "Edit(*)", \
-      "Glob(*)", \
-      "Grep(*)", \
-      "WebFetch(*)", \
-      "WebSearch(*)", \
-      "Task(*)", \
-      "TodoWrite(*)", \
-      "NotebookEdit(*)" \
-    ], \
-    "deny": [] \
-  }, \
-  "enableAllProjectMcpServers": true \
-}' > /root/.claude/settings.json
-
-# Entrypoint script
-RUN echo '#!/bin/bash\n\
-echo "🤖 Claude Code Sandbox"\n\
-echo "======================"\n\
-echo "Mode: YOLO (all permissions granted)"\n\
-echo ""\n\
-if [[ -n "${GH_TOKEN:-}" ]]; then\n\
-    echo "✅ GitHub CLI authenticated"\n\
-else\n\
-    echo "⚠️  GitHub CLI not authenticated (GH_TOKEN not set)"\n\
-fi\n\
-echo ""\n\
-echo "Starting Claude Code..."\n\
-echo ""\n\
-exec claude "$@"\n\
-' > /entrypoint.sh && chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
-DOCKERFILE
+    podman build -t "$IMAGE_NAME" -f "$dockerfile" "$script_dir/.."
 
     log "Image built successfully"
 }
@@ -137,7 +102,6 @@ run_mount_mode() {
 
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
-        -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
         -e GH_TOKEN="${GH_TOKEN:-}" \
         -e GIT_AUTHOR_NAME="$git_name" \
         -e GIT_AUTHOR_EMAIL="$git_email" \
@@ -158,7 +122,6 @@ run_clone_mode() {
 
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
-        -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
         -e GH_TOKEN="${GH_TOKEN:-}" \
         -e GIT_AUTHOR_NAME="$git_name" \
         -e GIT_AUTHOR_EMAIL="$git_email" \
@@ -167,7 +130,6 @@ run_clone_mode() {
         -e REPO_URL="$REPO_URL" \
         -e BRANCH="$branch" \
         "$IMAGE_NAME" \
-        --init-command "git clone \$REPO_URL . && git checkout \$BRANCH" \
         "$@"
 }
 
