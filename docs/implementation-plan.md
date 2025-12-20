@@ -63,6 +63,17 @@ photos-index/
 └── CLAUDE.md
 ```
 
+## Package Management
+
+Uses NuGet Central Package Management (CPM) for consistent package versions:
+
+| File | Purpose |
+|------|---------|
+| `Directory.Packages.props` | Centralized package versions |
+| `Directory.Build.props` | Shared build properties |
+
+All csproj files reference packages without version attributes. Versions are managed in `Directory.Packages.props`.
+
 ## Build & Run Commands
 
 ### Prerequisites
@@ -335,16 +346,17 @@ For production on Synology, can add Seq or Loki+Grafana for persistent log stora
 4. **Performance Tests**: BenchmarkDotNet for critical paths
 
 ### CI Pipeline
-```yaml
-# .github/workflows/ci.yml
-- Build all projects
-- Run unit tests with coverage
-- Run integration tests (TestContainers)
-- Build Docker images
-- Run E2E tests against containers
-- Report coverage to Codecov
-- Security scan with Trivy
-```
+
+**PR Checks** (`.github/workflows/pr.yml`):
+- Triggers on pull requests to main
+- Runs backend and frontend tests in parallel
+- No Docker builds (fast feedback)
+
+**Main Build** (`.github/workflows/main.yml`):
+- Triggers on push to main
+- Runs backend and frontend tests
+- Builds all Docker images
+- Future: E2E tests, security scans
 
 ## Parallel Development
 

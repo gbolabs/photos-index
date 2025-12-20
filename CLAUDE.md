@@ -39,6 +39,13 @@ deploy/
 └── kubernetes/             # K8s manifests for local Podman dev
 ```
 
+## Package Management
+
+Uses NuGet Central Package Management (CPM):
+- `Directory.Packages.props` - All package versions defined centrally
+- `Directory.Build.props` - Shared build properties
+- csproj files reference packages without version attributes
+
 ## Build Commands
 
 ```bash
