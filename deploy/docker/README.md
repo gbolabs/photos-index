@@ -29,8 +29,17 @@ This directory contains Docker Compose configuration and Dockerfiles for deployi
    ```
 
 4. **Access the application:**
+
+   **Via Traefik (Recommended - Single Entry Point):**
+   - Application: http://localhost (port 80)
+   - API: http://localhost/api
+   - Traefik Dashboard: http://localhost:8080
+
+   **Direct Access (Optional):**
    - Web Interface: http://localhost:4200
    - API: http://localhost:5000
+
+   **Internal Services:**
    - Aspire Dashboard: http://localhost:18888
    - PostgreSQL: localhost:5432
 
@@ -45,6 +54,18 @@ This directory contains Docker Compose configuration and Dockerfiles for deployi
    ```
 
 ## Services Overview
+
+### Traefik Reverse Proxy (Ingress)
+- **Image:** traefik:v3.2
+- **Ports:**
+  - 80 (HTTP) - Main application entry point
+  - 443 (HTTPS) - For SSL/TLS (optional)
+  - 8080 - Traefik Dashboard
+- **Features:**
+  - Routes `/` to Web UI
+  - Routes `/api` to API service (strips prefix)
+  - Optional Let's Encrypt SSL certificates
+  - Docker-based service discovery
 
 ### PostgreSQL Database
 - **Image:** postgres:16-alpine
@@ -196,21 +217,37 @@ docker system prune -a
 All services communicate over a dedicated bridge network (`photos-network`):
 
 ```
-web (4200)
-  └─> api (8080)
-       ├─> postgres (5432)
-       └─> aspire-dashboard (18889 OTLP)
-
-indexing-service
-  ├─> api (8080)
-  └─> postgres (5432)
-  └─> aspire-dashboard (18889 OTLP)
-
-cleaner-service
-  ├─> api (8080)
-  └─> postgres (5432)
-  └─> aspire-dashboard (18889 OTLP)
+External Access (via Traefik)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    ┌─────────────────┐
+ http://localhost ──│   Traefik :80   │
+                    └────────┬────────┘
+                             │
+           ┌─────────────────┴─────────────────┐
+           │                                   │
+           ▼                                   ▼
+    ┌──────────────┐                  ┌──────────────┐
+    │  web (nginx) │                  │     api      │
+    │    :80       │                  │    :8080     │
+    └──────────────┘                  └──────┬───────┘
+                                             │
+                      ┌──────────────────────┼──────────────────────┐
+                      │                      │                      │
+                      ▼                      ▼                      ▼
+               ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+               │   postgres   │      │   indexing   │      │   cleaner    │
+               │    :5432     │      │   service    │      │   service    │
+               └──────────────┘      └──────────────┘      └──────────────┘
+                                             │                      │
+                                             ▼                      ▼
+                                     ┌──────────────────────────────────┐
+                                     │   aspire-dashboard :18889 OTLP   │
+                                     └──────────────────────────────────┘
 ```
+
+**Route Mapping:**
+- `http://localhost/` → Web UI (nginx)
+- `http://localhost/api/*` → API Service (prefix stripped)
 
 ## Volume Management
 
@@ -316,9 +353,16 @@ For large photo libraries:
    ASPNETCORE_ENVIRONMENT=Production
    ```
 
-3. **Enable HTTPS:**
-   - Use reverse proxy (nginx, Traefik, Caddy)
-   - Configure SSL certificates
+3. **Enable HTTPS with Traefik:**
+
+   Edit `docker-compose.yml` and uncomment the Let's Encrypt lines in the Traefik service:
+   ```yaml
+   - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
+   - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+   - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+   ```
+
+   Also uncomment the HTTPS routers for api and web services, and set `ACME_EMAIL` in `.env`.
 
 4. **Network Isolation:**
    - Don't expose internal ports unnecessarily
