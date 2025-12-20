@@ -1,12 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   ScanDirectoryDto,
   CreateScanDirectoryRequest,
-  UpdateScanDirectoryRequest
+  UpdateScanDirectoryRequest,
+  PagedResponse
 } from '../models';
 import { ApiErrorHandler } from './api-error-handler';
 
@@ -27,8 +28,11 @@ export class ScanDirectoryService {
    */
   getAll(): Observable<ScanDirectoryDto[]> {
     return this.http
-      .get<ScanDirectoryDto[]>(this.apiUrl)
-      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+      .get<PagedResponse<ScanDirectoryDto>>(this.apiUrl)
+      .pipe(
+        map(response => response.items),
+        catchError((error) => this.errorHandler.handleError(error))
+      );
   }
 
   /**

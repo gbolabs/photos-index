@@ -8,6 +8,12 @@ using Shared.Responses;
 
 namespace IndexingService.ApiClient;
 
+// Local class for deserializing paged response
+file record PagedDirectoryResponse
+{
+    public List<ScanDirectoryDto> Items { get; init; } = [];
+}
+
 /// <summary>
 /// HTTP client for communicating with the Photos Index API.
 /// </summary>
@@ -38,15 +44,17 @@ public class PhotosApiClient : IPhotosApiClient
         {
             _logger.LogDebug("Fetching all scan directories from API");
 
-            var response = await _httpClient.GetAsync("api/scandirectories", cancellationToken);
+            var response = await _httpClient.GetAsync("api/scan-directories", cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var directories = await response.Content.ReadFromJsonAsync<List<ScanDirectoryDto>>(_jsonOptions, cancellationToken);
+            // API returns PagedResponse<ScanDirectoryDto>, extract Items
+            var pagedResponse = await response.Content.ReadFromJsonAsync<PagedDirectoryResponse>(_jsonOptions, cancellationToken);
+            var directories = pagedResponse?.Items ?? [];
 
-            _logger.LogInformation("Retrieved {Count} scan directories from API", directories?.Count ?? 0);
-            activity?.SetTag("directory.count", directories?.Count ?? 0);
+            _logger.LogInformation("Retrieved {Count} scan directories from API", directories.Count);
+            activity?.SetTag("directory.count", directories.Count);
 
-            return directories ?? new List<ScanDirectoryDto>();
+            return directories;
         }
         catch (HttpRequestException ex)
         {
@@ -158,7 +166,7 @@ public class PhotosApiClient : IPhotosApiClient
             _logger.LogDebug("Updating last scanned timestamp for directory {DirectoryId}", directoryId);
 
             var response = await _httpClient.PatchAsync(
-                $"api/scandirectories/{directoryId}/last-scanned",
+                $"api/scan-directories/{directoryId}/last-scanned",
                 null,
                 cancellationToken);
 

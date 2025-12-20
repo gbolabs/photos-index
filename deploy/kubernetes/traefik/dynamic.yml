@@ -16,7 +16,7 @@ http:
     api-service:
       loadBalancer:
         servers:
-          - url: "http://localhost:8080"
+          - url: "http://localhost:5080"
     web-service:
       loadBalancer:
         servers:

@@ -13,7 +13,7 @@ data:
   # In a pod, all containers share localhost
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:18889"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-  API_BASE_URL: "http://localhost:8080"
+  API_BASE_URL: "http://localhost:5080"
   INDEXING_INTERVAL_MINUTES: "60"
   CLEANER_ENABLED: "false"
 ---
@@ -91,8 +91,8 @@ spec:
     - name: api
       image: localhost/photos-index-api:latest
       ports:
-        - containerPort: 8080
-          # hostPort removed - access via Traefik on port 80/api
+        - containerPort: 5080
+          # hostPort removed - access via Traefik on port 8080/api
       env:
         - name: ASPNETCORE_ENVIRONMENT
           valueFrom:
@@ -100,7 +100,7 @@ spec:
               name: photos-index-config
               key: ASPNETCORE_ENVIRONMENT
         - name: ASPNETCORE_URLS
-          value: "http://+:8080"
+          value: "http://+:5080"
         - name: ConnectionStrings__DefaultConnection
           value: "Host=localhost;Port=5432;Database=photosindex;Username=photosuser;Password=photospass"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -138,8 +138,6 @@ spec:
             configMapKeyRef:
               name: photos-index-config
               key: ASPNETCORE_ENVIRONMENT
-        - name: ConnectionStrings__DefaultConnection
-          value: "Host=localhost;Port=5432;Database=photosindex;Username=photosuser;Password=photospass"
         - name: API_BASE_URL
           valueFrom:
             configMapKeyRef:

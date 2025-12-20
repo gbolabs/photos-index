@@ -45,7 +45,16 @@ describe('ScanDirectoryService', () => {
 
     const req = httpMock.expectOne(apiUrl);
     expect(req.request.method).toBe('GET');
-    req.flush(mockDirectories);
+    // API returns PagedResponse, service extracts .items
+    req.flush({
+      items: mockDirectories,
+      page: 1,
+      pageSize: 50,
+      totalItems: 1,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false
+    });
   });
 
   it('should get directory by id', () => {

@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   ScanDirectoryDto,
   FileStatisticsDto,
   CreateScanDirectoryRequest,
   UpdateScanDirectoryRequest,
+  PagedResponse,
 } from './models';
 
 @Injectable({
@@ -19,36 +21,37 @@ export class ApiService {
 
   // Statistics endpoints
   getStatistics(): Observable<FileStatisticsDto> {
-    return this.http.get<FileStatisticsDto>(`${this.apiUrl}/api/statistics`);
+    return this.http.get<FileStatisticsDto>(`${this.apiUrl}/api/files/statistics`);
   }
 
   // Scan Directory endpoints
   getDirectories(): Observable<ScanDirectoryDto[]> {
-    return this.http.get<ScanDirectoryDto[]>(`${this.apiUrl}/api/directories`);
+    return this.http.get<PagedResponse<ScanDirectoryDto>>(`${this.apiUrl}/api/scan-directories`)
+      .pipe(map(response => response.items));
   }
 
   getDirectory(id: string): Observable<ScanDirectoryDto> {
-    return this.http.get<ScanDirectoryDto>(`${this.apiUrl}/api/directories/${id}`);
+    return this.http.get<ScanDirectoryDto>(`${this.apiUrl}/api/scan-directories/${id}`);
   }
 
   createDirectory(request: CreateScanDirectoryRequest): Observable<ScanDirectoryDto> {
-    return this.http.post<ScanDirectoryDto>(`${this.apiUrl}/api/directories`, request);
+    return this.http.post<ScanDirectoryDto>(`${this.apiUrl}/api/scan-directories`, request);
   }
 
   updateDirectory(id: string, request: UpdateScanDirectoryRequest): Observable<ScanDirectoryDto> {
-    return this.http.put<ScanDirectoryDto>(`${this.apiUrl}/api/directories/${id}`, request);
+    return this.http.put<ScanDirectoryDto>(`${this.apiUrl}/api/scan-directories/${id}`, request);
   }
 
   deleteDirectory(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/api/directories/${id}`);
+    return this.http.delete<void>(`${this.apiUrl}/api/scan-directories/${id}`);
   }
 
   scanDirectory(id: string): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/api/directories/${id}/scan`, {});
+    return this.http.post<void>(`${this.apiUrl}/api/scan-directories/${id}/scan`, {});
   }
 
   scanAllDirectories(): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/api/directories/scan-all`, {});
+    return this.http.post<void>(`${this.apiUrl}/api/scan-directories/scan-all`, {});
   }
 
   // Generic methods for backward compatibility
