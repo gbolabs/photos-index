@@ -15,8 +15,8 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  backend-tests:
-    name: Backend Tests (.NET)
+  build-backend:
+    name: Build & Test Backend (.NET)
     runs-on: ubuntu-latest
 
     steps:
@@ -67,8 +67,8 @@ jobs:
           path: coverage/**/*.trx
           retention-days: 7
 
-  frontend-tests:
-    name: Frontend Tests (Angular)
+  build-frontend:
+    name: Build & Test Frontend (Angular)
     runs-on: ubuntu-latest
 
     defaults:
