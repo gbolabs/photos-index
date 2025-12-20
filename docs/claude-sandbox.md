@@ -22,6 +22,101 @@ export GH_TOKEN="your-github-token"
 podman --version
 ```
 
+## Getting Your API Keys
+
+### Anthropic API Key (ANTHROPIC_API_KEY)
+
+The API key authenticates Claude Code with Anthropic's API.
+
+1. **Create an Anthropic account** at https://console.anthropic.com/
+2. **Navigate to API Keys**: Go to https://console.anthropic.com/settings/keys
+3. **Create a new key**: Click "Create Key", give it a name (e.g., "claude-sandbox")
+4. **Copy the key**: It starts with `sk-ant-api...` - save it securely, you won't see it again
+5. **Add billing**: Claude Code requires a paid API account. Add a payment method at https://console.anthropic.com/settings/billing
+
+```bash
+# Set the key in your shell
+export ANTHROPIC_API_KEY="sk-ant-api03-..."
+
+# Or add to your shell profile (~/.bashrc, ~/.zshrc)
+echo 'export ANTHROPIC_API_KEY="sk-ant-api03-..."' >> ~/.bashrc
+```
+
+**Cost considerations**: Claude Code uses the Anthropic API directly. Monitor usage at https://console.anthropic.com/settings/usage
+
+### GitHub Token (GH_TOKEN)
+
+The GitHub token enables `gh` CLI operations (PRs, issues, cloning private repos).
+
+#### Option 1: Use Existing gh CLI Authentication (Recommended)
+
+If you already have `gh` CLI authenticated:
+
+```bash
+# Get token from existing gh auth
+export GH_TOKEN=$(gh auth token)
+```
+
+#### Option 2: Create a Personal Access Token (PAT)
+
+1. **Go to GitHub Settings**: https://github.com/settings/tokens?type=beta
+2. **Generate new token**: Click "Generate new token" (Fine-grained token recommended)
+3. **Configure the token**:
+   - **Name**: `claude-sandbox`
+   - **Expiration**: Choose based on your security preferences
+   - **Repository access**: Select repositories Claude should access
+   - **Permissions** (minimum required):
+     - `Contents`: Read and write (for commits, branches)
+     - `Pull requests`: Read and write (for creating PRs)
+     - `Issues`: Read and write (optional, for issue management)
+     - `Metadata`: Read (required)
+4. **Generate and copy**: Save the token securely
+
+```bash
+# Set the token
+export GH_TOKEN="github_pat_..."
+
+# Or add to your shell profile
+echo 'export GH_TOKEN="github_pat_..."' >> ~/.bashrc
+```
+
+#### Option 3: Classic Personal Access Token
+
+For simpler setup (less granular permissions):
+
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Select scopes: `repo`, `workflow` (if needed)
+4. Generate and copy the token
+
+### Verifying Your Setup
+
+```bash
+# Verify Anthropic API key works
+curl -s https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{"model":"claude-sonnet-4-20250514","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}' \
+  | jq -r '.content[0].text // .error.message'
+
+# Verify GitHub token works
+gh auth status
+# Or: curl -s -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user | jq .login
+```
+
+### Security Best Practices
+
+1. **Never commit tokens**: Add to `.gitignore` or use environment variables
+2. **Use token expiration**: Set reasonable expiration dates for GitHub PATs
+3. **Minimal permissions**: Only grant permissions actually needed
+4. **Rotate regularly**: Regenerate tokens periodically
+5. **Use secrets manager**: Consider using `pass`, `1password-cli`, or similar:
+   ```bash
+   export ANTHROPIC_API_KEY=$(pass show anthropic/api-key)
+   export GH_TOKEN=$(pass show github/claude-sandbox-token)
+   ```
+
 ## Quick Start
 
 ```bash
