@@ -7,18 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.*" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)">
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.*" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.*" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.*" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.*" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.*" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.*" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>

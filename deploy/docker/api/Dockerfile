@@ -4,8 +4,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS development
 WORKDIR /app
 
-# Copy Directory.Build.props for centralized package versions
+# Copy Directory.Build.props and Directory.Packages.props for centralized package versions
 COPY Directory.Build.props ./
+COPY Directory.Packages.props ./
 
 # Copy solution and project files
 COPY src/PhotosIndex.sln ./src/
