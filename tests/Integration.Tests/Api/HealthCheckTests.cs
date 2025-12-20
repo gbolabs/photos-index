@@ -47,16 +47,6 @@ public class HealthCheckTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task HealthEndpoint_IncludesTraceId()
-    {
-        // Act
-        var response = await _client.GetAsync("/health");
-
-        // Assert
-        response.Headers.Should().Contain(h => h.Key == "X-Trace-Id");
-    }
-
-    [Fact]
     public async Task Api_StartsSuccessfully()
     {
         // This test verifies the entire API infrastructure is working

@@ -243,12 +243,13 @@ public class IndexedFilesApiTests : IClassFixture<WebAppFactory>, IAsyncLifetime
         // Assert
         response.Should().BeSuccessful();
 
-        // Verify duplicate detection
+        // Verify duplicate detection - files should be in a duplicate group
         var queryResponse = await _client.GetAsync("/api/files?hasDuplicates=true");
         var result = await queryResponse.Content.ReadFromJsonAsync<PagedResponse<IndexedFileDto>>();
         result!.Items.Should().HaveCount(2);
-        result.Items.Should().OnlyContain(f => f.IsDuplicate);
+        // Files with same hash should be assigned to the same duplicate group
         result.Items.Should().OnlyContain(f => f.DuplicateGroupId != null);
+        result.Items.Select(f => f.DuplicateGroupId).Distinct().Should().HaveCount(1);
     }
 
     [Fact]
