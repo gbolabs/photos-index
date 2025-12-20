@@ -26,6 +26,8 @@ During deployment testing, several issues were discovered where the IndexingServ
 | PagedResponse handling | `PhotosApiClient.cs` | ✅ Fixed |
 | Config key mismatch | `Program.cs` | ✅ Fixed |
 | Database dependency | `IndexingService.csproj` | ✅ Fixed |
+| Angular route mismatch | `api.service.ts` | ✅ Fixed |
+| Angular PagedResponse | `api.service.ts`, `scan-directory.service.ts` | ✅ Fixed |
 
 ## Remaining Work
 
