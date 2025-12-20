@@ -1,9 +1,10 @@
 # 001: API Integration Tests
 
 **Status**: ✅ Complete
+**PR**: [#18](https://github.com/gbolabs/photos-index/pull/18)
 **Priority**: P3 (Quality Assurance)
 **Agent**: A5
-**Branch**: `feature/integration-api-tests`
+**Branch**: `feature/integration-tests-clean-v2`
 **Estimated Complexity**: High
 **Completed**: 2025-12-20
 

@@ -20,15 +20,15 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `05-003` Directory Settings | 🔲 Not Started | - | A4 |
 | `05-004` File Browser | 🔲 Not Started | - | A4 |
 | `05-005` Duplicate Viewer | ✅ Complete | [#10](https://github.com/gbolabs/photos-index/pull/10) | A4 |
-| `06-001` API Integration Tests | 🔲 Not Started | - | A5 |
+| `06-001` API Integration Tests | ✅ Complete | [#18](https://github.com/gbolabs/photos-index/pull/18) | A5 |
 | `06-002` Service Integration Tests | 🔲 Not Started | - | A5 |
-| `07-001` Playwright Setup | 🔲 Not Started | - | A6 |
+| `07-001` Playwright Setup | ✅ Complete | [#16](https://github.com/gbolabs/photos-index/pull/16) | A6 |
 | `07-002` User Workflows | 🔲 Not Started | - | A6 |
-| `08-001` Swagger in Production | 🔲 Not Started | - | A1 |
-| `08-002` API TraceId in Responses | 🔲 Not Started | - | A1 |
-| `08-003` Traefik OTEL Integration | 🔲 Not Started | - | A4 |
-| `08-004` Aspire Health Check | 🔲 Not Started | - | A4 |
-| `08-005` Angular OTEL Integration | 🔲 Not Started | - | A4 |
+| `08-001` Swagger in Production | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A1 |
+| `08-002` API TraceId in Responses | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A1 |
+| `08-003` Traefik OTEL Integration | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
+| `08-004` Aspire Health Check | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
+| `08-005` Angular OTEL Integration | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
 
 **Infrastructure (not in backlog):**
 - ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)
