@@ -39,9 +39,23 @@ data:
         filename: /etc/traefik/dynamic.yml
     log:
       level: INFO
+    # OpenTelemetry tracing
+    tracing:
+      serviceName: photos-index-traefik
+      sampleRate: 1.0
+      otlp:
+        grpc:
+          endpoint: "localhost:18889"
+          insecure: true
   dynamic.yml: |
     http:
       routers:
+        api-swagger-router:
+          rule: "PathPrefix(`/api/swagger`)"
+          service: api-service
+          priority: 110
+          middlewares:
+            - strip-api-prefix
         api-router:
           rule: "PathPrefix(`/api`)"
           service: api-service

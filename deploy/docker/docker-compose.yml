@@ -26,6 +26,13 @@ services:
       # Logging
       - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
       - "--accesslog=${TRAEFIK_ACCESS_LOG:-false}"
+      # OpenTelemetry tracing
+      - "--tracing=true"
+      - "--tracing.otlp=true"
+      - "--tracing.otlp.grpc.endpoint=aspire-dashboard:18889"
+      - "--tracing.otlp.grpc.insecure=true"
+      - "--tracing.serviceName=photos-index-traefik"
+      - "--tracing.sampleRate=${TRAEFIK_TRACE_SAMPLE_RATE:-1.0}"
     ports:
       - "${TRAEFIK_HTTP_PORT:-80}:80"
       - "${TRAEFIK_HTTPS_PORT:-443}:443"
@@ -76,6 +83,12 @@ services:
       - "${ASPIRE_OTLP_PORT:-4317}:18889"
     environment:
       - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:18888/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - photos-network
     restart: unless-stopped
@@ -92,7 +105,7 @@ services:
       postgres:
         condition: service_healthy
       aspire-dashboard:
-        condition: service_started
+        condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - ASPNETCORE_URLS=http://+:8080
@@ -114,6 +127,12 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
+      # Swagger router - handles /api/swagger/* without prefix stripping
+      - "traefik.http.routers.api-swagger.rule=PathPrefix(`/api/swagger`)"
+      - "traefik.http.routers.api-swagger.entrypoints=web"
+      - "traefik.http.routers.api-swagger.priority=110"
+      - "traefik.http.routers.api-swagger.middlewares=api-stripprefix"
+      - "traefik.http.routers.api-swagger.service=api"
       # API router - handles /api/* requests
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
       - "traefik.http.routers.api.entrypoints=web"
@@ -138,6 +157,8 @@ services:
       api:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      aspire-dashboard:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
@@ -165,6 +186,8 @@ services:
       api:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      aspire-dashboard:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}

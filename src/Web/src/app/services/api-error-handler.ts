@@ -14,12 +14,14 @@ export class ApiErrorHandler {
   /**
    * Handles HTTP errors and converts them to ApiErrorResponse.
    * Shows notification to user if showNotification is true.
+   * Includes trace ID in notification for debugging.
    */
   handleError(error: HttpErrorResponse, showNotification = true): Observable<never> {
     const apiError = this.extractApiError(error);
 
     if (showNotification) {
-      this.notificationService.error(apiError.message);
+      // Include trace ID in error notification for debugging
+      this.notificationService.error(apiError.message, 5000, apiError.traceId);
     }
 
     return throwError(() => apiError);
@@ -27,26 +29,36 @@ export class ApiErrorHandler {
 
   /**
    * Extracts API error response from HTTP error.
+   * Always attempts to extract trace ID from headers for correlation.
    */
   private extractApiError(error: HttpErrorResponse): ApiErrorResponse {
+    // Get trace ID from response headers (always try to extract)
+    const headerTraceId = error.headers?.get('X-Trace-Id') || undefined;
+
     // Client-side or network error (check first - ErrorEvent also has 'message' property)
     if (error.error instanceof ErrorEvent) {
       return {
         message: `Network error: ${error.error.message}`,
-        code: 'NETWORK_ERROR'
+        code: 'NETWORK_ERROR',
+        traceId: headerTraceId
       };
     }
 
-    // Server returned an error response
+    // Server returned an error response with body
     if (error.error && typeof error.error === 'object' && 'message' in error.error) {
-      return error.error as ApiErrorResponse;
+      const apiError = error.error as ApiErrorResponse;
+      // Use trace ID from body if available, otherwise from header
+      return {
+        ...apiError,
+        traceId: apiError.traceId || headerTraceId
+      };
     }
 
-    // HTTP error without API error response
+    // HTTP error without API error response body
     return {
       message: this.getDefaultErrorMessage(error.status),
       code: `HTTP_${error.status}`,
-      traceId: error.headers.get('X-Trace-Id') || undefined
+      traceId: headerTraceId
     };
   }
 

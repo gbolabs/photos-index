@@ -1,3 +1,4 @@
+using Api.Middleware;
 using Api.Services;
 using Database;
 using Microsoft.EntityFrameworkCore;
@@ -24,12 +25,19 @@ builder.Services.AddScoped<IDuplicateService, DuplicateService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+// Add TraceId header to all responses for telemetry correlation
+app.UseTraceId();
+
+// Enable Swagger in all environments for API documentation
+app.UseSwagger(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.RouteTemplate = "swagger/{documentName}/swagger.json";
+});
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/api/swagger/v1/swagger.json", "Photos Index API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.UseHttpsRedirection();
 
