@@ -29,7 +29,11 @@ data:
       insecure: true
     entryPoints:
       web:
-        address: ":80"
+        # Use port 8080 for rootless Podman (ports < 1024 require privileges)
+        address: ":8080"
+      traefik:
+        # Dashboard entrypoint
+        address: ":8081"
     providers:
       file:
         filename: /etc/traefik/dynamic.yml
@@ -84,8 +88,10 @@ spec:
     - name: traefik
       image: docker.io/library/traefik:v3.2
       ports:
-        - containerPort: 80
-          hostPort: 80
+        # Use 8080 for HTTP (rootless Podman can't bind to port 80)
+        - containerPort: 8080
+          hostPort: 8080
+        # Traefik dashboard
         - containerPort: 8081
           hostPort: 8081
       args:
