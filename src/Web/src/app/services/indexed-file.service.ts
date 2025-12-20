@@ -61,6 +61,13 @@ export class IndexedFileService {
   }
 
   /**
+   * Gets the direct file URL for viewing.
+   */
+  getFileUrl(fileId: string): string {
+    return `${this.apiUrl}/${fileId}/download`;
+  }
+
+  /**
    * Downloads the original file.
    */
   downloadFile(fileId: string): Observable<Blob> {

@@ -1,4 +1,130 @@
 <div class="dashboard-container">
-  <h1>Dashboard</h1>
-  <p>Welcome to the Photos Index application. This dashboard will display statistics and recent activity.</p>
+  <div class="dashboard-header">
+    <h1>Dashboard</h1>
+    <button mat-icon-button (click)="loadData()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading statistics...</p>
+    </div>
+  } @else if (error()) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <mat-icon color="warn">error</mat-icon>
+        <span>{{ error() }}</span>
+        <button mat-button color="primary" (click)="loadData()">Retry</button>
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+      <!-- Total Files -->
+      <mat-card class="stat-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="stat-icon files">photo_library</mat-icon>
+          <mat-card-title>{{ statistics()?.totalFiles | number }}</mat-card-title>
+          <mat-card-subtitle>Total Files</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="stat-detail">{{ statistics()?.totalSizeBytes | fileSize }}</p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Duplicate Groups -->
+      <mat-card class="stat-card" routerLink="/duplicates">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="stat-icon duplicates">content_copy</mat-icon>
+          <mat-card-title>{{ statistics()?.duplicateGroups | number }}</mat-card-title>
+          <mat-card-subtitle>Duplicate Groups</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="stat-detail">{{ statistics()?.duplicateFiles | number }} duplicate files</p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Potential Savings -->
+      <mat-card class="stat-card savings">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="stat-icon savings">savings</mat-icon>
+          <mat-card-title>{{ statistics()?.potentialSavingsBytes | fileSize }}</mat-card-title>
+          <mat-card-subtitle>Potential Savings</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="stat-detail">Space recoverable by removing duplicates</p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Scan Directories -->
+      <mat-card class="stat-card" routerLink="/settings">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="stat-icon directories">folder</mat-icon>
+          <mat-card-title>{{ directories().length }}</mat-card-title>
+          <mat-card-subtitle>Scan Directories</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="stat-detail">{{ getEnabledDirectories() }} enabled</p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Last Indexed -->
+    <mat-card class="info-card">
+      <mat-card-content>
+        <div class="info-row">
+          <mat-icon>schedule</mat-icon>
+          <span>Last indexed: {{ formatDate(statistics()?.lastIndexedAt ?? null) }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-divider></mat-divider>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <h2>Quick Actions</h2>
+      <div class="action-buttons">
+        <button mat-raised-button color="primary" routerLink="/duplicates">
+          <mat-icon>content_copy</mat-icon>
+          View Duplicates
+        </button>
+        <button mat-raised-button routerLink="/settings">
+          <mat-icon>settings</mat-icon>
+          Manage Directories
+        </button>
+      </div>
+    </div>
+
+    <!-- Directory Status -->
+    @if (directories().length > 0) {
+      <div class="directory-status">
+        <h2>Directory Status</h2>
+        <div class="directory-list">
+          @for (dir of directories(); track dir.id) {
+            <mat-card class="directory-card">
+              <mat-card-content>
+                <div class="directory-info">
+                  <mat-icon [class.enabled]="dir.isEnabled" [class.disabled]="!dir.isEnabled">
+                    {{ dir.isEnabled ? 'folder' : 'folder_off' }}
+                  </mat-icon>
+                  <div class="directory-details">
+                    <span class="path">{{ dir.path }}</span>
+                    <span class="meta">
+                      {{ dir.fileCount | number }} files
+                      @if (dir.lastScannedAt) {
+                        &bull; Last scanned: {{ formatDate(dir.lastScannedAt) }}
+                      }
+                    </span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          }
+        </div>
+      </div>
+    }
+  }
 </div>

@@ -8,9 +8,17 @@
 <mat-drawer-container class="drawer-container" autosize>
   <mat-drawer #drawer class="drawer-sidenav" mode="side" opened>
     <mat-nav-list>
-      <a mat-list-item routerLink="/" routerLinkActive="active-link">
+      <a mat-list-item routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
         <mat-icon matListItemIcon>dashboard</mat-icon>
         <span matListItemTitle>Dashboard</span>
+      </a>
+      <a mat-list-item routerLink="/indexing" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>sync</mat-icon>
+        <span matListItemTitle>Indexing</span>
+      </a>
+      <a mat-list-item routerLink="/files" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>photo_library</mat-icon>
+        <span matListItemTitle>Files</span>
       </a>
       <a mat-list-item routerLink="/duplicates" routerLinkActive="active-link">
         <mat-icon matListItemIcon>content_copy</mat-icon>

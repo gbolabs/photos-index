@@ -7,8 +7,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../core/api.service';
-import { ScanDirectoryDto } from '../../core/models';
+import { ScanDirectoryDto, CreateScanDirectoryRequest, UpdateScanDirectoryRequest } from '../../core/models';
 import { DirectoryListComponent } from './components/directory-list/directory-list.component';
+import { DirectoryFormDialogComponent, DirectoryFormDialogData } from './components/directory-form-dialog/directory-form-dialog.component';
+import { ConfirmDialogComponent, ConfirmDialogData } from './components/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-settings',
@@ -60,28 +62,74 @@ export class Settings implements OnInit {
   }
 
   onAddDirectory(): void {
-    // TODO: Implement add directory dialog
-    this.snackBar.open('Add directory feature coming soon', 'Close', { duration: 2000 });
+    const dialogRef = this.dialog.open(DirectoryFormDialogComponent, {
+      width: '450px',
+      data: { mode: 'create' } as DirectoryFormDialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((result: CreateScanDirectoryRequest | undefined) => {
+      if (result) {
+        this.apiService.createDirectory(result).subscribe({
+          next: () => {
+            this.snackBar.open('Directory added successfully', 'Close', { duration: 3000 });
+            this.loadDirectories();
+          },
+          error: (error) => {
+            console.error('Error adding directory:', error);
+            this.snackBar.open('Failed to add directory', 'Close', { duration: 5000 });
+          },
+        });
+      }
+    });
   }
 
   onEditDirectory(directory: ScanDirectoryDto): void {
-    // TODO: Implement edit directory dialog
-    this.snackBar.open('Edit directory feature coming soon', 'Close', { duration: 2000 });
+    const dialogRef = this.dialog.open(DirectoryFormDialogComponent, {
+      width: '450px',
+      data: { mode: 'edit', directory } as DirectoryFormDialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((result: UpdateScanDirectoryRequest | undefined) => {
+      if (result) {
+        this.apiService.updateDirectory(directory.id, result).subscribe({
+          next: () => {
+            this.snackBar.open('Directory updated successfully', 'Close', { duration: 3000 });
+            this.loadDirectories();
+          },
+          error: (error) => {
+            console.error('Error updating directory:', error);
+            this.snackBar.open('Failed to update directory', 'Close', { duration: 5000 });
+          },
+        });
+      }
+    });
   }
 
   onDeleteDirectory(directory: ScanDirectoryDto): void {
-    if (confirm(`Are you sure you want to delete "${directory.path}"?`)) {
-      this.apiService.deleteDirectory(directory.id).subscribe({
-        next: () => {
-          this.snackBar.open('Directory deleted successfully', 'Close', { duration: 3000 });
-          this.loadDirectories();
-        },
-        error: (error) => {
-          console.error('Error deleting directory:', error);
-          this.snackBar.open('Failed to delete directory', 'Close', { duration: 5000 });
-        },
-      });
-    }
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Delete Directory',
+        message: `Are you sure you want to delete "${directory.path}"? This will not delete any files, only remove the directory from scanning.`,
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+      } as ConfirmDialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.apiService.deleteDirectory(directory.id).subscribe({
+          next: () => {
+            this.snackBar.open('Directory deleted successfully', 'Close', { duration: 3000 });
+            this.loadDirectories();
+          },
+          error: (error) => {
+            console.error('Error deleting directory:', error);
+            this.snackBar.open('Failed to delete directory', 'Close', { duration: 5000 });
+          },
+        });
+      }
+    });
   }
 
   onToggleDirectory(directory: ScanDirectoryDto): void {
