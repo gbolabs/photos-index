@@ -6,6 +6,12 @@ using Shared.Dtos;
 using Shared.Requests;
 using Shared.Responses;
 
+// Local class for deserializing paged response
+file record PagedDirectoryResponse
+{
+    public List<ScanDirectoryDto> Items { get; init; } = [];
+}
+
 namespace IndexingService.ApiClient;
 
 /// <summary>
@@ -41,12 +47,14 @@ public class PhotosApiClient : IPhotosApiClient
             var response = await _httpClient.GetAsync("api/scan-directories", cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var directories = await response.Content.ReadFromJsonAsync<List<ScanDirectoryDto>>(_jsonOptions, cancellationToken);
+            // API returns PagedResponse<ScanDirectoryDto>, extract Items
+            var pagedResponse = await response.Content.ReadFromJsonAsync<PagedDirectoryResponse>(_jsonOptions, cancellationToken);
+            var directories = pagedResponse?.Items ?? [];
 
-            _logger.LogInformation("Retrieved {Count} scan directories from API", directories?.Count ?? 0);
-            activity?.SetTag("directory.count", directories?.Count ?? 0);
+            _logger.LogInformation("Retrieved {Count} scan directories from API", directories.Count);
+            activity?.SetTag("directory.count", directories.Count);
 
-            return directories ?? new List<ScanDirectoryDto>();
+            return directories;
         }
         catch (HttpRequestException ex)
         {
