@@ -38,7 +38,7 @@ public class PhotosApiClient : IPhotosApiClient
         {
             _logger.LogDebug("Fetching all scan directories from API");
 
-            var response = await _httpClient.GetAsync("api/scandirectories", cancellationToken);
+            var response = await _httpClient.GetAsync("api/scan-directories", cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var directories = await response.Content.ReadFromJsonAsync<List<ScanDirectoryDto>>(_jsonOptions, cancellationToken);
@@ -158,7 +158,7 @@ public class PhotosApiClient : IPhotosApiClient
             _logger.LogDebug("Updating last scanned timestamp for directory {DirectoryId}", directoryId);
 
             var response = await _httpClient.PatchAsync(
-                $"api/scandirectories/{directoryId}/last-scanned",
+                $"api/scan-directories/{directoryId}/last-scanned",
                 null,
                 cancellationToken);
 
