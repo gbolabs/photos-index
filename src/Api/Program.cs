@@ -23,6 +23,7 @@ builder.Services.AddScoped<IScanDirectoryService, ScanDirectoryService>();
 builder.Services.AddScoped<IIndexedFileService, IndexedFileService>();
 builder.Services.AddScoped<IDuplicateService, DuplicateService>();
 builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
+builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 
 var app = builder.Build();
 
