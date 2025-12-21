@@ -2,6 +2,7 @@ using System.Diagnostics;
 using IndexingService.ApiClient;
 using IndexingService.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Shared.Requests;
 
 namespace IndexingService.Services;
@@ -13,9 +14,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
     private readonly IHashComputer _hashComputer;
     private readonly IMetadataExtractor _metadataExtractor;
     private readonly ILogger<IndexingOrchestrator> _logger;
-
-    private const int BatchSize = 100;
-    private const int MaxParallelism = 4;
+    private readonly IndexingOptions _options;
 
     private static readonly ActivitySource ActivitySource = new("PhotosIndex.IndexingService.Orchestrator");
 
@@ -24,13 +23,18 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         IFileScanner fileScanner,
         IHashComputer hashComputer,
         IMetadataExtractor metadataExtractor,
-        ILogger<IndexingOrchestrator> logger)
+        ILogger<IndexingOrchestrator> logger,
+        IOptions<IndexingOptions> options)
     {
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
         _fileScanner = fileScanner ?? throw new ArgumentNullException(nameof(fileScanner));
         _hashComputer = hashComputer ?? throw new ArgumentNullException(nameof(hashComputer));
         _metadataExtractor = metadataExtractor ?? throw new ArgumentNullException(nameof(metadataExtractor));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? new IndexingOptions();
+
+        _logger.LogInformation("IndexingOrchestrator configured: GenerateThumbnails={GenerateThumbnails}, BatchSize={BatchSize}, MaxParallelism={MaxParallelism}",
+            _options.GenerateThumbnails, _options.BatchSize, _options.MaxParallelism);
     }
 
     public async Task<IReadOnlyList<IndexingJob>> RunIndexingCycleAsync(CancellationToken cancellationToken)
@@ -130,7 +134,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             var filePaths = scannedFiles.Select(f => f.FullPath).ToList();
 
             var hashResults = new Dictionary<string, HashResult>();
-            await foreach (var hashResult in _hashComputer.ComputeBatchAsync(filePaths, MaxParallelism, cancellationToken))
+            await foreach (var hashResult in _hashComputer.ComputeBatchAsync(filePaths, _options.MaxParallelism, cancellationToken))
             {
                 hashResults[hashResult.FilePath] = hashResult;
             }
@@ -155,16 +159,19 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                     var metadata = await _metadataExtractor.ExtractAsync(scannedFile.FullPath, cancellationToken);
 
                     byte[]? thumbnail = null;
-                    try
+                    if (_options.GenerateThumbnails)
                     {
-                        thumbnail = await _metadataExtractor.GenerateThumbnailAsync(
-                            scannedFile.FullPath,
-                            new ThumbnailOptions { MaxWidth = 200, MaxHeight = 200, Quality = 80 },
-                            cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to generate thumbnail for {Path}", scannedFile.FullPath);
+                        try
+                        {
+                            thumbnail = await _metadataExtractor.GenerateThumbnailAsync(
+                                scannedFile.FullPath,
+                                new ThumbnailOptions { MaxWidth = 200, MaxHeight = 200, Quality = 80 },
+                                cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate thumbnail for {Path}", scannedFile.FullPath);
+                        }
                     }
 
                     processedFiles.Add(new ProcessedFile
@@ -195,7 +202,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             var totalIngested = 0;
             var totalFailed = 0;
 
-            foreach (var batch in processedFiles.Chunk(BatchSize))
+            foreach (var batch in processedFiles.Chunk(_options.BatchSize))
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
