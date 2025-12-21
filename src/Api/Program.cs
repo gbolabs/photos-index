@@ -4,6 +4,7 @@ using Database;
 using Microsoft.EntityFrameworkCore;
 using Shared.Extensions;
 
+// Application entry point
 var builder = WebApplication.CreateBuilder(args);
 
 // Add OpenTelemetry
