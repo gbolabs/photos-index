@@ -33,6 +33,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `09-002` Angular API Client Generation | 🔲 Not Started | - | A4 |
 | `09-003` Service Bus Communication | 🔲 Not Started | - | A2/A3 |
 | `09-004` Thumbnail Offload to MPC | 🔲 Not Started | - | A1/A2 |
+| `03-004` Indexing Performance Optimizations | 🔲 Not Started | - | A2 |
 | `05-006` File Detail Page | 🔲 Not Started | - | A4 |
 | `11-001` TrueNAS + Synology Split | 🔲 Not Started | - | A4 |
 
