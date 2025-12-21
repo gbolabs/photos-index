@@ -227,6 +227,14 @@ public class IndexedFileService : IIndexedFileService
                     existing.Height = file.Height;
                     existing.ModifiedAt = file.ModifiedAt;
                     existing.IndexedAt = DateTime.UtcNow;
+                    existing.DateTaken = file.DateTaken;
+                    existing.CameraMake = file.CameraMake;
+                    existing.CameraModel = file.CameraModel;
+                    existing.GpsLatitude = file.GpsLatitude;
+                    existing.GpsLongitude = file.GpsLongitude;
+                    existing.Iso = file.Iso;
+                    existing.Aperture = file.Aperture;
+                    existing.ShutterSpeed = file.ShutterSpeed;
 
                     // Update thumbnail if provided
                     if (!string.IsNullOrEmpty(file.ThumbnailBase64))
@@ -262,7 +270,15 @@ public class IndexedFileService : IIndexedFileService
                         CreatedAt = file.CreatedAt ?? DateTime.UtcNow,
                         ModifiedAt = file.ModifiedAt,
                         IndexedAt = DateTime.UtcNow,
-                        ThumbnailPath = thumbnailPath
+                        ThumbnailPath = thumbnailPath,
+                        DateTaken = file.DateTaken,
+                        CameraMake = file.CameraMake,
+                        CameraModel = file.CameraModel,
+                        GpsLatitude = file.GpsLatitude,
+                        GpsLongitude = file.GpsLongitude,
+                        Iso = file.Iso,
+                        Aperture = file.Aperture,
+                        ShutterSpeed = file.ShutterSpeed
                     };
                     _dbContext.IndexedFiles.Add(entity);
                 }
@@ -406,6 +422,51 @@ public class IndexedFileService : IIndexedFileService
         await _dbContext.SaveChangesAsync(ct);
     }
 
+    public async Task<IReadOnlyList<FileNeedsReindexDto>> CheckNeedsReindexAsync(
+        CheckFilesNeedReindexRequest request,
+        CancellationToken ct)
+    {
+        var filePaths = request.Files.Select(f => f.FilePath).ToList();
+
+        // Query database for existing files
+        var existingFiles = await _dbContext.IndexedFiles
+            .AsNoTracking()
+            .Where(f => filePaths.Contains(f.FilePath))
+            .ToDictionaryAsync(f => f.FilePath, f => f.IndexedAt, ct);
+
+        var results = new List<FileNeedsReindexDto>();
+
+        foreach (var file in request.Files)
+        {
+            bool needsReindex;
+
+            if (existingFiles.TryGetValue(file.FilePath, out var indexedAt))
+            {
+                // File exists in database - check if modified after last index
+                needsReindex = file.ModifiedAt > indexedAt;
+            }
+            else
+            {
+                // File not found in database - needs indexing
+                needsReindex = true;
+            }
+
+            results.Add(new FileNeedsReindexDto
+            {
+                FilePath = file.FilePath,
+                LastModifiedAt = file.ModifiedAt,
+                NeedsReindex = needsReindex
+            });
+        }
+
+        _logger.LogInformation(
+            "Checked {Total} files for reindex: {NeedsReindex} need reindexing",
+            results.Count,
+            results.Count(r => r.NeedsReindex));
+
+        return results;
+    }
+
     private static IndexedFileDto MapToDto(IndexedFile entity) => new()
     {
         Id = entity.Id,
@@ -420,6 +481,16 @@ public class IndexedFileService : IIndexedFileService
         IndexedAt = entity.IndexedAt,
         ThumbnailPath = entity.ThumbnailPath,
         IsDuplicate = entity.IsDuplicate,
-        DuplicateGroupId = entity.DuplicateGroupId
+        DuplicateGroupId = entity.DuplicateGroupId,
+        DateTaken = entity.DateTaken,
+        CameraMake = entity.CameraMake,
+        CameraModel = entity.CameraModel,
+        GpsLatitude = entity.GpsLatitude,
+        GpsLongitude = entity.GpsLongitude,
+        Iso = entity.Iso,
+        Aperture = entity.Aperture,
+        ShutterSpeed = entity.ShutterSpeed,
+        LastError = entity.LastError,
+        RetryCount = entity.RetryCount
     };
 }

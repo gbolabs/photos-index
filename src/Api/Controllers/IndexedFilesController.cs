@@ -130,4 +130,24 @@ public class IndexedFilesController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>
+    /// Check which files need to be reindexed based on modification time.
+    /// Returns only files that have been modified since last indexed.
+    /// </summary>
+    [HttpPost("needs-reindex")]
+    [ProducesResponseType(typeof(IReadOnlyList<FileNeedsReindexDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<FileNeedsReindexDto>>> CheckNeedsReindex(
+        [FromBody] CheckFilesNeedReindexRequest request,
+        CancellationToken ct = default)
+    {
+        if (request.Files.Count == 0)
+        {
+            return BadRequest(ApiErrorResponse.BadRequest("At least one file is required"));
+        }
+
+        var result = await _service.CheckNeedsReindexAsync(request, ct);
+        return Ok(result);
+    }
 }
