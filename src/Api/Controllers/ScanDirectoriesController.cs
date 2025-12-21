@@ -143,4 +143,20 @@ public class ScanDirectoriesController : ControllerBase
 
         return Accepted();
     }
+
+    /// <summary>
+    /// Update the last scanned timestamp for a directory.
+    /// </summary>
+    [HttpPatch("{id:guid}/last-scanned")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateLastScanned(Guid id, CancellationToken ct = default)
+    {
+        var updated = await _service.UpdateLastScannedAsync(id, ct);
+
+        if (!updated)
+            return NotFound(ApiErrorResponse.NotFound($"Scan directory with ID {id} not found"));
+
+        return NoContent();
+    }
 }

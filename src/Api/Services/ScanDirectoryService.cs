@@ -126,6 +126,21 @@ public class ScanDirectoryService : IScanDirectoryService
             .AnyAsync(d => d.Path == path, ct);
     }
 
+    public async Task<bool> UpdateLastScannedAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _dbContext.ScanDirectories.FindAsync([id], ct);
+
+        if (entity is null)
+            return false;
+
+        entity.LastScannedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Updated last scanned timestamp for directory {Id}", id);
+
+        return true;
+    }
+
     private static ScanDirectoryDto MapToDto(ScanDirectory entity) => new()
     {
         Id = entity.Id,

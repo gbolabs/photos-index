@@ -129,6 +129,51 @@ public class IndexedFileService : IIndexedFileService
         return null;
     }
 
+    public async Task<(byte[] Content, string FileName, string ContentType)?> DownloadFileAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _dbContext.IndexedFiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == id, ct);
+
+        if (entity is null)
+            return null;
+
+        try
+        {
+            if (!File.Exists(entity.FilePath))
+            {
+                _logger.LogWarning("File not found on disk: {Path}", entity.FilePath);
+                return null;
+            }
+
+            var content = await File.ReadAllBytesAsync(entity.FilePath, ct);
+            var contentType = GetContentType(entity.FileName);
+
+            return (content, entity.FileName, contentType);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read file: {Path}", entity.FilePath);
+            return null;
+        }
+    }
+
+    private static string GetContentType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".tiff" or ".tif" => "image/tiff",
+            ".heic" => "image/heic",
+            _ => "application/octet-stream"
+        };
+    }
+
     public async Task<BatchOperationResponse> BatchIngestAsync(BatchIngestFilesRequest request, CancellationToken ct)
     {
         var succeeded = 0;
