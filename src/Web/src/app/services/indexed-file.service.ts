@@ -48,7 +48,7 @@ export class IndexedFileService {
    */
   getStatistics(): Observable<FileStatisticsDto> {
     return this.http
-      .get<FileStatisticsDto>(`${this.apiUrl}/statistics`)
+      .get<FileStatisticsDto>(`${this.apiUrl}/stats`)
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
 

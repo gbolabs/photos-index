@@ -21,7 +21,7 @@ export class ApiService {
 
   // Statistics endpoints
   getStatistics(): Observable<FileStatisticsDto> {
-    return this.http.get<FileStatisticsDto>(`${this.apiUrl}/api/files/statistics`);
+    return this.http.get<FileStatisticsDto>(`${this.apiUrl}/api/files/stats`);
   }
 
   // Scan Directory endpoints
