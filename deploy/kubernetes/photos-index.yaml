@@ -166,6 +166,9 @@ spec:
         - name: photos
           mountPath: /photos
           readOnly: true
+        - name: home-pictures
+          mountPath: /scan-targets/home-pictures
+          readOnly: true
         - name: thumbnails
           mountPath: /app/thumbnails
 
@@ -223,6 +226,10 @@ spec:
     - name: photos
       hostPath:
         path: /tmp/photos
+        type: DirectoryOrCreate
+    - name: home-pictures
+      hostPath:
+        path: /tmp/home-pictures
         type: DirectoryOrCreate
     - name: thumbnails
       emptyDir: {}

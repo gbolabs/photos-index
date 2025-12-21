@@ -8,8 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MANIFEST="$SCRIPT_DIR/photos-index.yaml"
 
-# Default photos path for local development
+# Default paths for local development
 PHOTOS_PATH="${PHOTOS_PATH:-$HOME/Pictures}"
+HOME_PICTURES_PATH="${HOME_PICTURES_PATH:-$HOME/Pictures}"
 
 usage() {
     echo "Usage: $0 {build|start|stop|restart|clean|logs|status|psql}"
@@ -25,7 +26,8 @@ usage() {
     echo "  psql    - Open psql shell to PostgreSQL database"
     echo ""
     echo "Environment variables:"
-    echo "  PHOTOS_PATH - Path to photos directory (default: ~/Pictures)"
+    echo "  PHOTOS_PATH        - Path to photos directory (default: ~/Pictures)"
+    echo "  HOME_PICTURES_PATH - Path to home pictures (default: ~/Pictures)"
 }
 
 build_images() {
@@ -55,11 +57,14 @@ build_images() {
 start_services() {
     echo "Starting services..."
 
-    # Create photos directory if it doesn't exist
+    # Create directories if they don't exist
     mkdir -p "$PHOTOS_PATH"
+    mkdir -p "$HOME_PICTURES_PATH"
 
-    # Generate manifest with photos path substituted
-    sed "s|path: /tmp/photos|path: $PHOTOS_PATH|g" "$MANIFEST" | podman kube play -
+    # Generate manifest with paths substituted
+    sed -e "s|path: /tmp/photos|path: $PHOTOS_PATH|g" \
+        -e "s|path: /tmp/home-pictures|path: $HOME_PICTURES_PATH|g" \
+        "$MANIFEST" | podman kube play -
 
     echo ""
     echo "Services starting. Access:"
@@ -69,7 +74,9 @@ start_services() {
     echo "  Aspire Dashboard: http://localhost:18888"
     echo "  PostgreSQL:       localhost:5432"
     echo ""
-    echo "Photos directory: $PHOTOS_PATH"
+    echo "Mounted directories:"
+    echo "  /photos:                    $PHOTOS_PATH"
+    echo "  /scan-targets/home-pictures: $HOME_PICTURES_PATH"
     echo ""
     echo "Run '$0 status' to check container status"
     echo "Run '$0 logs' to view logs"
