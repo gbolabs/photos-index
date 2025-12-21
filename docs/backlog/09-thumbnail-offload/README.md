@@ -163,6 +163,7 @@ Content-Type: image/heic
 ```
 
 **Recommendation:** Start with Option A (Base64) for simplicity. Migrate to Option B if performance becomes an issue (Base64 adds ~33% overhead).
+**Decision:** Due to limitation of Syno CPU we cannot affort the extra overhead, go with Option B directly.
 
 ### New Endpoint: GET /api/thumbnails/status
 
