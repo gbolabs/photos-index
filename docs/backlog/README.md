@@ -32,6 +32,8 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `09-001` API Client Alignment | 🔧 In Progress | - | A2 |
 | `09-002` Angular API Client Generation | 🔲 Not Started | - | A4 |
 | `09-003` Service Bus Communication | 🔲 Not Started | - | A2/A3 |
+| `09-004` Thumbnail Offload to MPC | 🔲 Not Started | - | A1/A2 |
+| `05-006` File Detail Page | 🔲 Not Started | - | A4 |
 | `11-001` TrueNAS + Synology Split | 🔲 Not Started | - | A4 |
 
 **Infrastructure (not in backlog):**
@@ -113,6 +115,11 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 15. `06-integration/002-service-integration-tests.md`
 16. `07-e2e-testing/001-playwright-setup.md`
 17. `07-e2e-testing/002-user-workflows.md`
+
+### P4 - Performance & UX Enhancements
+18. `09-thumbnail-offload/README.md` - Offload thumbnail generation to MPC
+19. `05-web-ui/006-file-detail-page.md` - File detail page with extended metadata
+20. `09-fixes/003-service-bus-communication.md` - Generic message bus for async ops
 
 ## Branch & PR Rules
 
