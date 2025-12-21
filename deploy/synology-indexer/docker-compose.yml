@@ -1,0 +1,79 @@
+# Photos Index - Synology Indexer Only
+#
+# This deployment runs ONLY the indexing service on Synology.
+# All other services (API, Database, Web UI) run on TrueNAS.
+#
+# Prerequisites:
+# - TrueNAS deployment is running and accessible
+# - API endpoint is reachable from Synology
+#
+# Usage:
+#   1. Copy this file to your Synology
+#   2. Edit the environment variables below
+#   3. Run: docker compose up -d
+
+services:
+  indexer:
+    image: ghcr.io/gbolabs/photos-index-indexer:latest
+    container_name: photos-indexer
+    restart: unless-stopped
+
+    environment:
+      # Required: TrueNAS API endpoint
+      - API_URL=${API_URL:-http://truenas.local:5000}
+
+      # Directories to scan (comma-separated, maps to container paths)
+      - SCAN_DIRECTORIES=/photos
+
+      # Scan interval in minutes (default: 60)
+      - SCAN_INTERVAL_MINUTES=${SCAN_INTERVAL_MINUTES:-60}
+
+      # Logging level
+      - LOG_LEVEL=${LOG_LEVEL:-Information}
+
+      # OpenTelemetry (optional - send traces to TrueNAS Aspire)
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_ENDPOINT:-}
+      - OTEL_SERVICE_NAME=photos-index-indexer-synology
+
+      # Resource limits
+      - DOTNET_GCHeapHardLimit=200000000  # ~200MB heap limit
+
+    volumes:
+      # Mount your photo directories (read-only for safety)
+      # Add more volumes as needed for different photo locations
+      - ${PHOTOS_PATH:-/volume1/photos}:/photos:ro
+
+      # Optional: Additional photo directories
+      # - /volume1/backup/photos:/photos-backup:ro
+      # - /volume2/camera:/camera:ro
+
+    # Resource constraints for Synology (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Optional: Network configuration if using custom networks
+# networks:
+#   default:
+#     external: true
+#     name: my-network
