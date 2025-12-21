@@ -12,12 +12,14 @@ MANIFEST="$SCRIPT_DIR/photos-index.yaml"
 PHOTOS_PATH="${PHOTOS_PATH:-$HOME/Pictures}"
 
 usage() {
-    echo "Usage: $0 {build|start|stop|logs|status|psql}"
+    echo "Usage: $0 {build|start|stop|restart|clean|logs|status|psql}"
     echo ""
     echo "Commands:"
     echo "  build   - Build all container images"
     echo "  start   - Start all services with podman kube play"
-    echo "  stop    - Stop all services"
+    echo "  stop    - Stop all services (preserves data)"
+    echo "  restart - Stop and start services (preserves data)"
+    echo "  clean   - Stop and remove all data (volumes, PVCs)"
     echo "  logs    - Show logs for all containers"
     echo "  status  - Show status of pods and containers"
     echo "  psql    - Open psql shell to PostgreSQL database"
@@ -74,9 +76,44 @@ start_services() {
 }
 
 stop_services() {
-    echo "Stopping services..."
-    podman kube play --down "$MANIFEST"
-    echo "Services stopped"
+    echo "Stopping services (preserving data)..."
+
+    # Stop the pod without removing volumes
+    if podman pod exists photos-index 2>/dev/null; then
+        podman pod stop photos-index 2>/dev/null || true
+        podman pod rm photos-index 2>/dev/null || true
+    fi
+
+    # Remove ConfigMap and Secret (they'll be recreated on start)
+    podman kube play --down "$MANIFEST" 2>/dev/null || true
+
+    echo "Services stopped. Data preserved in volumes."
+    echo "Run '$0 clean' to remove all data including volumes."
+}
+
+clean_services() {
+    echo "Stopping services and removing ALL data..."
+
+    # Full teardown including volumes
+    podman kube play --down "$MANIFEST" 2>/dev/null || true
+
+    # Remove any remaining volumes
+    podman volume rm postgres-pvc 2>/dev/null || true
+    podman volume rm photos-index-postgres-data 2>/dev/null || true
+
+    # List and remove any photos-index related volumes
+    for vol in $(podman volume ls -q | grep -E "photos-index|postgres-pvc" 2>/dev/null); do
+        echo "Removing volume: $vol"
+        podman volume rm "$vol" 2>/dev/null || true
+    done
+
+    echo "All services and data removed."
+}
+
+restart_services() {
+    stop_services
+    echo ""
+    start_services
 }
 
 show_logs() {
@@ -106,6 +143,12 @@ case "${1:-}" in
         ;;
     stop)
         stop_services
+        ;;
+    restart)
+        restart_services
+        ;;
+    clean)
+        clean_services
         ;;
     logs)
         show_logs
