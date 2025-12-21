@@ -128,12 +128,48 @@ Use local model for initial tagging, cloud API for verification or complex queri
 | Web UI for tags/search | 8-12h | Medium |
 | **Total** | **44-64h** | - |
 
+### Library Sizing (Reference: 100K+ Photos)
+
+Typical family photo library spanning 40+ years:
+| Period | Approx. Photos | Priority |
+|--------|----------------|----------|
+| Children's lives (7 years) | 30-50K | High - process first |
+| Married life (15 years) | 40-60K | Medium |
+| Lifetime archive (40+ years) | 20-40K | Low - historical |
+| **Total** | **100-150K** | |
+
+**Recommended Processing Strategy: Newest First**
+1. Start with most recent year (highest value, freshest memories)
+2. Work backwards chronologically
+3. Prioritize directories with highest photo density
+4. Children/family albums before solo/travel archives
+
+### Processing Time Estimates (100K Photos)
+
+| Method | Time/Image | Total Time | Notes |
+|--------|------------|------------|-------|
+| Local (Moondream 2) | ~1s | ~28 hours | Lightweight, fast |
+| Local (LLaVA 7B) | ~3s | ~3.5 days | Better quality |
+| Local (LLaVA 13B) | ~7s | ~8 days | High quality |
+| Cloud (Mistral batch) | ~0.5s | ~14 hours | Rate-limited bursts |
+
+**Practical approach**: Process 1000 newest photos/day = 100 days for full backfill, or dedicate a weekend for intensive processing.
+
+### Cost Estimates (100K Photos)
+
+| Provider | Model | Input Cost | Output Cost | Total |
+|----------|-------|------------|-------------|-------|
+| Mistral | Medium 3 | ~$20 | ~$100 | ~$120 |
+| Mistral | Pixtral (self-hosted) | Free | - | Hardware only |
+| Infomaniak | TBD | TBD | TBD | Monitor pricing |
+
 ### Key Pain Points
-1. **Processing time**: 1M images at 3s/image = 35 days continuous processing
-2. **Storage**: Embeddings add ~2KB per image (2GB for 1M images)
+1. **Initial backfill time**: 100K images needs dedicated processing window
+2. **Storage**: Embeddings add ~2KB per image (~200MB for 100K)
 3. **Hardware cost**: Dedicated GPU machine for local option
 4. **API quotas**: Cloud providers may have rate limits
 5. **Model updates**: Local models need manual updates; cloud models may change
+6. **Prioritization**: Need smart queue management to process high-value photos first
 
 ---
 
@@ -349,16 +385,32 @@ Based on effort, value, and risk:
 
 ## Summary Table
 
-| Feature | Min Effort | Max Effort | Main Blocker |
-|---------|------------|------------|--------------|
-| AI (Local) | 44h | 64h | GPU hardware |
-| AI (Cloud) | 44h | 64h | Ongoing costs |
-| Smart Albums (basic) | 26h | 38h | Metadata quality |
-| Smart Albums (faces) | 66h | 94h | Privacy, complexity |
-| Album Proposals | 42h | 58h | AI dependency |
-| iCloud Indexing | 40h | 58h | No official API |
-| OneDrive Indexing | 32h | 46h | OAuth complexity |
-| Full Cloud + Dedup | 60h | 86h | Multiple integrations |
+| Feature | Dev Effort | Processing Time (100K) | Cost | Main Blocker |
+|---------|------------|------------------------|------|--------------|
+| AI (Local) | 44-64h | 1-8 days | Hardware $500-1500 | GPU required |
+| AI (Cloud) | 44-64h | 14-28 hours | ~$120 one-time | Rate limits |
+| Smart Albums (basic) | 26-38h | Minutes | Free | Metadata quality |
+| Smart Albums (faces) | 66-94h | 2-4 days | Free | Privacy |
+| Album Proposals | 42-58h | Seconds | Free | Needs AI first |
+| iCloud Indexing | 40-58h | Days (download) | Free | No official API |
+| OneDrive Indexing | 32-46h | Hours | Free | OAuth setup |
+
+---
+
+## Reference Library Context
+
+This roadmap is sized for a typical family photo library:
+
+```
+Timeline: 40+ years of photos
+├── Recent (0-7 years)   → Children, high activity  → 30-50K photos (HIGH priority)
+├── Middle (7-15 years)  → Married life, events     → 40-60K photos (MEDIUM priority)
+└── Archive (15-40 years)→ Historical, nostalgia    → 20-40K photos (LOW priority)
+
+Total: 100-150K photos
+```
+
+**Key insight**: Most value is in recent photos. A "newest first" strategy delivers immediate benefit while backfill continues in background.
 
 ---
 
