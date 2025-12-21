@@ -136,7 +136,7 @@ describe('IndexedFileService', () => {
       expect(stats.duplicateGroups).toBe(50);
     });
 
-    const req = httpMock.expectOne(`${apiUrl}/statistics`);
+    const req = httpMock.expectOne(`${apiUrl}/stats`);
     expect(req.request.method).toBe('GET');
     req.flush(mockStats);
   });
