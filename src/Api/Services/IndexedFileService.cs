@@ -21,13 +21,8 @@ public class IndexedFileService : IIndexedFileService
     {
         _dbContext = dbContext;
         _logger = logger;
-        _thumbnailDirectory = configuration.GetValue<string>("ThumbnailDirectory") ?? "/app/thumbnails";
-
-        // Ensure thumbnail directory exists
-        if (!Directory.Exists(_thumbnailDirectory))
-        {
-            Directory.CreateDirectory(_thumbnailDirectory);
-        }
+        _thumbnailDirectory = configuration.GetValue<string>("ThumbnailDirectory")
+            ?? Path.Combine(Path.GetTempPath(), "photos-index-thumbnails");
     }
 
     public async Task<PagedResponse<IndexedFileDto>> QueryAsync(FileQueryParameters query, CancellationToken ct)
@@ -187,6 +182,12 @@ public class IndexedFileService : IIndexedFileService
     {
         try
         {
+            // Ensure thumbnail directory exists
+            if (!Directory.Exists(_thumbnailDirectory))
+            {
+                Directory.CreateDirectory(_thumbnailDirectory);
+            }
+
             var bytes = Convert.FromBase64String(base64Data);
             var thumbnailPath = Path.Combine(_thumbnailDirectory, $"{fileId}.jpg");
 
