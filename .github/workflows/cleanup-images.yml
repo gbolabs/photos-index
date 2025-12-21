@@ -1,0 +1,44 @@
+name: Cleanup Container Images
+
+# Clean up old untagged container images from ghcr.io
+# Keeps all semantically versioned tags (v*.*.*)
+# Runs weekly and can be triggered manually
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
+  workflow_dispatch:  # Manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: gbolabs/photos-index
+
+jobs:
+  cleanup:
+    name: Cleanup ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - api
+          - web
+          - indexing-service
+          - cleaner-service
+
+    steps:
+      - name: Delete old untagged images
+        uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: gbolabs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "photos-index/${{ matrix.image }}"
+          tag-selection: untagged
+          cut-off: 2 weeks ago UTC
+          keep-n-most-recent: 5
+
+      - name: Summary
+        run: |
+          echo "### Cleanup Summary for ${{ matrix.image }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Kept: 5 most recent untagged images" >> $GITHUB_STEP_SUMMARY
+          echo "- Deleted: untagged images older than 2 weeks" >> $GITHUB_STEP_SUMMARY
+          echo "- Preserved: all tagged releases (v*.*.*)" >> $GITHUB_STEP_SUMMARY

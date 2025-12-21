@@ -83,7 +83,10 @@ RUN apt-get update && \
     libgdiplus \
     libc6-dev \
     libheif1 && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    # Create symlink for libheif (LibHeifSharp looks for libheif.so)
+    ln -s /usr/lib/x86_64-linux-gnu/libheif.so.1 /usr/lib/x86_64-linux-gnu/libheif.so || \
+    ln -s /usr/lib/aarch64-linux-gnu/libheif.so.1 /usr/lib/aarch64-linux-gnu/libheif.so || true
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
