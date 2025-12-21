@@ -33,19 +33,39 @@ usage() {
 build_images() {
     echo "Building container images..."
 
+    # Get build info from git
+    BUILD_COMMIT_HASH=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo "dev")
+    BUILD_BRANCH=$(git -C "$PROJECT_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "local")
+    BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    echo "Build info: commit=$BUILD_COMMIT_HASH, branch=$BUILD_BRANCH, time=$BUILD_TIME"
+    echo ""
+
     podman build -t localhost/photos-index-api:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
         -f "$PROJECT_ROOT/deploy/docker/api/Dockerfile" \
         "$PROJECT_ROOT"
 
     podman build -t localhost/photos-index-indexing-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
         -f "$PROJECT_ROOT/deploy/docker/indexing-service/Dockerfile" \
         "$PROJECT_ROOT"
 
     podman build -t localhost/photos-index-cleaner-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
         -f "$PROJECT_ROOT/deploy/docker/cleaner-service/Dockerfile" \
         "$PROJECT_ROOT"
 
     podman build -t localhost/photos-index-web:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
         -f "$PROJECT_ROOT/deploy/docker/web/Dockerfile" \
         "$PROJECT_ROOT"
 

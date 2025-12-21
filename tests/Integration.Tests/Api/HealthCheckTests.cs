@@ -32,7 +32,7 @@ public class HealthCheckTests : IClassFixture<WebAppFactory>
 
         var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("healthy");
-        content.Should().Contain("Photos Index API");
+        content.Should().Contain("photos-index-api");
     }
 
     [Fact]
