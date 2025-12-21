@@ -1,0 +1,21 @@
+apiVersion: v2
+name: photos-index
+description: Photo indexing and deduplication application for TrueNAS SCALE
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/gbolabs/photos-index
+sources:
+  - https://github.com/gbolabs/photos-index
+maintainers:
+  - name: gbolabs
+keywords:
+  - photos
+  - indexing
+  - deduplication
+  - nas
+dependencies:
+  - name: postgresql
+    version: "15.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

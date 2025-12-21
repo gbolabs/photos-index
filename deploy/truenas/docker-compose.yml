@@ -1,0 +1,101 @@
+# Photos Index - TrueNAS SCALE Custom App
+#
+# Deploy via: Apps > Discover Apps > Custom App > Install via YAML
+#
+# Before installing:
+# 1. Create a dataset for PostgreSQL data (e.g., tank/apps/photos-index/postgres)
+# 2. Create a dataset for thumbnails (e.g., tank/apps/photos-index/thumbnails)
+# 3. Note the dataset paths for the volume mounts below
+#
+# After installing:
+# - Access Web UI at http://truenas-ip:8080
+# - Access Aspire Dashboard at http://truenas-ip:18888
+# - Configure Synology indexer to point to http://truenas-ip:8080/api
+
+name: photos-index
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: photos-index-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: photosindex
+      POSTGRES_USER: photosindex
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      # TrueNAS Host Path - update to your dataset path
+      - /mnt/tank/apps/photos-index/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U photosindex -d photosindex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Service
+  api:
+    image: ghcr.io/gbolabs/photos-index-api:latest
+    container_name: photos-index-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=photosindex;Username=photosindex;Password=${POSTGRES_PASSWORD:-changeme}
+      - ThumbnailDirectory=/data/thumbnails
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire:18889
+      - OTEL_SERVICE_NAME=photos-index-api
+    volumes:
+      # TrueNAS Host Path - update to your dataset path
+      - /mnt/tank/apps/photos-index/thumbnails:/data/thumbnails
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web UI (nginx serving Angular app)
+  web:
+    image: ghcr.io/gbolabs/photos-index-web:latest
+    container_name: photos-index-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+  # Aspire Dashboard (OpenTelemetry)
+  aspire:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    container_name: photos-index-aspire
+    restart: unless-stopped
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    ports:
+      - "18888:18888"  # Dashboard UI
+      - "18889:18889"  # OTLP receiver
+
+  # Traefik Reverse Proxy (optional - for single entry point)
+  traefik:
+    image: traefik:v3.2
+    container_name: photos-index-traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8081:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=false"
+
+# Note: TrueNAS recommends Host Path volumes over named volumes
+# Update the volume paths above to match your TrueNAS datasets

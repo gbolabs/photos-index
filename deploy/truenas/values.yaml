@@ -1,0 +1,149 @@
+# Photos Index - TrueNAS SCALE Helm Chart Values
+# This deployment is designed for split architecture where:
+# - TrueNAS runs: API, Web UI, PostgreSQL, Aspire Dashboard
+# - Synology runs: Indexing Service (separate deployment)
+
+# Global settings
+global:
+  imageRegistry: ghcr.io/gbolabs
+
+# API Service
+api:
+  enabled: true
+  image:
+    repository: photos-index-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 5000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  env:
+    # Database connection (uses postgresql dependency)
+    DATABASE_HOST: "{{ .Release.Name }}-postgresql"
+    DATABASE_PORT: "5432"
+    DATABASE_NAME: "photosindex"
+    # OpenTelemetry
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://{{ .Release.Name }}-aspire:18889"
+    OTEL_SERVICE_NAME: "photos-index-api"
+  # Additional environment variables from secrets
+  envFromSecrets:
+    - name: DATABASE_PASSWORD
+      secretName: postgresql-secret
+      secretKey: postgres-password
+
+# Web UI (nginx serving Angular app)
+web:
+  enabled: true
+  image:
+    repository: photos-index-web
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 80
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+# Aspire Dashboard (OpenTelemetry collector + UI)
+aspire:
+  enabled: true
+  image:
+    repository: mcr.microsoft.com/dotnet/aspire-dashboard
+    tag: "9.0"
+    pullPolicy: IfNotPresent
+  ports:
+    ui: 18888
+    otlp: 18889
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Cleaner Service (optional - requires file access)
+cleaner:
+  enabled: false
+  image:
+    repository: photos-index-cleaner
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Mount point for Synology photos (via NFS)
+  nfsMount:
+    enabled: false
+    server: "synology.local"
+    path: "/volume1/photos"
+    mountPath: "/photos"
+
+# PostgreSQL (Bitnami subchart)
+postgresql:
+  enabled: true
+  auth:
+    database: photosindex
+    username: photosindex
+    # Password should be set via --set or external secret
+    existingSecret: postgresql-secret
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      # TrueNAS uses local-path or your dataset
+      storageClass: ""
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Ingress (Traefik on TrueNAS)
+ingress:
+  enabled: true
+  className: traefik
+  hostname: photos.local
+  tls:
+    enabled: false
+    # secretName: photos-tls
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+
+# Service configuration
+service:
+  type: ClusterIP
+  # Use LoadBalancer if you want direct access
+  # type: LoadBalancer
+
+# Persistence for thumbnails
+persistence:
+  thumbnails:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+# Pod security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Node selector (optional)
+nodeSelector: {}
+
+# Tolerations (optional)
+tolerations: []
+
+# Affinity (optional)
+affinity: {}
