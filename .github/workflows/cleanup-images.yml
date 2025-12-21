@@ -42,3 +42,23 @@ jobs:
           echo "- Kept: 5 most recent untagged images" >> $GITHUB_STEP_SUMMARY
           echo "- Deleted: untagged images older than 2 weeks" >> $GITHUB_STEP_SUMMARY
           echo "- Preserved: all tagged releases (v*.*.*)" >> $GITHUB_STEP_SUMMARY
+
+  cleanup-releases:
+    name: Cleanup old releases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old pre-releases
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 10
+          delete_tags: false
+          delete_prerelease_only: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### Release Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Kept: 10 most recent releases" >> $GITHUB_STEP_SUMMARY
+          echo "- Deleted: pre-releases beyond the 10 most recent" >> $GITHUB_STEP_SUMMARY
+          echo "- Preserved: all non-pre-release versions" >> $GITHUB_STEP_SUMMARY
