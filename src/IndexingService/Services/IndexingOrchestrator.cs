@@ -105,7 +105,8 @@ public class IndexingOrchestrator : IIndexingOrchestrator
 
         try
         {
-            _logger.LogInformation("Starting indexing for directory {Path}", directoryPath);
+            _logger.LogInformation("Starting progressive indexing for directory {Path} (batch size: {BatchSize})",
+                directoryPath, _options.BatchSize);
 
             if (!Directory.Exists(directoryPath))
             {
@@ -113,154 +114,151 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                 return job.Fail($"Directory does not exist: {directoryPath}");
             }
 
-            var scannedFiles = new List<ScannedFile>();
-            await foreach (var file in _fileScanner.ScanAsync(directoryPath, includeSubdirectories: true, cancellationToken))
-            {
-                scannedFiles.Add(file);
-            }
-
-            _logger.LogInformation("Scanned {Count} files in directory {Path}", scannedFiles.Count, directoryPath);
-
-            activity?.SetTag("files.scanned", scannedFiles.Count);
-
-            if (scannedFiles.Count == 0)
-            {
-                _logger.LogInformation("No files found in directory {Path}", directoryPath);
-                await _apiClient.UpdateLastScannedAsync(directoryId, cancellationToken);
-                return job.Complete(0, 0, 0, 0);
-            }
-
-            var processedFiles = new List<ProcessedFile>();
-            var filePaths = scannedFiles.Select(f => f.FullPath).ToList();
-
-            var hashResults = new Dictionary<string, HashResult>();
-            await foreach (var hashResult in _hashComputer.ComputeBatchAsync(filePaths, _options.MaxParallelism, cancellationToken))
-            {
-                hashResults[hashResult.FilePath] = hashResult;
-            }
-
-            _logger.LogInformation("Computed hashes for {Count} files in directory {Path}", hashResults.Count(h => h.Value.Success), directoryPath);
-
-            foreach (var scannedFile in scannedFiles)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                if (!hashResults.TryGetValue(scannedFile.FullPath, out var hashResult) || !hashResult.Success)
-                {
-                    _logger.LogWarning("Skipping file {Path} - hash computation failed", scannedFile.FullPath);
-                    continue;
-                }
-
-                try
-                {
-                    var metadata = await _metadataExtractor.ExtractAsync(scannedFile.FullPath, cancellationToken);
-
-                    byte[]? thumbnail = null;
-                    if (_options.GenerateThumbnails)
-                    {
-                        try
-                        {
-                            thumbnail = await _metadataExtractor.GenerateThumbnailAsync(
-                                scannedFile.FullPath,
-                                new ThumbnailOptions { MaxWidth = 200, MaxHeight = 200, Quality = 80 },
-                                cancellationToken);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to generate thumbnail for {Path}", scannedFile.FullPath);
-                        }
-                    }
-
-                    processedFiles.Add(new ProcessedFile
-                    {
-                        ScannedFile = scannedFile,
-                        Hash = hashResult.Hash,
-                        Metadata = metadata,
-                        Thumbnail = thumbnail
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to extract metadata for {Path}", scannedFile.FullPath);
-                }
-            }
-
-            _logger.LogInformation("Processed {Count} files in directory {Path}", processedFiles.Count, directoryPath);
-
-            activity?.SetTag("files.processed", processedFiles.Count);
-
-            if (processedFiles.Count == 0)
-            {
-                _logger.LogWarning("No files successfully processed in directory {Path}", directoryPath);
-                await _apiClient.UpdateLastScannedAsync(directoryId, cancellationToken);
-                return job.Complete(scannedFiles.Count, 0, 0, scannedFiles.Count);
-            }
-
+            var totalScanned = 0;
+            var totalProcessed = 0;
             var totalIngested = 0;
             var totalFailed = 0;
+            var currentBatch = new List<ScannedFile>(_options.BatchSize);
 
-            foreach (var batch in processedFiles.Chunk(_options.BatchSize))
+            // Progressive scan and ingest - process files in batches as we scan
+            await foreach (var file in _fileScanner.ScanAsync(directoryPath, includeSubdirectories: true, cancellationToken))
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
+                currentBatch.Add(file);
+                totalScanned++;
 
-                var request = new BatchIngestFilesRequest
+                // Process batch when full
+                if (currentBatch.Count >= _options.BatchSize)
                 {
-                    ScanDirectoryId = directoryId,
-                    Files = batch.Select(f => new IngestFileItem
-                    {
-                        FilePath = f.ScannedFile.FullPath,
-                        FileName = f.ScannedFile.FileName,
-                        FileHash = f.Hash,
-                        FileSize = f.ScannedFile.FileSizeBytes,
-                        Width = f.Metadata.Width,
-                        Height = f.Metadata.Height,
-                        CreatedAt = f.Metadata.DateTaken,
-                        ModifiedAt = f.ScannedFile.LastModifiedUtc,
-                        ThumbnailBase64 = f.Thumbnail != null ? Convert.ToBase64String(f.Thumbnail) : null
-                    }).ToList()
-                };
+                    var (processed, ingested, failed) = await ProcessAndIngestBatchAsync(
+                        directoryId, currentBatch, cancellationToken);
 
-                try
-                {
-                    var response = await _apiClient.BatchIngestFilesAsync(request, cancellationToken);
-                    totalIngested += response.Succeeded;
-                    totalFailed += response.Failed;
+                    totalProcessed += processed;
+                    totalIngested += ingested;
+                    totalFailed += failed;
 
-                    _logger.LogInformation("Batch ingested: {Success} succeeded, {Failed} failed", response.Succeeded, response.Failed);
+                    _logger.LogInformation(
+                        "Progress: {Scanned} scanned, {Ingested} ingested so far in {Path}",
+                        totalScanned, totalIngested, directoryPath);
+
+                    currentBatch.Clear();
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to ingest batch of {Count} files", batch.Length);
-                    totalFailed += batch.Length;
-                }
+            }
+
+            // Process remaining files in last batch
+            if (currentBatch.Count > 0)
+            {
+                var (processed, ingested, failed) = await ProcessAndIngestBatchAsync(
+                    directoryId, currentBatch, cancellationToken);
+
+                totalProcessed += processed;
+                totalIngested += ingested;
+                totalFailed += failed;
             }
 
             await _apiClient.UpdateLastScannedAsync(directoryId, cancellationToken);
 
             _logger.LogInformation(
                 "Completed indexing for directory {Path}: {Scanned} scanned, {Processed} processed, {Ingested} ingested, {Failed} failed",
-                directoryPath,
-                scannedFiles.Count,
-                processedFiles.Count,
-                totalIngested,
-                totalFailed);
+                directoryPath, totalScanned, totalProcessed, totalIngested, totalFailed);
 
+            activity?.SetTag("files.scanned", totalScanned);
+            activity?.SetTag("files.processed", totalProcessed);
             activity?.SetTag("files.ingested", totalIngested);
             activity?.SetTag("files.failed", totalFailed);
 
-            return job.Complete(scannedFiles.Count, processedFiles.Count, totalIngested, totalFailed);
+            return job.Complete(totalScanned, totalProcessed, totalIngested, totalFailed);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to index directory {Path}", directoryPath);
             activity?.SetTag("error", true);
             return job.Fail($"Indexing failed: {ex.Message}");
+        }
+    }
+
+    private async Task<(int processed, int ingested, int failed)> ProcessAndIngestBatchAsync(
+        Guid directoryId, List<ScannedFile> batch, CancellationToken cancellationToken)
+    {
+        var processedFiles = new List<ProcessedFile>();
+        var filePaths = batch.Select(f => f.FullPath).ToList();
+
+        // Compute hashes for batch
+        var hashResults = new Dictionary<string, HashResult>();
+        await foreach (var hashResult in _hashComputer.ComputeBatchAsync(filePaths, _options.MaxParallelism, cancellationToken))
+        {
+            hashResults[hashResult.FilePath] = hashResult;
+        }
+
+        // Extract metadata and optionally generate thumbnails
+        foreach (var scannedFile in batch)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+
+            if (!hashResults.TryGetValue(scannedFile.FullPath, out var hashResult) || !hashResult.Success)
+                continue;
+
+            try
+            {
+                var metadata = await _metadataExtractor.ExtractAsync(scannedFile.FullPath, cancellationToken);
+
+                byte[]? thumbnail = null;
+                if (_options.GenerateThumbnails)
+                {
+                    try
+                    {
+                        thumbnail = await _metadataExtractor.GenerateThumbnailAsync(
+                            scannedFile.FullPath,
+                            new ThumbnailOptions { MaxWidth = 200, MaxHeight = 200, Quality = 80 },
+                            cancellationToken);
+                    }
+                    catch { /* Thumbnail failure is non-fatal */ }
+                }
+
+                processedFiles.Add(new ProcessedFile
+                {
+                    ScannedFile = scannedFile,
+                    Hash = hashResult.Hash,
+                    Metadata = metadata,
+                    Thumbnail = thumbnail
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to process {Path}", scannedFile.FullPath);
+            }
+        }
+
+        if (processedFiles.Count == 0)
+            return (0, 0, batch.Count);
+
+        // Ingest to API
+        var request = new BatchIngestFilesRequest
+        {
+            ScanDirectoryId = directoryId,
+            Files = processedFiles.Select(f => new IngestFileItem
+            {
+                FilePath = f.ScannedFile.FullPath,
+                FileName = f.ScannedFile.FileName,
+                FileHash = f.Hash,
+                FileSize = f.ScannedFile.FileSizeBytes,
+                Width = f.Metadata.Width,
+                Height = f.Metadata.Height,
+                CreatedAt = f.Metadata.DateTaken,
+                ModifiedAt = f.ScannedFile.LastModifiedUtc,
+                ThumbnailBase64 = f.Thumbnail != null ? Convert.ToBase64String(f.Thumbnail) : null
+            }).ToList()
+        };
+
+        try
+        {
+            var response = await _apiClient.BatchIngestFilesAsync(request, cancellationToken);
+            return (processedFiles.Count, response.Succeeded, response.Failed);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to ingest batch of {Count} files", processedFiles.Count);
+            return (processedFiles.Count, 0, processedFiles.Count);
         }
     }
 
