@@ -38,9 +38,9 @@ services:
   # API Service
   # ===================================
   api:
-    # Use pre-built images instead of building on NAS
-    # Uncomment and adjust when publishing to a registry
-    # image: ghcr.io/yourusername/photos-index-api:latest
+    # Pre-built image from GitHub Container Registry
+    # Version is set via IMAGE_VERSION in .env (default: latest)
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/api:${IMAGE_VERSION:-latest}
     deploy:
       resources:
         limits:
@@ -52,8 +52,8 @@ services:
   # Indexing Service - Read-only access to photos
   # ===================================
   indexing-service:
-    # Use pre-built images instead of building on NAS
-    # image: ghcr.io/yourusername/photos-index-indexing:latest
+    # Pre-built image from GitHub Container Registry
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/indexing-service:${IMAGE_VERSION:-latest}
     volumes:
       # Photos directory - READ-ONLY for safety
       - ${HOST_PHOTOS_DIRECTORY:-/volume1/photo}:/photos:ro
@@ -70,9 +70,9 @@ services:
   # Cleaner Service - Disabled by default
   # ===================================
   cleaner-service:
-    # Keep disabled until duplicates are verified
-    # Set CLEANER_ENABLED=true in .env when ready
-    # image: ghcr.io/yourusername/photos-index-cleaner:latest
+    # Pre-built image from GitHub Container Registry
+    # Keep disabled until duplicates are verified (set CLEANER_ENABLED=true in .env when ready)
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/cleaner-service:${IMAGE_VERSION:-latest}
     volumes:
       # Photos directory - REQUIRES WRITE ACCESS for deletion
       - ${HOST_PHOTOS_DIRECTORY:-/volume1/photo}:/photos
@@ -89,8 +89,8 @@ services:
   # Web Interface
   # ===================================
   web:
-    # Use pre-built images instead of building on NAS
-    # image: ghcr.io/yourusername/photos-index-web:latest
+    # Pre-built image from GitHub Container Registry
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/web:${IMAGE_VERSION:-latest}
     deploy:
       resources:
         limits:
