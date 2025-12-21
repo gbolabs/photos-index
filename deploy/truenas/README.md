@@ -1,177 +1,181 @@
 # Photos Index - TrueNAS SCALE Deployment
 
-Helm chart for deploying Photos Index on TrueNAS SCALE. Designed for split deployment where the indexer runs on Synology and everything else runs here.
+Deploy Photos Index on TrueNAS SCALE using the Custom App feature.
+
+## Quick Start (Docker Compose)
+
+TrueNAS SCALE supports Docker Compose directly via **Apps > Discover Apps > Custom App > Install via YAML**.
+
+### 1. Prepare Storage
+
+Create datasets for persistent data:
+
+```bash
+# Via TrueNAS UI: Datasets > Add Dataset
+# Or via CLI:
+zfs create tank/apps/photos-index
+zfs create tank/apps/photos-index/postgres
+zfs create tank/apps/photos-index/thumbnails
+```
+
+### 2. Deploy the App
+
+1. Go to **Apps > Discover Apps > Custom App**
+2. Click **Install via YAML**
+3. Paste the contents of `docker-compose.yml`
+4. **Important**: Update the volume paths to match your datasets:
+   ```yaml
+   volumes:
+     - /mnt/tank/apps/photos-index/postgres:/var/lib/postgresql/data
+     - /mnt/tank/apps/photos-index/thumbnails:/data/thumbnails
+   ```
+5. Set a secure database password (replace `changeme`)
+6. Click **Save**
+
+### 3. Access the Application
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Web UI | `http://truenas:8080` | Main application |
+| API | `http://truenas:5000` | REST API (for Synology indexer) |
+| Aspire | `http://truenas:18888` | Observability dashboard |
+| Traefik | `http://truenas:8081` | Reverse proxy dashboard |
 
 ## Architecture
 
-This chart deploys:
-- **API Service**: REST API for file management
-- **Web UI**: Angular frontend served by nginx
-- **PostgreSQL**: Database for indexed files and metadata
-- **Aspire Dashboard**: OpenTelemetry collector and visualization
-
-The **Indexing Service** runs separately on Synology (see `deploy/synology-indexer/`).
-
-## Prerequisites
-
-- TrueNAS SCALE 24.04 or later
-- Helm 3.x
-- kubectl configured for TrueNAS
-
-## Quick Start
-
-### 1. Add the Helm Repository (Future)
-
-```bash
-# Once published to a chart repository
-helm repo add photos-index https://charts.example.com
-helm repo update
 ```
-
-### 2. Install from Local Chart
-
-```bash
-# Clone the repository
-git clone https://github.com/gbolabs/photos-index.git
-cd photos-index/deploy/truenas
-
-# Create namespace
-kubectl create namespace photos-index
-
-# Install with default values
-helm install photos-index . -n photos-index \
-  --set postgresql.auth.password=your-secure-password
-
-# Or with custom values
-helm install photos-index . -n photos-index -f my-values.yaml
-```
-
-### 3. Configure Ingress
-
-Edit `values.yaml` or use `--set`:
-
-```bash
-helm install photos-index . -n photos-index \
-  --set ingress.hostname=photos.mynas.local \
-  --set postgresql.auth.password=secure-password
+┌─────────────────────────────────────────────────────────────────┐
+│                      TrueNAS SCALE                               │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                Custom App (Docker Compose)                │   │
+│  │                                                           │   │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────┐  │   │
+│  │  │ Traefik │  │   API   │  │ Web UI  │  │   Aspire    │  │   │
+│  │  │  :80    │  │  :5000  │  │  :8080  │  │   :18888    │  │   │
+│  │  └─────────┘  └────┬────┘  └─────────┘  └─────────────┘  │   │
+│  │                    │                                      │   │
+│  │               ┌────▼────┐                                 │   │
+│  │               │PostgreSQL│                                │   │
+│  │               │  :5432  │                                 │   │
+│  │               └────┬────┘                                 │   │
+│  │                    │                                      │   │
+│  └────────────────────┼──────────────────────────────────────┘   │
+│                       │                                          │
+│              ┌────────▼────────┐                                 │
+│              │  ZFS Datasets   │                                 │
+│              │ /mnt/tank/apps/ │                                 │
+│              └─────────────────┘                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+                              │ HTTP API calls
+                              │
+┌─────────────────────────────────────────────────────────────────┐
+│                        Synology NAS                              │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │               Indexing Service (Docker)                   │   │
+│  │  API_URL=http://truenas:5000                             │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              │                                   │
+│                     [Photo Directories]                          │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Configuration
 
-### Key Values
+### Environment Variables
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `api.replicas` | API pod replicas | `1` |
-| `api.resources.limits.memory` | API memory limit | `1Gi` |
-| `postgresql.auth.password` | Database password | Required |
-| `postgresql.primary.persistence.size` | Database storage | `10Gi` |
-| `ingress.hostname` | Ingress hostname | `photos.local` |
-| `ingress.tls.enabled` | Enable HTTPS | `false` |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_PASSWORD` | `changeme` | Database password (change this!) |
 
-### Full Configuration
+### Volume Mounts
 
-See `values.yaml` for all options.
+TrueNAS recommends **Host Path** volumes pointing to ZFS datasets:
 
-### Example Custom Values
+| Container Path | Purpose | Recommended Dataset |
+|----------------|---------|---------------------|
+| `/var/lib/postgresql/data` | Database files | `tank/apps/photos-index/postgres` |
+| `/data/thumbnails` | Generated thumbnails | `tank/apps/photos-index/thumbnails` |
 
-```yaml
-# my-values.yaml
+### Port Mapping
 
-# Increase API resources
-api:
-  replicas: 2
-  resources:
-    limits:
-      memory: 2Gi
-      cpu: 2000m
-
-# Enable TLS
-ingress:
-  hostname: photos.mydomain.com
-  tls:
-    enabled: true
-    secretName: photos-tls
-
-# Larger database
-postgresql:
-  primary:
-    persistence:
-      size: 50Gi
-```
-
-## Accessing Services
-
-After installation:
-
-| Service | URL |
-|---------|-----|
-| Web UI | `http://photos.local/` |
-| API | `http://photos.local/api/` |
-| Health | `http://photos.local/health` |
-| Aspire | `http://aspire.photos.local/` |
+| Host Port | Container | Service |
+|-----------|-----------|---------|
+| 80 | traefik:80 | Reverse proxy (optional) |
+| 5000 | api:5000 | REST API |
+| 8080 | web:80 | Web UI |
+| 8081 | traefik:8080 | Traefik dashboard |
+| 18888 | aspire:18888 | Aspire dashboard |
+| 18889 | aspire:18889 | OTLP receiver |
 
 ## Connecting Synology Indexer
 
 Once TrueNAS is running, configure the Synology indexer:
 
 ```bash
-# On Synology
-cd /volume1/docker/photos-indexer
-echo "API_URL=http://truenas-ip:5000" > .env
-echo "PHOTOS_PATH=/volume1/photos" >> .env
+# On Synology - see deploy/synology-indexer/
+API_URL=http://truenas-ip:5000
+```
+
+The indexer will:
+1. Scan photos on Synology
+2. Compute hashes and generate thumbnails
+3. POST metadata to TrueNAS API
+4. TrueNAS stores data in PostgreSQL
+
+## Alternative: Helm Chart
+
+For advanced Kubernetes deployments, a Helm chart is also available in `templates/`. This is useful if you prefer Helm or need more customization.
+
+```bash
+helm install photos-index ./deploy/truenas -n photos-index
+```
+
+## Updating
+
+1. Go to **Apps > Installed Apps > photos-index**
+2. Click the three-dot menu > **Edit**
+3. Update image tags to latest versions
+4. Click **Save**
+
+Or pull new images:
+```bash
+docker compose pull
 docker compose up -d
 ```
 
-## Upgrading
-
-```bash
-helm upgrade photos-index . -n photos-index
-```
-
-## Uninstalling
-
-```bash
-helm uninstall photos-index -n photos-index
-
-# Optional: Remove PVCs
-kubectl delete pvc -n photos-index -l app.kubernetes.io/instance=photos-index
-```
-
-## TrueNAS App Catalog (Future)
-
-This chart will be submitted to TrueCharts for easy installation via TrueNAS UI.
-
 ## Troubleshooting
 
-### Check Pod Status
+### Check Container Logs
 
 ```bash
-kubectl get pods -n photos-index
-kubectl describe pod photos-index-api-xxx -n photos-index
-```
-
-### View Logs
-
-```bash
-kubectl logs -n photos-index -l app.kubernetes.io/component=api -f
+# Via TrueNAS UI: Apps > photos-index > Logs
+# Or via CLI:
+docker logs photos-index-api
+docker logs photos-index-postgres
 ```
 
 ### Database Connection Issues
 
 ```bash
-# Check PostgreSQL is running
-kubectl get pods -n photos-index -l app.kubernetes.io/component=postgresql
+# Check PostgreSQL is healthy
+docker exec photos-index-postgres pg_isready -U photosindex
 
-# Check connection from API pod
-kubectl exec -n photos-index deploy/photos-index-api -- \
-  curl -v telnet://photos-index-postgresql:5432
+# Check API can reach database
+docker logs photos-index-api | grep -i database
 ```
 
-### Ingress Issues
+### Permission Issues
 
+Ensure datasets have correct permissions:
 ```bash
-# Check ingress configuration
-kubectl get ingress -n photos-index
-kubectl describe ingress photos-index-ingress -n photos-index
+# TrueNAS datasets typically use uid/gid 568
+chown -R 568:568 /mnt/tank/apps/photos-index/
 ```
+
+### Synology Can't Connect
+
+1. Verify TrueNAS IP is reachable from Synology
+2. Check port 5000 is not blocked by firewall
+3. Test: `curl http://truenas-ip:5000/health`
