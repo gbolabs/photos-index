@@ -1,0 +1,50 @@
+<mat-toolbar class="bulk-toolbar">
+  <div class="stats-section">
+    @if (stats()) {
+      <mat-chip-set>
+        <mat-chip>
+          <mat-icon>content_copy</mat-icon>
+          {{ stats()!.duplicateGroups }} groups
+        </mat-chip>
+        <mat-chip>
+          <mat-icon>insert_drive_file</mat-icon>
+          {{ stats()!.duplicateFiles }} duplicate files
+        </mat-chip>
+        <mat-chip class="savings-chip">
+          <mat-icon>savings</mat-icon>
+          {{ stats()!.potentialSavingsBytes | fileSize }} potential savings
+        </mat-chip>
+      </mat-chip-set>
+    }
+  </div>
+
+  <div class="actions-section">
+    @if (hasSelection) {
+      <span class="selection-info">{{ selectionCount }} selected</span>
+    }
+
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="autoSelectAll()"
+      [disabled]="loading()"
+      matTooltip="Auto-select originals for all groups"
+    >
+      @if (loading()) {
+        <mat-spinner diameter="20"></mat-spinner>
+      } @else {
+        <mat-icon>auto_fix_high</mat-icon>
+      }
+      Auto-Select All
+    </button>
+
+    <button
+      mat-icon-button
+      (click)="refresh()"
+      matTooltip="Refresh"
+      [disabled]="loading()"
+    >
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+</mat-toolbar>

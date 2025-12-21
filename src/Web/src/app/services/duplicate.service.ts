@@ -3,15 +3,24 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
-import { DuplicateGroupDto, SetOriginalRequest, PagedResponse } from '../models';
+import { DuplicateGroupDto, PagedResponse, FileStatisticsDto } from '../models';
 import { ApiErrorHandler } from './api-error-handler';
+
+/**
+ * Request for auto-selection rules.
+ */
+export interface AutoSelectRequest {
+  preferLargest?: boolean;
+  preferOldest?: boolean;
+  preferShortestPath?: boolean;
+}
 
 /**
  * Service for managing duplicate file groups.
  * Provides operations for viewing, resolving, and managing duplicates.
  */
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class DuplicateService {
   private http = inject(HttpClient);
@@ -21,11 +30,13 @@ export class DuplicateService {
   /**
    * Gets all duplicate groups with pagination.
    */
-  getAll(page = 1, pageSize = 50, resolved = false): Observable<PagedResponse<DuplicateGroupDto>> {
+  getAll(
+    page = 1,
+    pageSize = 20
+  ): Observable<PagedResponse<DuplicateGroupDto>> {
     const params = new HttpParams()
       .set('page', page.toString())
-      .set('pageSize', pageSize.toString())
-      .set('resolved', resolved.toString());
+      .set('pageSize', pageSize.toString());
 
     return this.http
       .get<PagedResponse<DuplicateGroupDto>>(this.apiUrl, { params })
@@ -33,7 +44,7 @@ export class DuplicateService {
   }
 
   /**
-   * Gets a specific duplicate group by ID.
+   * Gets a specific duplicate group by ID with all its files.
    */
   getById(id: string): Observable<DuplicateGroupDto> {
     return this.http
@@ -44,51 +55,72 @@ export class DuplicateService {
   /**
    * Sets a file as the original (keeper) in a duplicate group.
    */
-  setOriginal(groupId: string, request: SetOriginalRequest): Observable<DuplicateGroupDto> {
+  setOriginal(groupId: string, fileId: string): Observable<void> {
     return this.http
-      .post<DuplicateGroupDto>(`${this.apiUrl}/${groupId}/set-original`, request)
+      .put<void>(`${this.apiUrl}/${groupId}/original`, { fileId })
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
 
   /**
-   * Auto-selects the best file as original based on criteria (e.g., highest resolution, oldest date).
-   * Backend will use heuristics to determine the best file.
+   * Auto-selects the best file as original based on configurable rules.
    */
-  autoSelect(groupId: string): Observable<DuplicateGroupDto> {
+  autoSelect(
+    groupId: string,
+    request?: AutoSelectRequest
+  ): Observable<{ originalFileId: string }> {
     return this.http
-      .post<DuplicateGroupDto>(`${this.apiUrl}/${groupId}/auto-select`, {})
+      .post<{ originalFileId: string }>(
+        `${this.apiUrl}/${groupId}/auto-select`,
+        request || {}
+      )
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
 
   /**
-   * Marks a duplicate group as resolved.
+   * Auto-selects originals for all unresolved duplicate groups.
    */
-  resolve(groupId: string): Observable<DuplicateGroupDto> {
+  autoSelectAll(
+    request?: AutoSelectRequest
+  ): Observable<{ groupsProcessed: number }> {
     return this.http
-      .post<DuplicateGroupDto>(`${this.apiUrl}/${groupId}/resolve`, {})
+      .post<{ groupsProcessed: number }>(
+        `${this.apiUrl}/auto-select-all`,
+        request || {}
+      )
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
 
   /**
-   * Deletes all duplicate files in a group except the original.
+   * Gets duplicate statistics.
    */
-  deleteDuplicates(groupId: string): Observable<void> {
+  getStatistics(): Observable<FileStatisticsDto> {
     return this.http
-      .delete<void>(`${this.apiUrl}/${groupId}/duplicates`)
+      .get<FileStatisticsDto>(`${this.apiUrl}/stats`)
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
 
   /**
-   * Gets unresolved duplicate groups only.
+   * Queues non-original files in a group for deletion.
    */
-  getUnresolved(page = 1, pageSize = 50): Observable<PagedResponse<DuplicateGroupDto>> {
-    return this.getAll(page, pageSize, false);
+  deleteNonOriginals(groupId: string): Observable<{ filesQueued: number }> {
+    return this.http
+      .delete<{ filesQueued: number }>(
+        `${this.apiUrl}/${groupId}/non-originals`
+      )
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
 
   /**
-   * Gets resolved duplicate groups only.
+   * Gets the thumbnail URL for a file.
    */
-  getResolved(page = 1, pageSize = 50): Observable<PagedResponse<DuplicateGroupDto>> {
-    return this.getAll(page, pageSize, true);
+  getThumbnailUrl(fileId: string): string {
+    return `${environment.apiUrl}/api/files/${fileId}/thumbnail`;
+  }
+
+  /**
+   * Gets the download URL for a file.
+   */
+  getDownloadUrl(fileId: string): string {
+    return `${environment.apiUrl}/api/files/${fileId}/download`;
   }
 }

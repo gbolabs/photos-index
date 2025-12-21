@@ -1,0 +1,170 @@
+<div class="detail-container">
+  <div class="detail-header">
+    <button mat-icon-button (click)="goBack()" matTooltip="Back to list">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <h2>Duplicate Group</h2>
+    @if (group()) {
+      <div class="header-info">
+        <mat-chip>{{ files().length }} files</mat-chip>
+        <mat-chip class="savings">
+          <mat-icon>savings</mat-icon>
+          {{ group()!.potentialSavings | fileSize }} potential savings
+        </mat-chip>
+        @if (isResolved()) {
+          <mat-chip class="resolved" highlighted>
+            <mat-icon>check_circle</mat-icon>
+            Resolved
+          </mat-chip>
+        }
+      </div>
+    }
+  </div>
+
+  @if (loading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading group details...</p>
+    </div>
+  } @else if (error()) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <mat-icon color="warn">error</mat-icon>
+        <span>{{ error() }}</span>
+        <button mat-button color="primary" (click)="loadGroup()">Retry</button>
+      </mat-card-content>
+    </mat-card>
+  } @else if (group()) {
+    <!-- Action Toolbar -->
+    <div class="action-toolbar">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="autoSelectOriginal()"
+        [disabled]="isResolved()"
+      >
+        <mat-icon>auto_fix_high</mat-icon>
+        Auto-Select Original
+      </button>
+      @if (isResolved()) {
+        <button
+          mat-raised-button
+          color="warn"
+          (click)="deleteNonOriginals()"
+        >
+          <mat-icon>delete</mat-icon>
+          Delete Duplicates
+        </button>
+      }
+      @if (comparisonMode()) {
+        <button mat-button (click)="clearComparison()">
+          <mat-icon>close</mat-icon>
+          Clear Comparison
+        </button>
+      }
+    </div>
+
+    <!-- Comparison View -->
+    @if (comparisonMode()) {
+      <app-image-comparison
+        [leftFile]="comparisonFiles()[0]"
+        [rightFile]="comparisonFiles()[1]"
+        [getThumbnailUrl]="getThumbnailUrl.bind(this)"
+        [getDownloadUrl]="getDownloadUrl.bind(this)"
+      ></app-image-comparison>
+    }
+
+    <!-- Files Grid -->
+    <div class="files-grid">
+      @for (file of files(); track file.id) {
+        <mat-card
+          class="file-card"
+          [class.selected]="isFileSelected(file)"
+          [class.original]="isOriginal(file)"
+          [class.in-comparison]="isInComparison(file)"
+          (click)="selectFile(file)"
+        >
+          @if (isOriginal(file)) {
+            <div class="original-badge">
+              <mat-icon>star</mat-icon>
+              Original
+            </div>
+          }
+
+          <div class="file-thumbnail">
+            <img
+              [src]="getThumbnailUrl(file)"
+              [alt]="file.fileName"
+              loading="lazy"
+              (error)="$any($event.target).src = 'assets/placeholder.svg'"
+            />
+            <div class="thumbnail-overlay">
+              <button
+                mat-icon-button
+                matTooltip="View Full Size"
+                (click)="openFullscreen(file); $event.stopPropagation()"
+              >
+                <mat-icon>fullscreen</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                [matTooltip]="isInComparison(file) ? 'Remove from comparison' : 'Add to comparison'"
+                (click)="toggleComparison(file); $event.stopPropagation()"
+                [disabled]="!isInComparison(file) && comparisonFiles().length >= 2"
+              >
+                <mat-icon>{{ isInComparison(file) ? 'compare_arrows' : 'add' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <mat-card-content>
+            <h4 class="file-name" [matTooltip]="file.fileName">{{ file.fileName }}</h4>
+            <p class="file-path" [matTooltip]="file.filePath">{{ getDirectory(file.filePath) }}</p>
+
+            <div class="file-meta">
+              <div class="meta-item">
+                <mat-icon>photo_size_select_large</mat-icon>
+                <span>{{ formatDimensions(file) }}</span>
+              </div>
+              <div class="meta-item">
+                <mat-icon>sd_storage</mat-icon>
+                <span>{{ file.fileSize | fileSize }}</span>
+              </div>
+              <div class="meta-item">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ formatDate(file.createdAt) }}</span>
+              </div>
+            </div>
+          </mat-card-content>
+
+          <mat-card-actions>
+            @if (!isOriginal(file)) {
+              <button
+                mat-button
+                color="primary"
+                (click)="setAsOriginal(file); $event.stopPropagation()"
+              >
+                <mat-icon>star_outline</mat-icon>
+                Set as Original
+              </button>
+            } @else {
+              <span class="original-label">
+                <mat-icon>check</mat-icon>
+                This is the original
+              </span>
+            }
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+
+    <!-- Selected File Details -->
+    @if (selectedFileId()) {
+      @for (file of files(); track file.id) {
+        @if (file.id === selectedFileId()) {
+          <app-file-metadata-table [file]="file"></app-file-metadata-table>
+        }
+      }
+    }
+  }
+</div>
