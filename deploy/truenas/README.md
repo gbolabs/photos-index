@@ -12,34 +12,129 @@ Create datasets for persistent data:
 
 ```bash
 # Via TrueNAS UI: Datasets > Add Dataset
-# Or via CLI:
-zfs create tank/apps/photos-index
-zfs create tank/apps/photos-index/postgres
-zfs create tank/apps/photos-index/thumbnails
+# Create two datasets:
+# - One for PostgreSQL data (e.g., hdr1/dbs/photos-index)
+# - One for thumbnails (e.g., hdr1/apps/photos-index)
 ```
 
-### 2. Deploy the App
+### 2. Set Permissions
+
+**Important**: PostgreSQL Alpine container runs as uid 70, API runs as uid 1000.
+
+```bash
+# PostgreSQL data directory - MUST be uid 70
+sudo chown 70:70 /mnt/<pool>/dbs/photos-index
+sudo chmod 700 /mnt/<pool>/dbs/photos-index
+
+# Thumbnails directory - uid 1000
+sudo chown 1000:1000 /mnt/<pool>/apps/photos-index
+```
+
+### 3. Deploy the App
 
 1. Go to **Apps > Discover Apps > Custom App**
 2. Click **Install via YAML**
 3. Paste the contents of `docker-compose.yml`
-4. **Important**: Update the volume paths to match your datasets:
-   ```yaml
-   volumes:
-     - /mnt/tank/apps/photos-index/postgres:/var/lib/postgresql/data
-     - /mnt/tank/apps/photos-index/thumbnails:/data/thumbnails
-   ```
+4. **Update the volume paths** to match your datasets
 5. Set a secure database password (replace `changeme`)
 6. Click **Save**
 
-### 3. Access the Application
+### 4. Access the Application
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Web UI | `http://truenas:8080` | Main application |
-| API | `http://truenas:5000` | REST API (for Synology indexer) |
-| Aspire | `http://truenas:18888` | Observability dashboard |
-| Traefik | `http://truenas:8081` | Reverse proxy dashboard |
+| Web UI | `http://truenas:8050` | Main application |
+| API | `http://truenas:8050/api/` | REST API (via Traefik) |
+| Aspire | `http://truenas:8052` | Observability dashboard |
+| Traefik | `http://truenas:8054` | Reverse proxy dashboard |
+| OTLP | `http://truenas:8053` | Telemetry receiver (for indexer) |
+
+## Working Configuration
+
+```yaml
+name: photos-index
+
+services:
+  traefik:
+    image: traefik:v3.2
+    container_name: photos-index-traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "8050:80"
+      - "8054:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: photos-index-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: photosindex
+      POSTGRES_USER: photosindex
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      # UPDATE THIS PATH to your PostgreSQL dataset
+      - /mnt/hdr1/dbs/photos-index:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U photosindex -d photosindex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/gbolabs/photos-index/api:0.0.1
+    container_name: photos-index-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTPS_PORTS: ""
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=photosindex;Username=photosindex;Password=changeme"
+      ThumbnailDirectory: /data/thumbnails
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire:18889"
+      OTEL_SERVICE_NAME: photos-index-api
+    volumes:
+      # UPDATE THIS PATH to your thumbnails dataset
+      - /mnt/hdr1/apps/photos-index:/data/thumbnails
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.priority=100"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+
+  web:
+    image: ghcr.io/gbolabs/photos-index/web:0.0.1
+    container_name: photos-index-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.web.entrypoints=web"
+      - "traefik.http.routers.web.priority=1"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
+
+  aspire:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+    container_name: photos-index-aspire
+    restart: unless-stopped
+    environment:
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "8052:18888"
+      - "8053:18889"
+```
 
 ## Architecture
 
@@ -51,10 +146,12 @@ zfs create tank/apps/photos-index/thumbnails
 │  │                Custom App (Docker Compose)                │   │
 │  │                                                           │   │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────┐  │   │
-│  │  │ Traefik │  │   API   │  │ Web UI  │  │   Aspire    │  │   │
-│  │  │  :80    │  │  :5000  │  │  :8080  │  │   :18888    │  │   │
+│  │  │ Traefik │──│   API   │  │ Web UI  │  │   Aspire    │  │   │
+│  │  │  :8050  │  │  :8080  │  │   :80   │  │ :8052/:8053 │  │   │
 │  │  └─────────┘  └────┬────┘  └─────────┘  └─────────────┘  │   │
-│  │                    │                                      │   │
+│  │       │            │                           ▲          │   │
+│  │       └────────────┼───────────────────────────┘          │   │
+│  │                    │                      OTLP            │   │
 │  │               ┌────▼────┐                                 │   │
 │  │               │PostgreSQL│                                │   │
 │  │               │  :5432  │                                 │   │
@@ -64,50 +161,58 @@ zfs create tank/apps/photos-index/thumbnails
 │                       │                                          │
 │              ┌────────▼────────┐                                 │
 │              │  ZFS Datasets   │                                 │
-│              │ /mnt/tank/apps/ │                                 │
+│              │   /mnt/hdr1/    │                                 │
 │              └─────────────────┘                                 │
 └─────────────────────────────────────────────────────────────────┘
                               ▲
-                              │ HTTP API calls
-                              │
+                              │ HTTP API (:8050/api)
+                              │ OTLP (:8053)
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Synology NAS                              │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │               Indexing Service (Docker)                   │   │
-│  │  API_URL=http://truenas:5000                             │   │
+│  │  API_URL=http://truenas:8050/api                         │   │
+│  │  OTEL_ENDPOINT=http://truenas:8053                       │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                              │                                   │
 │                     [Photo Directories]                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Configuration
+## Important Notes
 
-### Environment Variables
+### Port 80 is Usually in Use
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_PASSWORD` | `changeme` | Database password (change this!) |
+TrueNAS SCALE typically uses port 80 for its own services. The configuration uses port **8050** as the main entry point instead.
 
-### Volume Mounts
+### Aspire Dashboard Must Be Direct
 
-TrueNAS recommends **Host Path** volumes pointing to ZFS datasets:
+The Aspire dashboard doesn't work behind a reverse proxy with path prefix stripping. It's exposed directly on port **8052**.
 
-| Container Path | Purpose | Recommended Dataset |
-|----------------|---------|---------------------|
-| `/var/lib/postgresql/data` | Database files | `tank/apps/photos-index/postgres` |
-| `/data/thumbnails` | Generated thumbnails | `tank/apps/photos-index/thumbnails` |
+### Image Names
 
-### Port Mapping
+The correct image format is:
+- `ghcr.io/gbolabs/photos-index/api:<version>`
+- `ghcr.io/gbolabs/photos-index/web:<version>`
+- `ghcr.io/gbolabs/photos-index/indexing-service:<version>`
 
-| Host Port | Container | Service |
-|-----------|-----------|---------|
-| 80 | traefik:80 | Reverse proxy (optional) |
-| 5000 | api:5000 | REST API |
-| 8080 | web:80 | Web UI |
-| 8081 | traefik:8080 | Traefik dashboard |
-| 18888 | aspire:18888 | Aspire dashboard |
-| 18889 | aspire:18889 | OTLP receiver |
+**NOT** `ghcr.io/gbolabs/photos-index-api` (wrong format).
+
+### PostgreSQL Permissions
+
+The `postgres:16-alpine` image runs as **uid 70**, not 999. Always set:
+```bash
+sudo chown 70:70 /mnt/<pool>/dbs/photos-index
+```
+
+### HTTPS Redirect
+
+The API has HTTPS redirect middleware. Disable it with:
+```yaml
+environment:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  ASPNETCORE_HTTPS_PORTS: ""
+```
 
 ## Connecting Synology Indexer
 
@@ -115,67 +220,62 @@ Once TrueNAS is running, configure the Synology indexer:
 
 ```bash
 # On Synology - see deploy/synology-indexer/
-API_URL=http://truenas-ip:5000
+API_URL=http://truenas-ip:8050/api
+OTEL_EXPORTER_OTLP_ENDPOINT=http://truenas-ip:8053
 ```
 
 The indexer will:
 1. Scan photos on Synology
 2. Compute hashes and generate thumbnails
 3. POST metadata to TrueNAS API
-4. TrueNAS stores data in PostgreSQL
-
-## Alternative: Helm Chart
-
-For advanced Kubernetes deployments, a Helm chart is also available in `templates/`. This is useful if you prefer Helm or need more customization.
-
-```bash
-helm install photos-index ./deploy/truenas -n photos-index
-```
+4. Send telemetry to Aspire dashboard
 
 ## Updating
 
-1. Go to **Apps > Installed Apps > photos-index**
-2. Click the three-dot menu > **Edit**
-3. Update image tags to latest versions
-4. Click **Save**
+Update to a new version:
 
-Or pull new images:
 ```bash
-docker compose pull
-docker compose up -d
+# Edit the YAML and change image tags
+image: ghcr.io/gbolabs/photos-index/api:0.0.2
+```
+
+Or use the IMAGE_VERSION variable:
+
+```yaml
+image: ghcr.io/gbolabs/photos-index/api:${IMAGE_VERSION:-latest}
 ```
 
 ## Troubleshooting
 
-### Check Container Logs
+### Container Logs
 
 ```bash
-# Via TrueNAS UI: Apps > photos-index > Logs
-# Or via CLI:
+# Via TrueNAS shell
 docker logs photos-index-api
 docker logs photos-index-postgres
+docker logs photos-index-web
 ```
 
-### Database Connection Issues
+### PostgreSQL Unhealthy
 
 ```bash
-# Check PostgreSQL is healthy
-docker exec photos-index-postgres pg_isready -U photosindex
+# Check permissions
+sudo ls -la /mnt/<pool>/dbs/photos-index/
 
-# Check API can reach database
-docker logs photos-index-api | grep -i database
+# Should show uid 70
+# If not, fix permissions:
+sudo rm -rf /mnt/<pool>/dbs/photos-index/*
+sudo chown 70:70 /mnt/<pool>/dbs/photos-index
 ```
 
-### Permission Issues
+### Port Already in Use
 
-Ensure datasets have correct permissions:
-```bash
-# TrueNAS datasets typically use uid/gid 568
-chown -R 568:568 /mnt/tank/apps/photos-index/
-```
+If you see "bind: address already in use", another service is using that port. Change to a different port in the YAML (e.g., 8050 instead of 80).
 
-### Synology Can't Connect
+### Traefik Still in Error Logs
 
-1. Verify TrueNAS IP is reachable from Synology
-2. Check port 5000 is not blocked by firewall
-3. Test: `curl http://truenas-ip:5000/health`
+If you removed Traefik but still see it in error logs, TrueNAS may have cached the old YAML. Delete the app completely and reinstall.
+
+### API Returns 404
+
+Check the exact path. API endpoints are at `/api/files/stats`, `/api/duplicates`, etc. The `/health` endpoint may not exist in all versions.

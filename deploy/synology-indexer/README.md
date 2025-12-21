@@ -5,30 +5,36 @@ This deployment runs **only the indexing service** on your Synology NAS. All oth
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│              TrueNAS SCALE                   │
-│  ┌─────────┐  ┌─────────┐  ┌─────────────┐  │
-│  │   API   │  │ Web UI  │  │  PostgreSQL │  │
-│  │  :5000  │  │  :80    │  │    :5432    │  │
-│  └────▲────┘  └─────────┘  └─────────────┘  │
-└───────┼─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                  TrueNAS SCALE                       │
+│  ┌─────────┐  ┌─────────┐  ┌──────┐  ┌──────────┐  │
+│  │ Traefik │──│   API   │  │ Web  │  │PostgreSQL│  │
+│  │  :8050  │  │  :8080  │  │  :80 │  │  :5432   │  │
+│  └────▲────┘  └─────────┘  └──────┘  └──────────┘  │
+│       │                                             │
+│  ┌────┴────┐                                        │
+│  │ Aspire  │ OTLP: 8053                             │
+│  │  :8052  │                                        │
+│  └────▲────┘                                        │
+└───────┼─────────────────────────────────────────────┘
         │
-        │ HTTP API calls
-        │ (file metadata, thumbnails)
+        │ HTTP API calls (:8050/api)
+        │ OTLP telemetry (:8053)
         │
-┌───────┴─────────────────────────────────────┐
-│              Synology NAS                    │
-│  ┌─────────────────────────────────────┐    │
-│  │         Indexing Service            │    │
-│  │  • Scans photo directories          │    │
-│  │  • Computes file hashes             │    │
-│  │  • Generates thumbnails             │    │
-│  │  • Sends data to TrueNAS API        │    │
-│  └─────────────────────────────────────┘    │
-│                    │                         │
-│              [Photo Files]                   │
-│             /volume1/photos                  │
-└─────────────────────────────────────────────┘
+┌───────┴─────────────────────────────────────────────┐
+│                   Synology NAS                       │
+│  ┌───────────────────────────────────────────────┐  │
+│  │              Indexing Service                 │  │
+│  │  • Scans photo directories                    │  │
+│  │  • Computes file hashes                       │  │
+│  │  • Generates thumbnails                       │  │
+│  │  • Sends data to TrueNAS API                  │  │
+│  │  • Sends telemetry to Aspire                  │  │
+│  └───────────────────────────────────────────────┘  │
+│                       │                              │
+│                 [Photo Files]                        │
+│                /volume1/photos                       │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Prerequisites
@@ -59,14 +65,17 @@ cp .env.example .env
 Edit `.env` and set:
 
 ```bash
-# Your TrueNAS IP or hostname
-API_URL=http://192.168.1.100:5000
+# Your TrueNAS IP - use the Traefik port with /api path
+API_URL=http://192.168.1.100:8050/api
 
-# Path to your photos
+# Path to your photos on Synology
 PHOTOS_PATH=/volume1/photos
 
 # Optional: Scan interval (default: 60 minutes)
 SCAN_INTERVAL_MINUTES=60
+
+# Optional: Send telemetry to Aspire on TrueNAS
+OTEL_ENDPOINT=http://192.168.1.100:8053
 ```
 
 ### 3. Start the Indexer
@@ -95,6 +104,8 @@ docker compose logs -f indexer
 # - Found X files
 # - Indexed X files successfully
 ```
+
+Check Aspire dashboard on TrueNAS (`http://truenas:8052`) for traces from `photos-index-indexer-synology`.
 
 ## Configuration Options
 
@@ -130,16 +141,16 @@ Send traces to TrueNAS Aspire Dashboard:
 
 ```bash
 # In .env
-OTEL_ENDPOINT=http://truenas.local:18889
+OTEL_ENDPOINT=http://truenas-ip:8053
 ```
 
 ## Troubleshooting
 
 ### Cannot connect to API
 
-1. Verify TrueNAS IP is correct: `ping truenas.local`
-2. Check API is running: `curl http://truenas.local:5000/health`
-3. Check firewall allows port 5000
+1. Verify TrueNAS IP is correct: `ping truenas-ip`
+2. Check API is running: `curl http://truenas-ip:8050/api/files/stats`
+3. Check firewall allows port 8050
 
 ### Indexer not finding files
 

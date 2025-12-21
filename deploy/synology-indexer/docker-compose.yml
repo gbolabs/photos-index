@@ -8,19 +8,20 @@
 # - API endpoint is reachable from Synology
 #
 # Usage:
-#   1. Copy this file to your Synology
-#   2. Edit the environment variables below
-#   3. Run: docker compose up -d
+#   1. Copy this file and .env.example to your Synology
+#   2. cp .env.example .env
+#   3. Edit .env with your TrueNAS IP and photo paths
+#   4. Run: docker compose up -d
 
 services:
   indexer:
-    image: ghcr.io/gbolabs/photos-index/indexing-service:${IMAGE_VERSION:-latest}
+    image: ghcr.io/gbolabs/photos-index/indexing-service:${IMAGE_VERSION:-0.0.1}
     container_name: photos-indexer
     restart: unless-stopped
 
     environment:
-      # Required: TrueNAS API endpoint
-      - API_URL=${API_URL:-http://truenas.local:5000}
+      # Required: TrueNAS API endpoint (via Traefik)
+      - API_URL=${API_URL:-http://truenas.local:8050/api}
 
       # Directories to scan (comma-separated, maps to container paths)
       - SCAN_DIRECTORIES=/photos
@@ -31,12 +32,12 @@ services:
       # Logging level
       - LOG_LEVEL=${LOG_LEVEL:-Information}
 
-      # OpenTelemetry (optional - send traces to TrueNAS Aspire)
+      # OpenTelemetry - send traces to TrueNAS Aspire
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_ENDPOINT:-}
       - OTEL_SERVICE_NAME=photos-index-indexer-synology
 
-      # Resource limits
-      - DOTNET_GCHeapHardLimit=200000000  # ~200MB heap limit
+      # Resource limits for Synology
+      - DOTNET_GCHeapHardLimit=200000000
 
     volumes:
       # Mount your photo directories (read-only for safety)
@@ -57,23 +58,9 @@ services:
           memory: 128M
           cpus: '0.25'
 
-    # Health check
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
     # Logging configuration
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-# Optional: Network configuration if using custom networks
-# networks:
-#   default:
-#     external: true
-#     name: my-network
