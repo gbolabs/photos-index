@@ -2,86 +2,24 @@
 #
 # Deploy via: Apps > Discover Apps > Custom App > Install via YAML
 #
-# Before installing:
-# 1. Create a dataset for PostgreSQL data (e.g., tank/apps/photos-index/postgres)
-# 2. Create a dataset for thumbnails (e.g., tank/apps/photos-index/thumbnails)
-# 3. Note the dataset paths for the volume mounts below
+# Before deploying:
+# 1. Create datasets for PostgreSQL and thumbnails
+# 2. Set permissions:
+#    sudo chown 70:70 /mnt/<pool>/dbs/photos-index     # PostgreSQL (uid 70)
+#    sudo chown 1000:1000 /mnt/<pool>/apps/photos-index # Thumbnails (uid 1000)
+# 3. Update volume paths below to match your datasets
+# 4. Change the database password!
 #
-# After installing:
-# - Access Web UI at http://truenas-ip:8080
-# - Access Aspire Dashboard at http://truenas-ip:18888
-# - Configure Synology indexer to point to http://truenas-ip:8080/api
+# Access points:
+# - Web UI:  http://truenas:8050
+# - API:     http://truenas:8050/api/
+# - Aspire:  http://truenas:8052
+# - Traefik: http://truenas:8054
+# - OTLP:    http://truenas:8053 (for Synology indexer)
 
 name: photos-index
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: photos-index-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: photosindex
-      POSTGRES_USER: photosindex
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-    volumes:
-      # TrueNAS Host Path - update to your dataset path
-      - /mnt/tank/apps/photos-index/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U photosindex -d photosindex"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # API Service
-  api:
-    image: ghcr.io/gbolabs/photos-index/api:${IMAGE_VERSION:-latest}
-    container_name: photos-index-api
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=photosindex;Username=photosindex;Password=${POSTGRES_PASSWORD:-changeme}
-      - ThumbnailDirectory=/data/thumbnails
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire:18889
-      - OTEL_SERVICE_NAME=photos-index-api
-    volumes:
-      # TrueNAS Host Path - update to your dataset path
-      - /mnt/tank/apps/photos-index/thumbnails:/data/thumbnails
-    ports:
-      - "5000:8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Web UI (nginx serving Angular app)
-  web:
-    image: ghcr.io/gbolabs/photos-index/web:${IMAGE_VERSION:-latest}
-    container_name: photos-index-web
-    restart: unless-stopped
-    depends_on:
-      - api
-    environment:
-      - API_URL=http://api:8080
-    ports:
-      - "8080:80"
-
-  # Aspire Dashboard (OpenTelemetry)
-  aspire:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
-    container_name: photos-index-aspire
-    restart: unless-stopped
-    environment:
-      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
-    ports:
-      - "18888:18888"  # Dashboard UI
-      - "18889:18889"  # OTLP receiver
-
-  # Traefik Reverse Proxy (optional - for single entry point)
   traefik:
     image: traefik:v3.2
     container_name: photos-index-traefik
@@ -92,12 +30,74 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
     ports:
-      - "80:80"
-      - "8081:8080"  # Traefik dashboard
+      - "8050:80"
+      - "8054:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    labels:
-      - "traefik.enable=false"
 
-# Note: TrueNAS recommends Host Path volumes over named volumes
-# Update the volume paths above to match your TrueNAS datasets
+  postgres:
+    image: postgres:16-alpine
+    container_name: photos-index-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: photosindex
+      POSTGRES_USER: photosindex
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      # UPDATE THIS PATH - PostgreSQL data (chown 70:70)
+      - /mnt/hdr1/dbs/photos-index:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U photosindex -d photosindex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/gbolabs/photos-index/api:${IMAGE_VERSION:-0.0.1}
+    container_name: photos-index-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTPS_PORTS: ""
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=photosindex;Username=photosindex;Password=changeme"
+      ThumbnailDirectory: /data/thumbnails
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire:18889"
+      OTEL_SERVICE_NAME: photos-index-api
+    volumes:
+      # UPDATE THIS PATH - Thumbnails (chown 1000:1000)
+      - /mnt/hdr1/apps/photos-index:/data/thumbnails
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.priority=100"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+
+  web:
+    image: ghcr.io/gbolabs/photos-index/web:${IMAGE_VERSION:-0.0.1}
+    container_name: photos-index-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.web.entrypoints=web"
+      - "traefik.http.routers.web.priority=1"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
+
+  aspire:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+    container_name: photos-index-aspire
+    restart: unless-stopped
+    environment:
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      # Aspire UI - direct access (doesn't work behind reverse proxy)
+      - "8052:18888"
+      # OTLP receiver - for Synology indexer telemetry
+      - "8053:18889"
