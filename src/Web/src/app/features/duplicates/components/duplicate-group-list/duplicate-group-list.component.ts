@@ -110,12 +110,16 @@ export class DuplicateGroupListComponent implements OnInit {
     this.loadGroups();
   }
 
-  getThumbnailUrl(group: DuplicateGroupDto): string {
-    // Use the first file's thumbnail as preview
-    if (group.files && group.files.length > 0) {
-      return this.duplicateService.getThumbnailUrl(group.files[0].id);
+  getThumbnailUrl(group: DuplicateGroupDto, index: number = 0): string {
+    // Get thumbnail URL for a specific file in the group
+    if (group.files && group.files.length > index) {
+      return this.duplicateService.getThumbnailUrl(group.files[index].id);
     }
     return 'assets/placeholder.svg';
+  }
+
+  hasMultipleFiles(group: DuplicateGroupDto): boolean {
+    return group.files && group.files.length >= 2;
   }
 
   isResolved(group: DuplicateGroupDto): boolean {
