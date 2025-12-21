@@ -9,6 +9,11 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.gitignore'
 
 env:
   DOTNET_VERSION: '10.0.x'
