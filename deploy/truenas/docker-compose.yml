@@ -35,14 +35,14 @@ services:
 
   # API Service
   api:
-    image: ghcr.io/gbolabs/photos-index-api:latest
+    image: ghcr.io/gbolabs/photos-index/api:${IMAGE_VERSION:-latest}
     container_name: photos-index-api
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      - ASPNETCORE_URLS=http://+:5000
+      - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=photosindex;Username=photosindex;Password=${POSTGRES_PASSWORD:-changeme}
       - ThumbnailDirectory=/data/thumbnails
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire:18889
@@ -51,26 +51,28 @@ services:
       # TrueNAS Host Path - update to your dataset path
       - /mnt/tank/apps/photos-index/thumbnails:/data/thumbnails
     ports:
-      - "5000:5000"
+      - "5000:8080"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   # Web UI (nginx serving Angular app)
   web:
-    image: ghcr.io/gbolabs/photos-index-web:latest
+    image: ghcr.io/gbolabs/photos-index/web:${IMAGE_VERSION:-latest}
     container_name: photos-index-web
     restart: unless-stopped
     depends_on:
       - api
+    environment:
+      - API_URL=http://api:8080
     ports:
       - "8080:80"
 
   # Aspire Dashboard (OpenTelemetry)
   aspire:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
     container_name: photos-index-aspire
     restart: unless-stopped
     environment:
