@@ -14,7 +14,7 @@ data:
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:18889"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   API_BASE_URL: "http://localhost:5080"
-  INDEXING_INTERVAL_MINUTES: "60"
+  INDEXING_INTERVAL_MINUTES: "5"
   CLEANER_ENABLED: "false"
 ---
 apiVersion: v1
