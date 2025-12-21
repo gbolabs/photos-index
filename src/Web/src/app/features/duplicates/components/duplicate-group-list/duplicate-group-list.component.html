@@ -44,11 +44,22 @@
       <ng-container matColumnDef="thumbnail">
         <th mat-header-cell *matHeaderCellDef></th>
         <td mat-cell *matCellDef="let group">
-          <div class="thumbnail-container">
+          <div class="stacked-thumbnails" [class.single]="!hasMultipleFiles(group)">
+            <!-- Bottom/back thumbnail (slightly visible behind) -->
+            @if (hasMultipleFiles(group)) {
+              <img
+                [src]="getThumbnailUrl(group, 1)"
+                [alt]="'Duplicate file 2'"
+                class="thumbnail back"
+                loading="lazy"
+                (error)="$any($event.target).src = 'assets/placeholder.svg'"
+              />
+            }
+            <!-- Top/front thumbnail -->
             <img
-              [src]="getThumbnailUrl(group)"
-              [alt]="'Duplicate group preview'"
-              class="thumbnail"
+              [src]="getThumbnailUrl(group, 0)"
+              [alt]="'Duplicate file 1'"
+              class="thumbnail front"
               loading="lazy"
               (error)="$any($event.target).src = 'assets/placeholder.svg'"
             />
