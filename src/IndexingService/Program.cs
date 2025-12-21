@@ -1,11 +1,18 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using HeyRed.ImageSharp.Heif.Formats.Avif;
+using HeyRed.ImageSharp.Heif.Formats.Heif;
 using IndexingService;
 using IndexingService.ApiClient;
 using IndexingService.Models;
 using IndexingService.Services;
 using Microsoft.Extensions.Options;
 using Shared.Extensions;
+using SixLabors.ImageSharp;
+
+// Register HEIC/HEIF and AVIF decoders for Apple photos
+Configuration.Default.Configure(new HeifConfigurationModule());
+Configuration.Default.Configure(new AvifConfigurationModule());
 
 var builder = Host.CreateApplicationBuilder(args);
 
