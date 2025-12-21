@@ -1,0 +1,124 @@
+<mat-card class="comparison-card">
+  <mat-card-header>
+    <mat-card-title>Image Comparison</mat-card-title>
+    <mat-button-toggle-group [(ngModel)]="mode" class="mode-toggle">
+      <mat-button-toggle value="side-by-side">
+        <mat-icon>view_column</mat-icon>
+        Side by Side
+      </mat-button-toggle>
+      <mat-button-toggle value="slider">
+        <mat-icon>compare</mat-icon>
+        Slider
+      </mat-button-toggle>
+      <mat-button-toggle value="overlay">
+        <mat-icon>layers</mat-icon>
+        Overlay
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+  </mat-card-header>
+
+  <mat-card-content>
+    @switch (mode()) {
+      @case ('side-by-side') {
+        <div class="side-by-side">
+          <div class="comparison-image">
+            <img
+              [src]="getLeftImageUrl()"
+              [alt]="leftFile()?.fileName"
+              (error)="$any($event.target).src = 'assets/placeholder.svg'"
+            />
+            <div class="image-label">
+              <span class="filename">{{ leftFile()?.fileName }}</span>
+              <span class="meta">{{ formatDimensions(leftFile()) }} | {{ leftFile()?.fileSize | fileSize }}</span>
+            </div>
+          </div>
+          <div class="comparison-image">
+            <img
+              [src]="getRightImageUrl()"
+              [alt]="rightFile()?.fileName"
+              (error)="$any($event.target).src = 'assets/placeholder.svg'"
+            />
+            <div class="image-label">
+              <span class="filename">{{ rightFile()?.fileName }}</span>
+              <span class="meta">{{ formatDimensions(rightFile()) }} | {{ rightFile()?.fileSize | fileSize }}</span>
+            </div>
+          </div>
+        </div>
+      }
+
+      @case ('slider') {
+        <div class="slider-comparison">
+          <div class="slider-container">
+            <img
+              class="background-image"
+              [src]="getRightImageUrl()"
+              [alt]="rightFile()?.fileName"
+              (error)="$any($event.target).src = 'assets/placeholder.svg'"
+            />
+            <div
+              class="foreground-container"
+              [style.width.%]="sliderPosition()"
+            >
+              <img
+                class="foreground-image"
+                [src]="getLeftImageUrl()"
+                [alt]="leftFile()?.fileName"
+                (error)="$any($event.target).src = 'assets/placeholder.svg'"
+              />
+            </div>
+            <div class="slider-handle" [style.left.%]="sliderPosition()">
+              <div class="handle-line"></div>
+              <div class="handle-grip">
+                <mat-icon>drag_indicator</mat-icon>
+              </div>
+            </div>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            [value]="sliderPosition()"
+            (input)="onSliderChange($event)"
+            class="slider-input"
+          />
+          <div class="slider-labels">
+            <span>{{ leftFile()?.fileName }}</span>
+            <span>{{ rightFile()?.fileName }}</span>
+          </div>
+        </div>
+      }
+
+      @case ('overlay') {
+        <div class="overlay-comparison">
+          <div class="overlay-container">
+            <img
+              class="base-image"
+              [src]="getLeftImageUrl()"
+              [alt]="leftFile()?.fileName"
+              (error)="$any($event.target).src = 'assets/placeholder.svg'"
+            />
+            <img
+              class="overlay-image"
+              [src]="getRightImageUrl()"
+              [alt]="rightFile()?.fileName"
+              [style.opacity]="overlayOpacity() / 100"
+              (error)="$any($event.target).src = 'assets/placeholder.svg'"
+            />
+          </div>
+          <div class="opacity-control">
+            <span>{{ leftFile()?.fileName }}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              [value]="overlayOpacity()"
+              (input)="onOpacityChange($event)"
+              class="opacity-slider"
+            />
+            <span>{{ rightFile()?.fileName }}</span>
+          </div>
+        </div>
+      }
+    }
+  </mat-card-content>
+</mat-card>

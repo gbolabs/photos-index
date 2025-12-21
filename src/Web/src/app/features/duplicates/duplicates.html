@@ -1,6 +1,24 @@
 <div class="duplicates-container">
-  <h1>Duplicate Photos</h1>
-  <p>Manage duplicate photos in your collection.</p>
-  <app-bulk-actions-toolbar></app-bulk-actions-toolbar>
-  <app-duplicate-group-list></app-duplicate-group-list>
+  @if (viewMode() === 'list') {
+    <div class="duplicates-header">
+      <h1>Duplicate Photos</h1>
+      <p class="subtitle">Review and manage duplicate files in your collection</p>
+    </div>
+
+    <app-bulk-actions-toolbar
+      [selectedGroupIds]="selectedGroupIds()"
+      (actionCompleted)="onActionCompleted()"
+      (refreshRequested)="onRefreshRequested()"
+    ></app-bulk-actions-toolbar>
+
+    <app-duplicate-group-list
+      (groupSelected)="onGroupSelected($event)"
+      (selectionChanged)="onSelectionChanged($event)"
+    ></app-duplicate-group-list>
+  } @else {
+    <app-duplicate-group-detail
+      [groupId]="selectedGroupId()!"
+      (back)="onBackToList()"
+    ></app-duplicate-group-detail>
+  }
 </div>
