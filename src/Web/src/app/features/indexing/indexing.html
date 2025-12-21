@@ -1,0 +1,131 @@
+<div class="indexing-container">
+  <div class="indexing-header">
+    <div class="header-content">
+      <h1>Indexing Status</h1>
+      <p class="subtitle">Monitor and control directory scanning</p>
+    </div>
+    <div class="header-actions">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="scanAll()"
+        [disabled]="scanningAll() || getEnabledCount() === 0"
+      >
+        <mat-icon>play_arrow</mat-icon>
+        Scan All Directories
+      </button>
+      <button mat-icon-button (click)="loadDirectories()" [disabled]="loading()" matTooltip="Refresh">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading directories...</p>
+    </div>
+  } @else if (error()) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <mat-icon color="warn">error</mat-icon>
+        <span>{{ error() }}</span>
+        <button mat-button color="primary" (click)="loadDirectories()">Retry</button>
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <!-- Summary -->
+    <div class="summary-cards">
+      <mat-card class="summary-card">
+        <mat-card-content>
+          <div class="summary-value">{{ directories().length }}</div>
+          <div class="summary-label">Total Directories</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="summary-card">
+        <mat-card-content>
+          <div class="summary-value">{{ getEnabledCount() }}</div>
+          <div class="summary-label">Enabled</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="summary-card">
+        <mat-card-content>
+          <div class="summary-value">{{ getTotalFiles() | number }}</div>
+          <div class="summary-label">Total Files</div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Directory List -->
+    @if (directories().length === 0) {
+      <mat-card class="empty-card">
+        <mat-card-content>
+          <mat-icon>folder_off</mat-icon>
+          <h3>No Directories Configured</h3>
+          <p>Add directories in Settings to start indexing your photos.</p>
+          <a mat-raised-button color="primary" routerLink="/settings">
+            <mat-icon>settings</mat-icon>
+            Go to Settings
+          </a>
+        </mat-card-content>
+      </mat-card>
+    } @else {
+      <div class="directory-list">
+        @for (dir of directories(); track dir.id) {
+          <mat-card class="directory-card" [class.disabled]="!dir.isEnabled" [class.scanning]="dir.scanning">
+            @if (dir.scanning) {
+              <mat-progress-bar mode="indeterminate" color="primary"></mat-progress-bar>
+            }
+            <mat-card-content>
+              <div class="directory-main">
+                <div class="directory-icon">
+                  <mat-icon [class.enabled]="dir.isEnabled">
+                    {{ dir.isEnabled ? 'folder' : 'folder_off' }}
+                  </mat-icon>
+                </div>
+                <div class="directory-info">
+                  <div class="directory-path">{{ dir.path }}</div>
+                  <div class="directory-meta">
+                    <mat-chip-set>
+                      <mat-chip [highlighted]="dir.isEnabled" [class.enabled-chip]="dir.isEnabled">
+                        {{ dir.isEnabled ? 'Enabled' : 'Disabled' }}
+                      </mat-chip>
+                    </mat-chip-set>
+                    <span class="file-count">{{ dir.fileCount | number }} files</span>
+                    <span class="last-scan">{{ getTimeSince(dir.lastScannedAt) }}</span>
+                  </div>
+                </div>
+                <div class="directory-actions">
+                  <button
+                    mat-icon-button
+                    (click)="scanDirectory(dir)"
+                    [disabled]="!dir.isEnabled || dir.scanning"
+                    matTooltip="Scan this directory"
+                  >
+                    @if (dir.scanning) {
+                      <mat-spinner diameter="24"></mat-spinner>
+                    } @else {
+                      <mat-icon>play_circle</mat-icon>
+                    }
+                  </button>
+                </div>
+              </div>
+              @if (dir.lastScannedAt) {
+                <div class="directory-footer">
+                  <mat-icon>schedule</mat-icon>
+                  <span>Last scanned: {{ formatDate(dir.lastScannedAt) }}</span>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    }
+
+    <!-- Auto-refresh indicator -->
+    <div class="auto-refresh-indicator">
+      <mat-icon>autorenew</mat-icon>
+      <span>Auto-refreshing every 10 seconds</span>
+    </div>
+  }
+</div>

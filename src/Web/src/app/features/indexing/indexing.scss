@@ -1,0 +1,287 @@
+.indexing-container {
+  padding: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.indexing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  .header-content {
+    h1 {
+      margin: 0 0 4px 0;
+      font-size: 28px;
+      font-weight: 400;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+
+  p {
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.error-card {
+  mat-card-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  .summary-card {
+    text-align: center;
+
+    mat-card-content {
+      padding: 20px;
+    }
+
+    .summary-value {
+      font-size: 32px;
+      font-weight: 500;
+      color: #1976d2;
+    }
+
+    .summary-label {
+      color: rgba(0, 0, 0, 0.6);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+  }
+}
+
+.empty-card {
+  mat-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px;
+    text-align: center;
+
+    mat-icon {
+      font-size: 64px;
+      width: 64px;
+      height: 64px;
+      color: rgba(0, 0, 0, 0.3);
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      margin: 0 0 8px 0;
+    }
+
+    p {
+      color: rgba(0, 0, 0, 0.6);
+      margin: 0 0 24px 0;
+    }
+  }
+}
+
+.directory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.directory-card {
+  position: relative;
+  overflow: hidden;
+
+  mat-progress-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  &.disabled {
+    opacity: 0.7;
+
+    .directory-icon mat-icon {
+      color: rgba(0, 0, 0, 0.38);
+    }
+  }
+
+  &.scanning {
+    border-left: 3px solid #1976d2;
+  }
+
+  mat-card-content {
+    padding: 16px;
+  }
+}
+
+.directory-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .directory-icon {
+    mat-icon {
+      font-size: 36px;
+      width: 36px;
+      height: 36px;
+
+      &.enabled {
+        color: #388e3c;
+      }
+    }
+  }
+
+  .directory-info {
+    flex: 1;
+    min-width: 0;
+
+    .directory-path {
+      font-family: monospace;
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .directory-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+
+      mat-chip-set {
+        mat-chip {
+          font-size: 12px;
+
+          &.enabled-chip {
+            background-color: #e8f5e9;
+            color: #388e3c;
+          }
+        }
+      }
+
+      .file-count,
+      .last-scan {
+        font-size: 13px;
+        color: rgba(0, 0, 0, 0.6);
+      }
+    }
+  }
+
+  .directory-actions {
+    mat-spinner {
+      margin: 8px;
+    }
+  }
+}
+
+.directory-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.auto-refresh-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 12px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.5);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    animation: spin 2s linear infinite;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Responsive
+@media (max-width: 600px) {
+  .indexing-container {
+    padding: 16px;
+  }
+
+  .indexing-header {
+    flex-direction: column;
+    align-items: stretch;
+
+    .header-actions {
+      justify-content: flex-end;
+    }
+  }
+
+  .summary-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .directory-main {
+    flex-wrap: wrap;
+
+    .directory-info {
+      width: 100%;
+
+      .directory-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+    }
+
+    .directory-actions {
+      margin-left: auto;
+    }
+  }
+}
