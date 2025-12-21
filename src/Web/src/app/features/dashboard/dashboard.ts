@@ -7,7 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { ApiService } from '../../core/api.service';
-import { FileStatisticsDto, ScanDirectoryDto } from '../../core/models';
+import { FileStatisticsDto, ScanDirectoryDto, BuildInfoDto } from '../../core/models';
 import { FileSizePipe } from '../../shared/pipes/file-size.pipe';
 
 @Component({
@@ -32,6 +32,7 @@ export class Dashboard implements OnInit {
   error = signal<string | null>(null);
   statistics = signal<FileStatisticsDto | null>(null);
   directories = signal<ScanDirectoryDto[]>([]);
+  versionInfo = signal<BuildInfoDto | null>(null);
 
   ngOnInit(): void {
     this.loadData();
@@ -58,6 +59,12 @@ export class Dashboard implements OnInit {
     this.api.getDirectories().subscribe({
       next: (dirs) => this.directories.set(dirs),
       error: (err) => console.error('Failed to load directories:', err),
+    });
+
+    // Load version info
+    this.api.getVersion().subscribe({
+      next: (info) => this.versionInfo.set(info),
+      error: (err) => console.error('Failed to load version info:', err),
     });
   }
 

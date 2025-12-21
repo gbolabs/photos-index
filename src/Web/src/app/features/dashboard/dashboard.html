@@ -126,5 +126,30 @@
         </div>
       </div>
     }
+
+    <!-- Version Info -->
+    @if (versionInfo()) {
+      <div class="version-info">
+        <mat-divider></mat-divider>
+        <div class="version-details">
+          <span class="version-badge">
+            <mat-icon>info</mat-icon>
+            v{{ versionInfo()?.version }}
+          </span>
+          <span class="version-meta">
+            {{ versionInfo()?.commitHash }}
+            @if (versionInfo()?.branch && versionInfo()?.branch !== 'local') {
+              ({{ versionInfo()?.branch }})
+            }
+          </span>
+          <span class="version-meta">
+            {{ versionInfo()?.environment }}
+          </span>
+          <span class="version-meta uptime">
+            Uptime: {{ versionInfo()?.uptime }}
+          </span>
+        </div>
+      </div>
+    }
   }
 </div>

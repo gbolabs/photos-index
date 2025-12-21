@@ -9,6 +9,7 @@ import {
   CreateScanDirectoryRequest,
   UpdateScanDirectoryRequest,
   PagedResponse,
+  BuildInfoDto,
 } from './models';
 
 @Injectable({
@@ -18,6 +19,11 @@ export class ApiService {
   private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
+
+  // Version endpoint
+  getVersion(): Observable<BuildInfoDto> {
+    return this.http.get<BuildInfoDto>(`${this.apiUrl}/api/version`);
+  }
 
   // Statistics endpoints
   getStatistics(): Observable<FileStatisticsDto> {

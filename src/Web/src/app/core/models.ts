@@ -35,6 +35,18 @@ export interface ApiErrorResponse {
   details?: string;
 }
 
+export interface BuildInfoDto {
+  serviceName: string;
+  version: string;
+  commitHash: string | null;
+  branch: string | null;
+  buildTime: string | null;
+  runtimeVersion: string;
+  environment: string | null;
+  startTimeUtc: string;
+  uptime: string | null;
+}
+
 /**
  * Generic paged response wrapper.
  * Matches backend: src/Shared/Responses/PagedResponse.cs

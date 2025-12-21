@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
 using IndexingService;
 using IndexingService.ApiClient;
 using IndexingService.Services;
@@ -24,4 +26,19 @@ builder.Services.AddHttpClient<IPhotosApiClient, PhotosApiClient>(client =>
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
+
+// Log startup info
+var logger = host.Services.GetRequiredService<ILogger<Program>>();
+var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
+var commitHash = Environment.GetEnvironmentVariable("BUILD_COMMIT_HASH") ?? "dev";
+var branch = Environment.GetEnvironmentVariable("BUILD_BRANCH") ?? "local";
+var buildTime = Environment.GetEnvironmentVariable("BUILD_TIME") ?? "unknown";
+var runtime = RuntimeInformation.FrameworkDescription;
+
+logger.LogInformation(
+    "Starting photos-index-indexer v{Version} (commit: {CommitHash}, branch: {Branch}, built: {BuildTime})",
+    version, commitHash, branch, buildTime);
+logger.LogInformation("Runtime: {Runtime}, Environment: {Environment}",
+    runtime, builder.Environment.EnvironmentName);
+
 host.Run();

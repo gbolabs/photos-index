@@ -22,8 +22,13 @@ builder.Services.AddDbContext<PhotosDbContext>(options =>
 builder.Services.AddScoped<IScanDirectoryService, ScanDirectoryService>();
 builder.Services.AddScoped<IIndexedFileService, IndexedFileService>();
 builder.Services.AddScoped<IDuplicateService, DuplicateService>();
+builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 
 var app = builder.Build();
+
+// Log startup info
+var buildInfoService = app.Services.GetRequiredService<IBuildInfoService>();
+buildInfoService.LogStartupInfo(app.Logger);
 
 // Apply pending database migrations at startup (skip in Testing environment)
 if (!app.Environment.IsEnvironment("Testing"))
@@ -52,9 +57,25 @@ app.UseHttpsRedirection();
 // Map controllers
 app.MapControllers();
 
-// Health check endpoint
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "Photos Index API" }))
-    .WithName("HealthCheck");
+// Health check endpoint with version info
+app.MapGet("/health", (IBuildInfoService buildInfo) =>
+{
+    var info = buildInfo.GetBuildInfo();
+    return Results.Ok(new
+    {
+        status = "healthy",
+        service = info.ServiceName,
+        version = info.Version,
+        commit = info.CommitHash,
+        uptime = info.Uptime
+    });
+}).WithName("HealthCheck");
+
+// Full version/build info endpoint
+app.MapGet("/api/version", (IBuildInfoService buildInfo) =>
+{
+    return Results.Ok(buildInfo.GetBuildInfo());
+}).WithName("Version");
 
 app.Run();
 

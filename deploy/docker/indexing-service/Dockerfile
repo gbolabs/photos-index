@@ -1,5 +1,10 @@
 # Multi-stage Dockerfile for IndexingService
 
+# Build arguments for version info
+ARG BUILD_COMMIT_HASH=dev
+ARG BUILD_BRANCH=local
+ARG BUILD_TIME
+
 # Development stage - includes SDK for hot reload
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS development
 WORKDIR /app
@@ -59,6 +64,17 @@ RUN dotnet publish IndexingService.csproj -c Release -o /app/publish /p:UseAppHo
 
 # Runtime stage - minimal image for production
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+# Re-declare build args for this stage
+ARG BUILD_COMMIT_HASH=dev
+ARG BUILD_BRANCH=local
+ARG BUILD_TIME
+
+# Set as environment variables
+ENV BUILD_COMMIT_HASH=${BUILD_COMMIT_HASH}
+ENV BUILD_BRANCH=${BUILD_BRANCH}
+ENV BUILD_TIME=${BUILD_TIME}
+
 WORKDIR /app
 
 # Install required libraries for image processing
