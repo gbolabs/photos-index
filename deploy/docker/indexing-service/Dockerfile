@@ -77,11 +77,12 @@ ENV BUILD_TIME=${BUILD_TIME}
 
 WORKDIR /app
 
-# Install required libraries for image processing
+# Install required libraries for image processing (including HEIC/HEIF support)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libgdiplus \
-    libc6-dev && \
+    libc6-dev \
+    libheif1 && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
