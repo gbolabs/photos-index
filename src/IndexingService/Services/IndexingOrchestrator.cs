@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using IndexingService.ApiClient;
 using IndexingService.Models;
@@ -179,55 +180,62 @@ public class IndexingOrchestrator : IIndexingOrchestrator
     private async Task<(int processed, int ingested, int failed)> ProcessAndIngestBatchAsync(
         Guid directoryId, List<ScannedFile> batch, CancellationToken cancellationToken)
     {
-        var processedFiles = new List<ProcessedFile>();
+        var processedFiles = new ConcurrentBag<ProcessedFile>();
         var filePaths = batch.Select(f => f.FullPath).ToList();
 
-        // Compute hashes for batch
-        var hashResults = new Dictionary<string, HashResult>();
+        // Compute hashes for batch (already parallel)
+        var hashResults = new ConcurrentDictionary<string, HashResult>();
         await foreach (var hashResult in _hashComputer.ComputeBatchAsync(filePaths, _options.MaxParallelism, cancellationToken))
         {
             hashResults[hashResult.FilePath] = hashResult;
         }
 
-        // Extract metadata and optionally generate thumbnails
-        foreach (var scannedFile in batch)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                break;
+        // Extract metadata in parallel (major performance improvement)
+        var filesToProcess = batch
+            .Where(f => hashResults.TryGetValue(f.FullPath, out var hr) && hr.Success)
+            .ToList();
 
-            if (!hashResults.TryGetValue(scannedFile.FullPath, out var hashResult) || !hashResult.Success)
-                continue;
-
-            try
+        await Parallel.ForEachAsync(
+            filesToProcess,
+            new ParallelOptions
             {
-                var metadata = await _metadataExtractor.ExtractAsync(scannedFile.FullPath, cancellationToken);
+                MaxDegreeOfParallelism = _options.MaxParallelism,
+                CancellationToken = cancellationToken
+            },
+            async (scannedFile, ct) =>
+            {
+                var hashResult = hashResults[scannedFile.FullPath];
 
-                byte[]? thumbnail = null;
-                if (_options.GenerateThumbnails)
+                try
                 {
-                    try
+                    var metadata = await _metadataExtractor.ExtractAsync(scannedFile.FullPath, ct);
+
+                    byte[]? thumbnail = null;
+                    if (_options.GenerateThumbnails)
                     {
-                        thumbnail = await _metadataExtractor.GenerateThumbnailAsync(
-                            scannedFile.FullPath,
-                            new ThumbnailOptions { MaxWidth = 200, MaxHeight = 200, Quality = 80 },
-                            cancellationToken);
+                        try
+                        {
+                            thumbnail = await _metadataExtractor.GenerateThumbnailAsync(
+                                scannedFile.FullPath,
+                                new ThumbnailOptions { MaxWidth = 200, MaxHeight = 200, Quality = 80 },
+                                ct);
+                        }
+                        catch { /* Thumbnail failure is non-fatal */ }
                     }
-                    catch { /* Thumbnail failure is non-fatal */ }
-                }
 
-                processedFiles.Add(new ProcessedFile
+                    processedFiles.Add(new ProcessedFile
+                    {
+                        ScannedFile = scannedFile,
+                        Hash = hashResult.Hash,
+                        Metadata = metadata,
+                        Thumbnail = thumbnail
+                    });
+                }
+                catch (Exception ex)
                 {
-                    ScannedFile = scannedFile,
-                    Hash = hashResult.Hash,
-                    Metadata = metadata,
-                    Thumbnail = thumbnail
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to process {Path}", scannedFile.FullPath);
-            }
-        }
+                    _logger.LogWarning(ex, "Failed to process {Path}", scannedFile.FullPath);
+                }
+            });
 
         if (processedFiles.Count == 0)
             return (0, 0, batch.Count);
