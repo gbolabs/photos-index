@@ -1,3 +1,11 @@
+# Photos Index - Docker Compose Configuration
+#
+# Usage:
+#   Development (local build): docker compose up -d --build
+#   Production (ghcr.io):      docker compose up -d
+#
+# Set IMAGE_VERSION in .env to use specific release (default: latest)
+
 services:
   # ===================================
   # Traefik Reverse Proxy
@@ -97,6 +105,7 @@ services:
   # API Service
   # ===================================
   api:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/api:${IMAGE_VERSION:-latest}
     build:
       context: ../../
       dockerfile: deploy/docker/api/Dockerfile
@@ -145,6 +154,7 @@ services:
       # - "traefik.http.routers.api-secure.service=api"
 
   indexing-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/indexing-service:${IMAGE_VERSION:-latest}
     build:
       context: ../../
       dockerfile: deploy/docker/indexing-service/Dockerfile
@@ -171,6 +181,7 @@ services:
     restart: unless-stopped
 
   cleaner-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/cleaner-service:${IMAGE_VERSION:-latest}
     build:
       context: ../../
       dockerfile: deploy/docker/cleaner-service/Dockerfile
@@ -204,6 +215,7 @@ services:
   # Web Interface (Angular + nginx)
   # ===================================
   web:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/web:${IMAGE_VERSION:-latest}
     build:
       context: ../../
       dockerfile: deploy/docker/web/Dockerfile
