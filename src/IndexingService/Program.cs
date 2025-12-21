@@ -2,12 +2,28 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using IndexingService;
 using IndexingService.ApiClient;
+using IndexingService.Models;
 using IndexingService.Services;
+using Microsoft.Extensions.Options;
 using Shared.Extensions;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.AddPhotosIndexTelemetry("photos-index-indexer");
+
+// Configure indexing options
+builder.Services.Configure<IndexingOptions>(options =>
+{
+    options.GenerateThumbnails = builder.Configuration.GetValue<bool?>("GENERATE_THUMBNAILS")
+        ?? builder.Configuration.GetValue<bool?>("GenerateThumbnails")
+        ?? false; // Disabled by default for large collections
+    options.BatchSize = builder.Configuration.GetValue<int?>("BATCH_SIZE")
+        ?? builder.Configuration.GetValue<int?>("BatchSize")
+        ?? 100;
+    options.MaxParallelism = builder.Configuration.GetValue<int?>("MAX_PARALLELISM")
+        ?? builder.Configuration.GetValue<int?>("MaxParallelism")
+        ?? 4;
+});
 
 builder.Services.AddSingleton<IFileScanner, FileScanner>();
 builder.Services.AddSingleton<IHashComputer, HashComputer>();
