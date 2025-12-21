@@ -81,7 +81,39 @@ Add semantic understanding of image content using AI models to enable:
 - Requires internet connection
 - Rate limits may apply
 
-#### Option C: Hybrid Approach
+#### Option C: Infomaniak Swiss AI (Sovereign European)
+
+**Technology Stack:**
+- [Infomaniak AI Tools](https://www.infomaniak.com/en/hosting/ai-tools) API
+- Swiss-hosted, GDPR compliant
+- Uses open-source models (Mixtral for text, Flux/SDXL for images)
+
+**Pricing:**
+- Usage-based billing (per token/per minute)
+- 1 million free credits for testing (1 month trial)
+- Competitive pricing vs. US providers
+- Vision/image interpretation: Currently in development (as of late 2024)
+
+**Pros:**
+- Data sovereignty (Swiss + EU data protection laws)
+- No data logging or storage of requests
+- Ethical AI focus
+- Supports open-source models
+- European hosting (lower latency for EU users)
+
+**Cons:**
+- Vision models not yet fully available (in analysis phase)
+- Smaller ecosystem than US providers
+- May have fewer model options
+
+**Best For:**
+- European users with strict data sovereignty requirements
+- GDPR-sensitive use cases
+- Users preferring open-source models with cloud convenience
+
+**Note:** Monitor Infomaniak's roadmap for vision model availability before committing to this option for image understanding.
+
+#### Option D: Hybrid Approach
 
 Use local model for initial tagging, cloud API for verification or complex queries.
 
@@ -304,12 +336,14 @@ Based on effort, value, and risk:
 | Priority | Feature | Rationale |
 |----------|---------|-----------|
 | 1 | Dynamic Albums (basic temporal) | Low effort, high value, no dependencies |
-| 2 | AI Understanding (Mistral API) | Medium effort, transformative value |
+| 2 | AI Understanding (Mistral/Infomaniak) | Medium effort, transformative value |
 | 3 | Album Proposals | Builds on AI + albums, practical output |
 | 4 | OneDrive Integration | Stable API, many users |
 | 5 | AI Understanding (Local) | Hardware barrier, but privacy win |
 | 6 | iCloud Integration | High risk, fragile, but popular |
 | 7 | Face Recognition | High effort, privacy concerns |
+
+**Note:** For European users with data sovereignty requirements, Infomaniak Swiss AI is recommended once their vision models become available.
 
 ---
 
@@ -333,5 +367,6 @@ Based on effort, value, and risk:
 - [Ollama Vision Models](https://ollama.com/blog/vision-models)
 - [LLaVA Documentation](https://llava-vl.github.io/)
 - [Mistral AI Pricing](https://mistral.ai/pricing)
+- [Infomaniak AI Tools](https://www.infomaniak.com/en/hosting/ai-tools)
 - [Microsoft Graph API - OneDrive](https://learn.microsoft.com/en-us/onedrive/developer/)
 - [pyicloud (unofficial iCloud)](https://github.com/picklepete/pyicloud)
