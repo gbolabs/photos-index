@@ -69,6 +69,23 @@ public class IndexedFilesController : ControllerBase
     }
 
     /// <summary>
+    /// Download the original file.
+    /// </summary>
+    [HttpGet("{id:guid}/download")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Download(Guid id, CancellationToken ct = default)
+    {
+        var result = await _service.DownloadFileAsync(id, ct);
+
+        if (result is null)
+            return NotFound(ApiErrorResponse.NotFound($"File with ID {id} not found"));
+
+        var (content, fileName, contentType) = result.Value;
+        return File(content, contentType, fileName);
+    }
+
+    /// <summary>
     /// Batch ingest files from the indexing service.
     /// </summary>
     [HttpPost("batch")]
