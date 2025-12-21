@@ -66,7 +66,8 @@ Edit `.env` and set:
 
 ```bash
 # Your TrueNAS IP - use the Traefik port with /api path
-API_URL=http://192.168.1.100:8050/api
+# IMPORTANT: Use API_BASE_URL, not API_URL
+API_BASE_URL=http://192.168.1.100:8050/api
 
 # Path to your photos on Synology
 PHOTOS_PATH=/volume1/photos
@@ -125,14 +126,12 @@ environment:
 
 ### Resource Limits
 
-Adjust for your Synology's capabilities:
+**Note**: Synology's Docker implementation doesn't support the `deploy` section with resource limits. The container uses `DOTNET_GCHeapHardLimit` environment variable to limit memory usage instead:
 
 ```yaml
-deploy:
-  resources:
-    limits:
-      memory: 512M  # Increase if you have RAM to spare
-      cpus: '1.0'   # Limit CPU usage
+environment:
+  # Limit .NET memory to ~200MB (in bytes)
+  - DOTNET_GCHeapHardLimit=200000000
 ```
 
 ### OpenTelemetry Tracing
@@ -158,11 +157,17 @@ OTEL_ENDPOINT=http://truenas-ip:8053
 2. Check directory permissions
 3. Ensure photos have supported extensions (.jpg, .png, etc.)
 
+### Permission denied errors
+
+The container runs as root (`user: "0:0"`) to ensure it can read all photo files regardless of Synology's complex permission model. This is safe because:
+- All volumes are mounted read-only (`:ro`)
+- The container cannot modify your photos
+
 ### High CPU/Memory usage
 
-1. Reduce concurrent processing in environment
-2. Lower scan interval
-3. Add CPU/memory limits in docker-compose.yml
+1. Lower scan interval (`SCAN_INTERVAL_MINUTES`)
+2. Adjust `DOTNET_GCHeapHardLimit` for memory control
+3. Use Container Manager UI to set container resource limits
 
 ## Updating
 
