@@ -227,6 +227,14 @@ public class IndexedFileService : IIndexedFileService
                     existing.Height = file.Height;
                     existing.ModifiedAt = file.ModifiedAt;
                     existing.IndexedAt = DateTime.UtcNow;
+                    existing.DateTaken = file.DateTaken;
+                    existing.CameraMake = file.CameraMake;
+                    existing.CameraModel = file.CameraModel;
+                    existing.GpsLatitude = file.GpsLatitude;
+                    existing.GpsLongitude = file.GpsLongitude;
+                    existing.Iso = file.Iso;
+                    existing.Aperture = file.Aperture;
+                    existing.ShutterSpeed = file.ShutterSpeed;
 
                     // Update thumbnail if provided
                     if (!string.IsNullOrEmpty(file.ThumbnailBase64))
@@ -262,7 +270,15 @@ public class IndexedFileService : IIndexedFileService
                         CreatedAt = file.CreatedAt ?? DateTime.UtcNow,
                         ModifiedAt = file.ModifiedAt,
                         IndexedAt = DateTime.UtcNow,
-                        ThumbnailPath = thumbnailPath
+                        ThumbnailPath = thumbnailPath,
+                        DateTaken = file.DateTaken,
+                        CameraMake = file.CameraMake,
+                        CameraModel = file.CameraModel,
+                        GpsLatitude = file.GpsLatitude,
+                        GpsLongitude = file.GpsLongitude,
+                        Iso = file.Iso,
+                        Aperture = file.Aperture,
+                        ShutterSpeed = file.ShutterSpeed
                     };
                     _dbContext.IndexedFiles.Add(entity);
                 }
