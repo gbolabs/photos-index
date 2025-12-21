@@ -1,6 +1,7 @@
 using Database;
 using Database.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Shared.Dtos;
 using Shared.Requests;
 using Shared.Responses;
@@ -14,11 +15,14 @@ public class IndexedFileService : IIndexedFileService
 {
     private readonly PhotosDbContext _dbContext;
     private readonly ILogger<IndexedFileService> _logger;
+    private readonly string _thumbnailDirectory;
 
-    public IndexedFileService(PhotosDbContext dbContext, ILogger<IndexedFileService> logger)
+    public IndexedFileService(PhotosDbContext dbContext, ILogger<IndexedFileService> logger, IConfiguration configuration)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _thumbnailDirectory = configuration.GetValue<string>("ThumbnailDirectory")
+            ?? Path.Combine(Path.GetTempPath(), "photos-index-thumbnails");
     }
 
     public async Task<PagedResponse<IndexedFileDto>> QueryAsync(FileQueryParameters query, CancellationToken ct)
@@ -174,6 +178,32 @@ public class IndexedFileService : IIndexedFileService
         };
     }
 
+    private async Task<string?> SaveThumbnailAsync(Guid fileId, string base64Data, CancellationToken ct)
+    {
+        try
+        {
+            // Ensure thumbnail directory exists
+            if (!Directory.Exists(_thumbnailDirectory))
+            {
+                Directory.CreateDirectory(_thumbnailDirectory);
+            }
+
+            var bytes = Convert.FromBase64String(base64Data);
+            var thumbnailPath = Path.Combine(_thumbnailDirectory, $"{fileId}.jpg");
+
+            await File.WriteAllBytesAsync(thumbnailPath, bytes, ct);
+
+            _logger.LogDebug("Saved thumbnail for file {FileId} to {Path}", fileId, thumbnailPath);
+
+            return thumbnailPath;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save thumbnail for file {FileId}", fileId);
+            return null;
+        }
+    }
+
     public async Task<BatchOperationResponse> BatchIngestAsync(BatchIngestFilesRequest request, CancellationToken ct)
     {
         var succeeded = 0;
@@ -197,13 +227,32 @@ public class IndexedFileService : IIndexedFileService
                     existing.Height = file.Height;
                     existing.ModifiedAt = file.ModifiedAt;
                     existing.IndexedAt = DateTime.UtcNow;
+
+                    // Update thumbnail if provided
+                    if (!string.IsNullOrEmpty(file.ThumbnailBase64))
+                    {
+                        var thumbnailPath = await SaveThumbnailAsync(existing.Id, file.ThumbnailBase64, ct);
+                        if (thumbnailPath != null)
+                        {
+                            existing.ThumbnailPath = thumbnailPath;
+                        }
+                    }
                 }
                 else
                 {
                     // Create new
+                    var entityId = Guid.NewGuid();
+                    string? thumbnailPath = null;
+
+                    // Save thumbnail if provided
+                    if (!string.IsNullOrEmpty(file.ThumbnailBase64))
+                    {
+                        thumbnailPath = await SaveThumbnailAsync(entityId, file.ThumbnailBase64, ct);
+                    }
+
                     var entity = new IndexedFile
                     {
-                        Id = Guid.NewGuid(),
+                        Id = entityId,
                         FilePath = file.FilePath,
                         FileName = file.FileName,
                         FileHash = file.FileHash,
@@ -212,7 +261,8 @@ public class IndexedFileService : IIndexedFileService
                         Height = file.Height,
                         CreatedAt = file.CreatedAt ?? DateTime.UtcNow,
                         ModifiedAt = file.ModifiedAt,
-                        IndexedAt = DateTime.UtcNow
+                        IndexedAt = DateTime.UtcNow,
+                        ThumbnailPath = thumbnailPath
                     };
                     _dbContext.IndexedFiles.Add(entity);
                 }
