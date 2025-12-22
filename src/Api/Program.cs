@@ -4,6 +4,7 @@ using Database;
 using Microsoft.EntityFrameworkCore;
 using Shared.Extensions;
 
+// Application entry point
 var builder = WebApplication.CreateBuilder(args);
 
 // Add OpenTelemetry
@@ -23,6 +24,7 @@ builder.Services.AddScoped<IScanDirectoryService, ScanDirectoryService>();
 builder.Services.AddScoped<IIndexedFileService, IndexedFileService>();
 builder.Services.AddScoped<IDuplicateService, DuplicateService>();
 builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
+builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 
 var app = builder.Build();
 
