@@ -1,5 +1,11 @@
 # Multi-stage Dockerfile for CleanerService
 
+# Build arguments for version info
+ARG BUILD_VERSION=0.0.0-dev
+ARG BUILD_COMMIT_HASH=dev
+ARG BUILD_BRANCH=local
+ARG BUILD_TIME
+
 # Development stage - includes SDK for hot reload
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS development
 WORKDIR /app
@@ -29,6 +35,10 @@ CMD ["dotnet", "watch", "run", "--no-launch-profile"]
 
 # Build stage - compile the application
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+# Re-declare build arg for this stage
+ARG BUILD_VERSION=0.0.0-dev
+
 WORKDIR /src
 
 # Copy Directory.Build.props and Directory.Packages.props for centralized package versions
@@ -49,16 +59,30 @@ COPY src/CleanerService/ ./CleanerService/
 COPY src/Database/ ./Database/
 COPY src/Shared/ ./Shared/
 
-# Build the application
+# Build the application with version
 WORKDIR /src/CleanerService
-RUN dotnet build CleanerService.csproj -c Release -o /app/build
+RUN dotnet build CleanerService.csproj -c Release -o /app/build -p:Version=${BUILD_VERSION}
 
 # Publish stage - create optimized runtime image
 FROM build AS publish
-RUN dotnet publish CleanerService.csproj -c Release -o /app/publish /p:UseAppHost=false
+ARG BUILD_VERSION=0.0.0-dev
+RUN dotnet publish CleanerService.csproj -c Release -o /app/publish /p:UseAppHost=false -p:Version=${BUILD_VERSION}
 
 # Runtime stage - minimal image for production
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+
+# Re-declare build args for this stage
+ARG BUILD_VERSION=0.0.0-dev
+ARG BUILD_COMMIT_HASH=dev
+ARG BUILD_BRANCH=local
+ARG BUILD_TIME
+
+# Set as environment variables
+ENV BUILD_VERSION=${BUILD_VERSION}
+ENV BUILD_COMMIT_HASH=${BUILD_COMMIT_HASH}
+ENV BUILD_BRANCH=${BUILD_BRANCH}
+ENV BUILD_TIME=${BUILD_TIME}
+
 WORKDIR /app
 
 # Create non-root user
