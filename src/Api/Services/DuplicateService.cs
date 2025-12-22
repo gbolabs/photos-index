@@ -20,9 +20,15 @@ public class DuplicateService : IDuplicateService
         _logger = logger;
     }
 
-    public async Task<PagedResponse<DuplicateGroupDto>> GetGroupsAsync(int page, int pageSize, CancellationToken ct)
+    public async Task<PagedResponse<DuplicateGroupDto>> GetGroupsAsync(int page, int pageSize, string? statusFilter, CancellationToken ct)
     {
         var query = _dbContext.DuplicateGroups.AsNoTracking();
+
+        // Apply status filter if provided
+        if (!string.IsNullOrWhiteSpace(statusFilter))
+        {
+            query = query.Where(g => g.Status == statusFilter);
+        }
 
         var totalItems = await query.CountAsync(ct);
 
@@ -39,7 +45,10 @@ public class DuplicateService : IDuplicateService
                 ResolvedAt = g.ResolvedAt,
                 CreatedAt = g.CreatedAt,
                 OriginalFileId = g.Files.Where(f => !f.IsDuplicate).Select(f => (Guid?)f.Id).FirstOrDefault(),
-                Files = new List<IndexedFileDto>() // Don't load files in list view
+                Files = new List<IndexedFileDto>(), // Don't load files in list view
+                Status = g.Status,
+                ValidatedAt = g.ValidatedAt,
+                KeptFileId = g.KeptFileId
             })
             .ToListAsync(ct);
 
@@ -71,6 +80,9 @@ public class DuplicateService : IDuplicateService
             ResolvedAt = group.ResolvedAt,
             CreatedAt = group.CreatedAt,
             OriginalFileId = group.Files.FirstOrDefault(f => !f.IsDuplicate)?.Id,
+            Status = group.Status,
+            ValidatedAt = group.ValidatedAt,
+            KeptFileId = group.KeptFileId,
             Files = group.Files.Select(f => new IndexedFileDto
             {
                 Id = f.Id,
@@ -253,5 +265,118 @@ public class DuplicateService : IDuplicateService
 
             _ => files.OrderBy(f => f.CreatedAt).First()
         };
+    }
+
+    public async Task<int> ValidateDuplicatesAsync(ValidateDuplicatesRequest request, CancellationToken ct)
+    {
+        var groups = await _dbContext.DuplicateGroups
+            .Include(g => g.Files)
+            .Where(g => request.GroupIds.Contains(g.Id))
+            .ToListAsync(ct);
+
+        var count = 0;
+
+        foreach (var group in groups)
+        {
+            // Set the kept file if specified, otherwise use existing original
+            var keptFileId = request.KeptFileId ?? group.Files.FirstOrDefault(f => !f.IsDuplicate)?.Id;
+
+            if (keptFileId.HasValue)
+            {
+                // Mark all files as duplicates first
+                foreach (var file in group.Files)
+                {
+                    file.IsDuplicate = true;
+                }
+
+                // Set the kept file as original
+                var keptFile = group.Files.FirstOrDefault(f => f.Id == keptFileId.Value);
+                if (keptFile != null)
+                {
+                    keptFile.IsDuplicate = false;
+                }
+
+                group.KeptFileId = keptFileId;
+            }
+
+            group.Status = "validated";
+            group.ValidatedAt = DateTime.UtcNow;
+            count++;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Validated {Count} duplicate groups", count);
+
+        return count;
+    }
+
+    public async Task<ValidateBatchResponse> ValidateBatchAsync(ValidateBatchRequest request, CancellationToken ct)
+    {
+        // Default to "pending" if no filter provided
+        var statusFilter = string.IsNullOrWhiteSpace(request.StatusFilter) ? "pending" : request.StatusFilter;
+
+        var query = _dbContext.DuplicateGroups
+            .Include(g => g.Files)
+            .Where(g => g.Status == statusFilter)
+            .OrderByDescending(g => g.TotalSize);
+
+        var groups = await query
+            .Take(request.Count)
+            .ToListAsync(ct);
+
+        var validated = 0;
+
+        foreach (var group in groups)
+        {
+            // Use existing original as kept file if available
+            var keptFile = group.Files.FirstOrDefault(f => !f.IsDuplicate);
+            if (keptFile != null)
+            {
+                group.KeptFileId = keptFile.Id;
+            }
+
+            group.Status = "validated";
+            group.ValidatedAt = DateTime.UtcNow;
+            validated++;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        // Count remaining groups with the same status filter
+        var remaining = await _dbContext.DuplicateGroups
+            .CountAsync(g => g.Status == statusFilter, ct);
+
+        _logger.LogInformation("Batch validated {Validated} groups, {Remaining} remaining", validated, remaining);
+
+        return new ValidateBatchResponse
+        {
+            Validated = validated,
+            Remaining = remaining
+        };
+    }
+
+    public async Task<int> UndoValidationAsync(UndoValidationRequest request, CancellationToken ct)
+    {
+        var groups = await _dbContext.DuplicateGroups
+            .Where(g => request.GroupIds.Contains(g.Id))
+            .ToListAsync(ct);
+
+        var count = 0;
+
+        foreach (var group in groups)
+        {
+            // Reset all validation fields
+            group.Status = "pending";
+            group.ValidatedAt = null;
+            group.KeptFileId = null;
+            count++;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Undid validation for {Count} groups", count);
+
+        return count;
     }
 }
