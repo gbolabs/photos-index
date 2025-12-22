@@ -1,0 +1,218 @@
+<div class="file-detail-container">
+  @if (loading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading file details...</p>
+    </div>
+  } @else if (error()) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <mat-icon color="warn">error</mat-icon>
+        <span>{{ error() }}</span>
+        <button mat-button color="primary" (click)="goBack()">Go Back</button>
+      </mat-card-content>
+    </mat-card>
+  } @else if (file()) {
+    <!-- Header -->
+    <div class="detail-header">
+      <button mat-icon-button (click)="goBack()" matTooltip="Go back">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div class="header-content">
+        <h1>{{ file()!.fileName }}</h1>
+        @if (file()!.isDuplicate) {
+          <mat-chip class="duplicate-chip" highlighted>Duplicate</mat-chip>
+        }
+      </div>
+      <div class="header-actions">
+        <button mat-raised-button (click)="viewFile()" color="primary">
+          <mat-icon>open_in_new</mat-icon>
+          View Original
+        </button>
+      </div>
+    </div>
+
+    <div class="detail-content">
+      <!-- Thumbnail Preview -->
+      <mat-card class="preview-card">
+        <mat-card-content>
+          <div class="thumbnail-preview">
+            <img
+              [src]="getThumbnailUrl()"
+              [alt]="file()!.fileName"
+              class="preview-image"
+              (error)="$any($event.target).src = 'assets/placeholder.svg'"
+            />
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- File Information -->
+      <mat-card class="info-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>info</mat-icon>
+            File Information
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="info-grid">
+            <div class="info-row">
+              <span class="info-label">File Path:</span>
+              <span class="info-value">
+                {{ file()!.filePath }}
+                <button mat-icon-button (click)="copyPath()" matTooltip="Copy path">
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">File Size:</span>
+              <span class="info-value">{{ file()!.fileSize | fileSize }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Dimensions:</span>
+              <span class="info-value">{{ formatDimensions() }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">File Hash:</span>
+              <span class="info-value hash">{{ file()!.fileHash }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Created:</span>
+              <span class="info-value">{{ formatDate(file()!.createdAt) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Modified:</span>
+              <span class="info-value">{{ formatDate(file()!.modifiedAt) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Indexed:</span>
+              <span class="info-value">{{ formatDate(file()!.indexedAt) }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- EXIF Data -->
+      @if (hasExifData()) {
+        <mat-card class="info-card">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>camera_alt</mat-icon>
+              EXIF Data
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="info-grid">
+              @if (file()!.dateTaken) {
+                <div class="info-row">
+                  <span class="info-label">Date Taken:</span>
+                  <span class="info-value">{{ formatDate(file()!.dateTaken) }}</span>
+                </div>
+              }
+              @if (file()!.cameraMake) {
+                <div class="info-row">
+                  <span class="info-label">Camera Make:</span>
+                  <span class="info-value">{{ file()!.cameraMake }}</span>
+                </div>
+              }
+              @if (file()!.cameraModel) {
+                <div class="info-row">
+                  <span class="info-label">Camera Model:</span>
+                  <span class="info-value">{{ file()!.cameraModel }}</span>
+                </div>
+              }
+              @if (file()!.iso) {
+                <div class="info-row">
+                  <span class="info-label">ISO:</span>
+                  <span class="info-value">{{ file()!.iso }}</span>
+                </div>
+              }
+              @if (file()!.aperture) {
+                <div class="info-row">
+                  <span class="info-label">Aperture:</span>
+                  <span class="info-value">{{ file()!.aperture }}</span>
+                </div>
+              }
+              @if (file()!.shutterSpeed) {
+                <div class="info-row">
+                  <span class="info-label">Shutter Speed:</span>
+                  <span class="info-value">{{ file()!.shutterSpeed }}</span>
+                </div>
+              }
+              @if (hasGpsData()) {
+                <div class="info-row">
+                  <span class="info-label">GPS Coordinates:</span>
+                  <span class="info-value">
+                    {{ getGpsCoordinates() }}
+                    <a
+                      [href]="getGoogleMapsUrl()"
+                      target="_blank"
+                      mat-icon-button
+                      matTooltip="View on Google Maps"
+                    >
+                      <mat-icon>location_on</mat-icon>
+                    </a>
+                  </span>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      <!-- Duplicate Status -->
+      @if (file()!.isDuplicate && file()!.duplicateGroupId) {
+        <mat-card class="info-card duplicate-card">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>content_copy</mat-icon>
+              Duplicate Status
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p>This file is part of a duplicate group.</p>
+            <div class="info-row">
+              <span class="info-label">Duplicate Group ID:</span>
+              <span class="info-value">{{ file()!.duplicateGroupId }}</span>
+            </div>
+            <div class="actions">
+              <a
+                mat-raised-button
+                color="accent"
+                [routerLink]="['/duplicates']"
+                [queryParams]="{ groupId: file()!.duplicateGroupId }"
+              >
+                <mat-icon>view_list</mat-icon>
+                View Duplicate Group
+              </a>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      <!-- Error Information -->
+      @if (file()!.lastError) {
+        <mat-card class="info-card error-info-card">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>warning</mat-icon>
+              Processing Errors
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="info-row">
+              <span class="info-label">Last Error:</span>
+              <span class="info-value error-text">{{ file()!.lastError }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Retry Count:</span>
+              <span class="info-value">{{ file()!.retryCount }}</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+  }
+</div>

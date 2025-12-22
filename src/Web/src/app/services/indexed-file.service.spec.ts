@@ -108,7 +108,17 @@ describe('IndexedFileService', () => {
       indexedAt: '2025-12-20T00:00:00Z',
       thumbnailPath: '/thumbnails/abc123.jpg',
       isDuplicate: false,
-      duplicateGroupId: null
+      duplicateGroupId: null,
+      dateTaken: null,
+      cameraMake: null,
+      cameraModel: null,
+      gpsLatitude: null,
+      gpsLongitude: null,
+      iso: null,
+      aperture: null,
+      shutterSpeed: null,
+      lastError: null,
+      retryCount: 0
     };
 
     service.getById('123e4567-e89b-12d3-a456-426614174000').subscribe((file) => {

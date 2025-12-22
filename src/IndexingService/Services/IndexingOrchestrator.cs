@@ -254,7 +254,15 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                 Height = f.Metadata.Height,
                 CreatedAt = f.Metadata.DateTaken,
                 ModifiedAt = f.ScannedFile.LastModifiedUtc,
-                ThumbnailBase64 = f.Thumbnail != null ? Convert.ToBase64String(f.Thumbnail) : null
+                ThumbnailBase64 = f.Thumbnail != null ? Convert.ToBase64String(f.Thumbnail) : null,
+                DateTaken = f.Metadata.DateTaken,
+                CameraMake = f.Metadata.CameraMake,
+                CameraModel = f.Metadata.CameraModel,
+                GpsLatitude = f.Metadata.Latitude,
+                GpsLongitude = f.Metadata.Longitude,
+                Iso = f.Metadata.Iso,
+                Aperture = f.Metadata.Aperture,
+                ShutterSpeed = f.Metadata.ShutterSpeed
             }).ToList()
         };
 

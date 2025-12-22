@@ -43,4 +43,20 @@ public record IngestFileItem
     public DateTime ModifiedAt { get; init; }
 
     public string? ThumbnailBase64 { get; init; }
+
+    public DateTime? DateTaken { get; init; }
+
+    public string? CameraMake { get; init; }
+
+    public string? CameraModel { get; init; }
+
+    public double? GpsLatitude { get; init; }
+
+    public double? GpsLongitude { get; init; }
+
+    public int? Iso { get; init; }
+
+    public string? Aperture { get; init; }
+
+    public string? ShutterSpeed { get; init; }
 }

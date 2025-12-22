@@ -16,6 +16,16 @@ export interface IndexedFileDto {
   thumbnailPath: string | null;
   isDuplicate: boolean;
   duplicateGroupId: string | null;
+  dateTaken: string | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
+  gpsLatitude: number | null;
+  gpsLongitude: number | null;
+  iso: number | null;
+  aperture: string | null;
+  shutterSpeed: string | null;
+  lastError: string | null;
+  retryCount: number;
 }
 
 /**
