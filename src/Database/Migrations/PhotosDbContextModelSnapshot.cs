@@ -58,7 +58,19 @@ namespace Database.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Aperture")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CameraMake")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CameraModel")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateTaken")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("DuplicateGroupId")
@@ -82,6 +94,12 @@ namespace Database.Migrations
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
+                    b.Property<double?>("GpsLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("GpsLongitude")
+                        .HasColumnType("double precision");
+
                     b.Property<int?>("Height")
                         .HasColumnType("integer");
 
@@ -91,8 +109,20 @@ namespace Database.Migrations
                     b.Property<bool>("IsDuplicate")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("Iso")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ShutterSpeed")
+                        .HasColumnType("text");
 
                     b.Property<string>("ThumbnailPath")
                         .HasMaxLength(1000)
