@@ -10,6 +10,7 @@ import {
   UpdateScanDirectoryRequest,
   PagedResponse,
   BuildInfoDto,
+  IndexingStatusDto,
 } from './models';
 
 @Injectable({
@@ -58,6 +59,11 @@ export class ApiService {
 
   scanAllDirectories(): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/api/scan-directories/scan-all`, {});
+  }
+
+  // Indexing status endpoints
+  getIndexingStatus(): Observable<IndexingStatusDto> {
+    return this.http.get<IndexingStatusDto>(`${this.apiUrl}/api/indexing/status`);
   }
 
   // Generic methods for backward compatibility
