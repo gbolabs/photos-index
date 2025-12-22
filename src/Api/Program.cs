@@ -23,6 +23,7 @@ builder.Services.AddDbContext<PhotosDbContext>(options =>
 builder.Services.AddScoped<IScanDirectoryService, ScanDirectoryService>();
 builder.Services.AddScoped<IIndexedFileService, IndexedFileService>();
 builder.Services.AddScoped<IDuplicateService, DuplicateService>();
+builder.Services.AddScoped<IOriginalSelectionService, OriginalSelectionService>();
 builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 
