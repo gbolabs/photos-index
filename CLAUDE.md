@@ -112,6 +112,41 @@ docker compose logs -f
 docker compose down
 ```
 
+## Releasing
+
+**IMPORTANT**: Releases are fully automated via GitHub Actions. Do NOT manually create releases.
+
+### Release Process
+
+1. **Create and push a tag** - this triggers the release workflow:
+   ```bash
+   git tag -a v0.1.0 -m "Release v0.1.0"
+   git push origin v0.1.0
+   ```
+   Or use `gh release create` which creates the tag automatically.
+
+2. **The release workflow** (`.github/workflows/release.yml`) will:
+   - Build container images for all services (api, web, indexing-service, cleaner-service)
+   - Push images to `ghcr.io/gbolabs/photos-index/<service>:<version>`
+   - Create the GitHub Release with auto-generated changelog
+
+3. **Do NOT**:
+   - Manually create GitHub releases before the workflow completes
+   - Use `gh release create` with custom release notes (let the workflow generate them)
+
+4. **Monitor the release**:
+   ```bash
+   gh run list --workflow=release.yml --limit 3
+   gh run watch <run-id>
+   ```
+
+### Hotfix Releases
+
+For patch releases (e.g., v0.1.1):
+1. Fix the issue on `main` via PR
+2. After merge, create the patch tag: `git tag v0.1.1 && git push origin v0.1.1`
+3. Let the workflow build and release
+
 ## Architecture
 
 ### Services
