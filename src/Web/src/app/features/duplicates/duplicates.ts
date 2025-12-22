@@ -1,5 +1,6 @@
-import { Component, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, OnInit, signal, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { DuplicateGroupListComponent } from './components/duplicate-group-list/duplicate-group-list.component';
 import { DuplicateGroupDetailComponent } from './components/duplicate-group-detail/duplicate-group-detail.component';
 import { BulkActionsToolbarComponent } from './components/bulk-actions-toolbar/bulk-actions-toolbar.component';
@@ -20,6 +21,8 @@ type ViewMode = 'list' | 'detail';
   styleUrl: './duplicates.scss',
 })
 export class Duplicates implements OnInit {
+  private route = inject(ActivatedRoute);
+
   @ViewChild(DuplicateGroupListComponent) groupList!: DuplicateGroupListComponent;
   @ViewChild(BulkActionsToolbarComponent) toolbar!: BulkActionsToolbarComponent;
 
@@ -28,7 +31,12 @@ export class Duplicates implements OnInit {
   selectedGroupIds = signal<string[]>([]);
 
   ngOnInit(): void {
-    // Initial state is list view
+    // Check for groupId query parameter to navigate directly to detail view
+    const groupId = this.route.snapshot.queryParamMap.get('groupId');
+    if (groupId) {
+      this.selectedGroupId.set(groupId);
+      this.viewMode.set('detail');
+    }
   }
 
   onGroupSelected(group: DuplicateGroupDto): void {
