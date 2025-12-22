@@ -23,6 +23,10 @@ public static class OpenTelemetryExtensions
         this IHostApplicationBuilder builder,
         string serviceName)
     {
+        // Allow OTEL_SERVICE_NAME to override the default service name
+        var effectiveServiceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME")
+            ?? serviceName;
+
         // Get OTLP endpoint from environment or use default
         var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")
             ?? "http://localhost:18889";
@@ -31,7 +35,7 @@ public static class OpenTelemetryExtensions
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
             .AddService(
-                serviceName: serviceName,
+                serviceName: effectiveServiceName,
                 serviceVersion: typeof(OpenTelemetryExtensions).Assembly.GetName().Version?.ToString() ?? "1.0.0")
             .AddAttributes(new Dictionary<string, object>
             {
@@ -42,13 +46,13 @@ public static class OpenTelemetryExtensions
         // Add OpenTelemetry Tracing
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(
-                serviceName: serviceName,
+                serviceName: effectiveServiceName,
                 serviceVersion: typeof(OpenTelemetryExtensions).Assembly.GetName().Version?.ToString() ?? "1.0.0"))
             .WithTracing(tracing =>
             {
                 tracing
                     .SetResourceBuilder(resourceBuilder)
-                    .AddSource(serviceName)
+                    .AddSource(effectiveServiceName)
                     .AddHttpClientInstrumentation(options =>
                     {
                         options.FilterHttpRequestMessage = _ => true;
@@ -97,7 +101,7 @@ public static class OpenTelemetryExtensions
             {
                 metrics
                     .SetResourceBuilder(resourceBuilder)
-                    .AddMeter(serviceName)
+                    .AddMeter(effectiveServiceName)
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddProcessInstrumentation();

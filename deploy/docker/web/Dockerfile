@@ -35,8 +35,8 @@ COPY src/Web/ ./
 # Build Angular application for production
 RUN npm run build -- --configuration production
 
-# Runtime stage - nginx to serve static files
-FROM docker.io/library/nginx:1.27-alpine AS runtime
+# Runtime stage - nginx to serve static files (slim variant is ~3x smaller)
+FROM docker.io/library/nginx:alpine-slim AS runtime
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl

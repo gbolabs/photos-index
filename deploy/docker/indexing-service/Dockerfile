@@ -63,7 +63,7 @@ FROM build AS publish
 RUN dotnet publish IndexingService.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - minimal image for production
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 
 # Re-declare build args for this stage
 ARG BUILD_COMMIT_HASH=dev
@@ -77,15 +77,14 @@ ENV BUILD_TIME=${BUILD_TIME}
 
 WORKDIR /app
 
-# Install required libraries for image processing
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Install required libraries for image processing (including HEIC/HEIF support)
+# Alpine uses musl libc, libheif is available in community repo
+RUN apk add --no-cache \
     libgdiplus \
-    libc6-dev && \
-    rm -rf /var/lib/apt/lists/*
+    libheif
 
 # Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 # Create directories for thumbnails and temp files
 RUN mkdir -p /app/thumbnails /app/temp && \

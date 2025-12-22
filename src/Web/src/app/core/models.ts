@@ -60,3 +60,18 @@ export interface PagedResponse<T> {
   hasNextPage: boolean;
   hasPreviousPage: boolean;
 }
+
+/**
+ * Indexing status DTO.
+ * Matches backend: src/Shared/Dtos/IndexingStatusDto.cs
+ */
+export interface IndexingStatusDto {
+  isRunning: boolean;
+  currentDirectoryId: string | null;
+  currentDirectoryPath: string | null;
+  filesScanned: number;
+  filesIngested: number;
+  filesFailed: number;
+  startedAt: string | null;
+  lastUpdatedAt: string | null;
+}

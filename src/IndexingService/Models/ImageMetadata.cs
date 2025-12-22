@@ -46,6 +46,21 @@ public record ImageMetadata
     public int? Orientation { get; init; }
 
     /// <summary>
+    /// ISO speed rating from EXIF.
+    /// </summary>
+    public int? Iso { get; init; }
+
+    /// <summary>
+    /// Lens aperture from EXIF, formatted as "f/2.8".
+    /// </summary>
+    public string? Aperture { get; init; }
+
+    /// <summary>
+    /// Shutter speed from EXIF, formatted as "1/125".
+    /// </summary>
+    public string? ShutterSpeed { get; init; }
+
+    /// <summary>
     /// Whether metadata extraction was successful.
     /// </summary>
     public bool Success { get; init; }
