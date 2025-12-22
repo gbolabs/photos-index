@@ -58,11 +58,11 @@ FROM build AS publish
 RUN dotnet publish CleanerService.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - minimal image for production
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
 # Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 # Create directories for logs and temp files
 RUN mkdir -p /app/logs /app/temp && \

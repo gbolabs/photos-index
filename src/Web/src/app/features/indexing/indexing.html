@@ -34,6 +34,46 @@
       </mat-card-content>
     </mat-card>
   } @else {
+    <!-- Indexing Status Banner -->
+    @if (indexingStatus().isRunning) {
+      <mat-card class="indexing-status-card">
+        <mat-card-content>
+          <div class="status-header">
+            <div class="status-icon">
+              <mat-spinner diameter="24" color="primary"></mat-spinner>
+            </div>
+            <div class="status-info">
+              <h3>Indexing in Progress</h3>
+              <p class="status-path">{{ indexingStatus().currentDirectoryPath || 'Processing...' }}</p>
+            </div>
+            <div class="status-elapsed">
+              <mat-icon>schedule</mat-icon>
+              <span>{{ getElapsedTime() }}</span>
+            </div>
+          </div>
+          <mat-progress-bar mode="determinate" [value]="getProgressPercentage()" color="primary"></mat-progress-bar>
+          <div class="status-stats">
+            <div class="stat">
+              <span class="stat-value">{{ indexingStatus().filesScanned | number }}</span>
+              <span class="stat-label">Scanned</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value success">{{ indexingStatus().filesIngested | number }}</span>
+              <span class="stat-label">Ingested</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value error">{{ indexingStatus().filesFailed | number }}</span>
+              <span class="stat-label">Failed</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value">{{ getProgressPercentage() }}%</span>
+              <span class="stat-label">Progress</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+
     <!-- Summary -->
     <div class="summary-cards">
       <mat-card class="summary-card">

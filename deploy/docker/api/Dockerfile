@@ -64,7 +64,7 @@ FROM build AS publish
 RUN dotnet publish Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - minimal image for production
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 
 # Re-declare build args for this stage
 ARG BUILD_COMMIT_HASH=dev
@@ -79,12 +79,10 @@ ENV BUILD_TIME=${BUILD_TIME}
 WORKDIR /app
 
 # Install curl for healthcheck
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 # Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 # Copy published application
 COPY --from=publish /app/publish .

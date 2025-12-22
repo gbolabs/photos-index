@@ -42,6 +42,9 @@ public class MetadataExtractor : IMetadataExtractor
                 Latitude = ExtractLatitude(exif),
                 Longitude = ExtractLongitude(exif),
                 Orientation = GetExifInt(exif, ExifTag.Orientation),
+                Iso = ExtractIso(exif),
+                Aperture = ExtractAperture(exif),
+                ShutterSpeed = ExtractShutterSpeed(exif),
                 Success = true
             };
         }
@@ -237,6 +240,96 @@ public class MetadataExtractor : IMetadataExtractor
             var seconds = values[2].ToDouble();
 
             return degrees + (minutes / 60.0) + (seconds / 3600.0);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static int? ExtractIso(ExifProfile? exif)
+    {
+        if (exif is null)
+            return null;
+
+        try
+        {
+            if (exif.TryGetValue(ExifTag.ISOSpeedRatings, out var isoValue) && isoValue?.Value is not null && isoValue.Value.Length > 0)
+                return isoValue.Value[0];
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractAperture(ExifProfile? exif)
+    {
+        if (exif is null)
+            return null;
+
+        try
+        {
+            if (exif.TryGetValue(ExifTag.FNumber, out var fNumberValue) && fNumberValue?.Value is not null)
+            {
+                var fNumber = fNumberValue.Value.ToDouble();
+                if (fNumber > 0)
+                    return $"f/{fNumber:F1}";
+            }
+
+            if (exif.TryGetValue(ExifTag.ApertureValue, out var apertureValue) && apertureValue?.Value is not null)
+            {
+                var apexValue = apertureValue.Value.ToDouble();
+                var fNumber = Math.Pow(2, apexValue / 2.0);
+                if (fNumber > 0)
+                    return $"f/{fNumber:F1}";
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractShutterSpeed(ExifProfile? exif)
+    {
+        if (exif is null)
+            return null;
+
+        try
+        {
+            if (exif.TryGetValue(ExifTag.ExposureTime, out var exposureValue) && exposureValue?.Value is not null)
+            {
+                var exposureTime = exposureValue.Value.ToDouble();
+                if (exposureTime > 0)
+                {
+                    if (exposureTime >= 1)
+                        return $"{exposureTime:F1}s";
+
+                    var denominator = (int)Math.Round(1.0 / exposureTime);
+                    return $"1/{denominator}";
+                }
+            }
+
+            if (exif.TryGetValue(ExifTag.ShutterSpeedValue, out var shutterValue) && shutterValue?.Value is not null)
+            {
+                var apexValue = shutterValue.Value.ToDouble();
+                var exposureTime = Math.Pow(2, -apexValue);
+                if (exposureTime > 0)
+                {
+                    if (exposureTime >= 1)
+                        return $"{exposureTime:F1}s";
+
+                    var denominator = (int)Math.Round(1.0 / exposureTime);
+                    return $"1/{denominator}";
+                }
+            }
+
+            return null;
         }
         catch
         {

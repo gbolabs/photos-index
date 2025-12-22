@@ -18,4 +18,14 @@ public record IndexedFileDto
     public string? ThumbnailPath { get; init; }
     public bool IsDuplicate { get; init; }
     public Guid? DuplicateGroupId { get; init; }
+    public DateTime? DateTaken { get; init; }
+    public string? CameraMake { get; init; }
+    public string? CameraModel { get; init; }
+    public double? GpsLatitude { get; init; }
+    public double? GpsLongitude { get; init; }
+    public int? Iso { get; init; }
+    public string? Aperture { get; init; }
+    public string? ShutterSpeed { get; init; }
+    public string? LastError { get; init; }
+    public int RetryCount { get; init; }
 }

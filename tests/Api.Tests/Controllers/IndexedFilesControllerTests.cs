@@ -210,4 +210,50 @@ public class IndexedFilesControllerTests
         // Assert
         result.Should().BeOfType<NotFoundObjectResult>();
     }
+
+    [Fact]
+    public async Task CheckNeedsReindex_ReturnsResults_WhenFilesProvided()
+    {
+        // Arrange
+        var request = new CheckFilesNeedReindexRequest
+        {
+            Files =
+            [
+                new FileModificationInfo { FilePath = "/photos/test1.jpg", ModifiedAt = DateTime.UtcNow },
+                new FileModificationInfo { FilePath = "/photos/test2.jpg", ModifiedAt = DateTime.UtcNow }
+            ]
+        };
+        var expected = new List<FileNeedsReindexDto>
+        {
+            new() { FilePath = "/photos/test1.jpg", NeedsReindex = true, LastModifiedAt = DateTime.UtcNow },
+            new() { FilePath = "/photos/test2.jpg", NeedsReindex = false, LastModifiedAt = DateTime.UtcNow }
+        };
+        _mockService.Setup(s => s.CheckNeedsReindexAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _controller.CheckNeedsReindex(request);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeAssignableTo<IReadOnlyList<FileNeedsReindexDto>>().Subject;
+        response.Should().HaveCount(2);
+        response[0].NeedsReindex.Should().BeTrue();
+        response[1].NeedsReindex.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CheckNeedsReindex_ReturnsBadRequest_WhenNoFiles()
+    {
+        // Arrange
+        var request = new CheckFilesNeedReindexRequest { Files = [] };
+
+        // Act
+        var result = await _controller.CheckNeedsReindex(request);
+
+        // Assert
+        var badRequestResult = result.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var error = badRequestResult.Value.Should().BeOfType<ApiErrorResponse>().Subject;
+        error.Code.Should().Be("BAD_REQUEST");
+    }
 }

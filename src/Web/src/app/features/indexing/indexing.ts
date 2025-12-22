@@ -10,11 +10,22 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../core/api.service';
-import { ScanDirectoryDto } from '../../core/models';
+import { ScanDirectoryDto, IndexingStatusDto } from '../../core/models';
 
 interface DirectoryStatus extends ScanDirectoryDto {
   scanning: boolean;
 }
+
+const DEFAULT_STATUS: IndexingStatusDto = {
+  isRunning: false,
+  currentDirectoryId: null,
+  currentDirectoryPath: null,
+  filesScanned: 0,
+  filesIngested: 0,
+  filesFailed: 0,
+  startedAt: null,
+  lastUpdatedAt: null,
+};
 
 @Component({
   selector: 'app-indexing',
@@ -38,22 +49,42 @@ export class Indexing implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private snackBar = inject(MatSnackBar);
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
+  private statusInterval: ReturnType<typeof setInterval> | null = null;
 
   loading = signal(true);
   error = signal<string | null>(null);
   directories = signal<DirectoryStatus[]>([]);
   scanningAll = signal(false);
+  indexingStatus = signal<IndexingStatusDto>(DEFAULT_STATUS);
 
   ngOnInit(): void {
     this.loadDirectories();
+    this.loadIndexingStatus();
     // Auto-refresh every 10 seconds
     this.refreshInterval = setInterval(() => this.loadDirectories(false), 10000);
+    // Poll indexing status every 2 seconds for real-time progress
+    this.statusInterval = setInterval(() => this.loadIndexingStatus(), 2000);
   }
 
   ngOnDestroy(): void {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
+    }
+  }
+
+  loadIndexingStatus(): void {
+    this.api.getIndexingStatus().subscribe({
+      next: (status) => {
+        this.indexingStatus.set(status);
+      },
+      error: (err) => {
+        console.error('Failed to load indexing status:', err);
+        this.indexingStatus.set(DEFAULT_STATUS);
+      },
+    });
   }
 
   loadDirectories(showLoading = true): void {
@@ -157,5 +188,33 @@ export class Indexing implements OnInit, OnDestroy {
 
   getTotalFiles(): number {
     return this.directories().reduce((sum, d) => sum + d.fileCount, 0);
+  }
+
+  getElapsedTime(): string {
+    const status = this.indexingStatus();
+    if (!status.startedAt) return '';
+
+    const start = new Date(status.startedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - start.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffHours > 0) {
+      return `${diffHours}h ${diffMins % 60}m ${diffSecs % 60}s`;
+    }
+    if (diffMins > 0) {
+      return `${diffMins}m ${diffSecs % 60}s`;
+    }
+    return `${diffSecs}s`;
+  }
+
+  getProgressPercentage(): number {
+    const status = this.indexingStatus();
+    const total = status.filesScanned;
+    const processed = status.filesIngested + status.filesFailed;
+    if (total === 0) return 0;
+    return Math.round((processed / total) * 100);
   }
 }
