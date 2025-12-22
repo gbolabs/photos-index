@@ -12,6 +12,7 @@ public class PhotosDbContext : DbContext
     public DbSet<IndexedFile> IndexedFiles { get; set; }
     public DbSet<ScanDirectory> ScanDirectories { get; set; }
     public DbSet<DuplicateGroup> DuplicateGroups { get; set; }
+    public DbSet<SelectionPreference> SelectionPreferences { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -77,8 +78,34 @@ public class PhotosDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(64);
 
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("pending");
+
             // Indexes
             entity.HasIndex(e => e.Hash);
+            entity.HasIndex(e => e.Status);
+        });
+
+        // Configure SelectionPreference entity
+        modelBuilder.Entity<SelectionPreference>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.PathPrefix)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Priority)
+                .HasDefaultValue(50);
+
+            entity.Property(e => e.SortOrder)
+                .HasDefaultValue(0);
+
+            // Indexes
+            entity.HasIndex(e => e.PathPrefix);
+            entity.HasIndex(e => e.SortOrder);
         });
     }
 }

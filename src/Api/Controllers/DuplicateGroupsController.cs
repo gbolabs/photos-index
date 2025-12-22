@@ -31,13 +31,14 @@ public class DuplicateGroupsController : ControllerBase
     public async Task<ActionResult<PagedResponse<DuplicateGroupDto>>> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? status = null,
         CancellationToken ct = default)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 1;
         if (pageSize > 100) pageSize = 100;
 
-        var result = await _service.GetGroupsAsync(page, pageSize, ct);
+        var result = await _service.GetGroupsAsync(page, pageSize, status, ct);
         return Ok(result);
     }
 
@@ -138,5 +139,44 @@ public class DuplicateGroupsController : ControllerBase
             return NotFound(ApiErrorResponse.NotFound($"Duplicate group with ID {id} not found or has no duplicates"));
 
         return Ok(new { filesQueued = count });
+    }
+
+    /// <summary>
+    /// Validate duplicate groups (confirm kept file selections).
+    /// </summary>
+    [HttpPost("validate")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ValidateDuplicates(
+        [FromBody] ValidateDuplicatesRequest request,
+        CancellationToken ct = default)
+    {
+        var count = await _service.ValidateDuplicatesAsync(request, ct);
+        return Ok(new { validated = count });
+    }
+
+    /// <summary>
+    /// Batch validate auto-selected duplicate groups.
+    /// </summary>
+    [HttpPost("validate-batch")]
+    [ProducesResponseType(typeof(ValidateBatchResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ValidateBatchResponse>> ValidateBatch(
+        [FromBody] ValidateBatchRequest request,
+        CancellationToken ct = default)
+    {
+        var result = await _service.ValidateBatchAsync(request, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Undo validation for duplicate groups.
+    /// </summary>
+    [HttpPost("undo-validation")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UndoValidation(
+        [FromBody] UndoValidationRequest request,
+        CancellationToken ct = default)
+    {
+        var count = await _service.UndoValidationAsync(request, ct);
+        return Ok(new { undone = count });
     }
 }
