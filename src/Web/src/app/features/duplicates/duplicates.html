@@ -1,8 +1,16 @@
 <div class="duplicates-container">
   @if (viewMode() === 'list') {
     <div class="duplicates-header">
-      <h1>Duplicate Photos</h1>
-      <p class="subtitle">Review and manage duplicate files in your collection</p>
+      <div class="header-content">
+        <div class="title-section">
+          <h1>Duplicate Photos</h1>
+          <p class="subtitle">Review and manage duplicate files in your collection</p>
+        </div>
+        <app-view-mode-toggle
+          [displayMode]="displayMode()"
+          (displayModeChange)="onDisplayModeChange($event)"
+        ></app-view-mode-toggle>
+      </div>
     </div>
 
     <app-bulk-actions-toolbar
@@ -11,10 +19,17 @@
       (refreshRequested)="onRefreshRequested()"
     ></app-bulk-actions-toolbar>
 
-    <app-duplicate-group-list
-      (groupSelected)="onGroupSelected($event)"
-      (selectionChanged)="onSelectionChanged($event)"
-    ></app-duplicate-group-list>
+    @if (displayMode() === 'grid') {
+      <app-duplicate-group-list
+        (groupSelected)="onGroupSelected($event)"
+        (selectionChanged)="onSelectionChanged($event)"
+      ></app-duplicate-group-list>
+    } @else {
+      <app-duplicate-table-view
+        (groupSelected)="onGroupSelected($event)"
+        (selectionChanged)="onSelectionChanged($event)"
+      ></app-duplicate-table-view>
+    }
   } @else {
     <app-duplicate-group-detail
       [groupId]="selectedGroupId()!"
