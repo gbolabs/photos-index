@@ -37,7 +37,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `03-004` Indexing Performance Optimizations | 🔲 Not Started | - | A2 |
 | `05-006` File Detail Page | 🔲 Not Started | - | A4 |
 | `11-001` TrueNAS + Synology Split | 🔲 Not Started | - | A4 |
-| `12-001` Duplicate Table View | 🔲 Not Started | - | A4 |
+| `12-001` Duplicate Table View | ✅ Complete | [#71](https://github.com/gbolabs/photos-index/pull/71) | A4 |
 | `12-002` Batch Validation & Undo | 🔲 Not Started | - | A1/A4 |
 | `12-003` Selection Algorithm | 🔲 Not Started | - | A1/A4 |
 | `12-004` Bulk Override by Pattern | 🔲 Not Started | - | A1/A4 |

@@ -1,9 +1,10 @@
 # 001: Compact Table View for Duplicates
 
-**Status**: 🔲 Not Started
+**Status**: ✅ Complete
 **Priority**: P1
 **Issue**: [#68](https://github.com/gbolabs/photos-index/issues/68)
-**Branch**: `feature/duplicate-table-view`
+**Branch**: `feature/12-001-table-view`
+**PR**: [#71](https://github.com/gbolabs/photos-index/pull/71)
 **Estimated Complexity**: Medium
 **Target Release**: v0.2.0
 

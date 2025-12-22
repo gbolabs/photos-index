@@ -4,6 +4,8 @@ import { ActivatedRoute } from '@angular/router';
 import { DuplicateGroupListComponent } from './components/duplicate-group-list/duplicate-group-list.component';
 import { DuplicateGroupDetailComponent } from './components/duplicate-group-detail/duplicate-group-detail.component';
 import { BulkActionsToolbarComponent } from './components/bulk-actions-toolbar/bulk-actions-toolbar.component';
+import { DuplicateTableViewComponent } from './components/duplicate-table-view/duplicate-table-view.component';
+import { ViewModeToggleComponent, DisplayMode } from './components/view-mode-toggle/view-mode-toggle.component';
 import { DuplicateGroupDto } from '../../models';
 
 type ViewMode = 'list' | 'detail';
@@ -16,6 +18,8 @@ type ViewMode = 'list' | 'detail';
     DuplicateGroupListComponent,
     DuplicateGroupDetailComponent,
     BulkActionsToolbarComponent,
+    DuplicateTableViewComponent,
+    ViewModeToggleComponent,
   ],
   templateUrl: './duplicates.html',
   styleUrl: './duplicates.scss',
@@ -24,9 +28,11 @@ export class Duplicates implements OnInit {
   private route = inject(ActivatedRoute);
 
   @ViewChild(DuplicateGroupListComponent) groupList!: DuplicateGroupListComponent;
+  @ViewChild(DuplicateTableViewComponent) tableView!: DuplicateTableViewComponent;
   @ViewChild(BulkActionsToolbarComponent) toolbar!: BulkActionsToolbarComponent;
 
   viewMode = signal<ViewMode>('list');
+  displayMode = signal<DisplayMode>('grid');
   selectedGroupId = signal<string | null>(null);
   selectedGroupIds = signal<string[]>([]);
 
@@ -48,8 +54,10 @@ export class Duplicates implements OnInit {
     this.selectedGroupId.set(null);
     this.viewMode.set('list');
     // Refresh the list when returning
-    if (this.groupList) {
+    if (this.displayMode() === 'grid' && this.groupList) {
       this.groupList.loadGroups();
+    } else if (this.displayMode() === 'table' && this.tableView) {
+      this.tableView.loadGroups();
     }
   }
 
@@ -58,14 +66,22 @@ export class Duplicates implements OnInit {
   }
 
   onActionCompleted(): void {
-    if (this.groupList) {
+    if (this.displayMode() === 'grid' && this.groupList) {
       this.groupList.loadGroups();
+    } else if (this.displayMode() === 'table' && this.tableView) {
+      this.tableView.loadGroups();
     }
   }
 
   onRefreshRequested(): void {
-    if (this.groupList) {
+    if (this.displayMode() === 'grid' && this.groupList) {
       this.groupList.loadGroups();
+    } else if (this.displayMode() === 'table' && this.tableView) {
+      this.tableView.loadGroups();
     }
+  }
+
+  onDisplayModeChange(mode: DisplayMode): void {
+    this.displayMode.set(mode);
   }
 }
