@@ -35,7 +35,7 @@ public class DuplicateGroupsControllerTests
             PageSize = 20,
             TotalItems = 1
         };
-        _mockService.Setup(s => s.GetGroupsAsync(1, 20, It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetGroupsAsync(1, 20, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         // Act
@@ -51,14 +51,14 @@ public class DuplicateGroupsControllerTests
     public async Task GetAll_ClampsPaginationValues()
     {
         // Arrange
-        _mockService.Setup(s => s.GetGroupsAsync(1, 100, It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetGroupsAsync(1, 100, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(PagedResponse<DuplicateGroupDto>.Empty());
 
         // Act
         await _controller.GetAll(page: -1, pageSize: 500);
 
         // Assert - should clamp to page=1 and pageSize=100 (max)
-        _mockService.Verify(s => s.GetGroupsAsync(1, 100, It.IsAny<CancellationToken>()), Times.Once);
+        _mockService.Verify(s => s.GetGroupsAsync(1, 100, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

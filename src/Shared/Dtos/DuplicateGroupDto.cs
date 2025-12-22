@@ -14,4 +14,9 @@ public record DuplicateGroupDto
     public DateTime CreatedAt { get; init; }
     public Guid? OriginalFileId { get; init; }
     public IReadOnlyList<IndexedFileDto> Files { get; init; } = [];
+
+    // Validation fields
+    public string Status { get; init; } = "pending";
+    public DateTime? ValidatedAt { get; init; }
+    public Guid? KeptFileId { get; init; }
 }

@@ -77,8 +77,14 @@ public class PhotosDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(64);
 
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("pending");
+
             // Indexes
             entity.HasIndex(e => e.Hash);
+            entity.HasIndex(e => e.Status);
         });
     }
 }
