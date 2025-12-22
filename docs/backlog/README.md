@@ -10,6 +10,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `02-001` Scan Directories API | ✅ Complete | [#4](https://github.com/gbolabs/photos-index/pull/4) | A1 |
 | `02-002` Indexed Files API | ✅ Complete | [#6](https://github.com/gbolabs/photos-index/pull/6) | A1 |
 | `02-003` Duplicate Groups API | ✅ Complete | [#6](https://github.com/gbolabs/photos-index/pull/6) | A1 |
+| `02-004` API Versioning | 🔲 Not Started | - | A1 |
 | `03-001` File Scanner | ✅ Complete | [#5](https://github.com/gbolabs/photos-index/pull/5) | A2 |
 | `03-002` Hash Computer | 🔲 Not Started | - | A2 |
 | `03-003` Metadata Extractor | 🔲 Not Started | - | A2 |
@@ -92,10 +93,11 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 4. `03-indexing-service/001-file-scanner.md` - Core functionality
 
 ### P1 - Core Features (Week 1-2)
-5. `03-indexing-service/002-hash-computer.md`
-6. `03-indexing-service/003-metadata-extractor.md`
-7. `02-api-layer/003-duplicate-groups.md`
-8. `04-cleaner-service/001-delete-manager.md`
+5. `02-api-layer/004-api-versioning.md` - Independent service deployments (v0.2.0)
+6. `03-indexing-service/002-hash-computer.md`
+7. `03-indexing-service/003-metadata-extractor.md`
+8. `02-api-layer/003-duplicate-groups.md`
+9. `04-cleaner-service/001-delete-manager.md`
 
 ### P1.5 - Observability (Parallel)
 - `08-observability/001-swagger-production.md` (A1)
