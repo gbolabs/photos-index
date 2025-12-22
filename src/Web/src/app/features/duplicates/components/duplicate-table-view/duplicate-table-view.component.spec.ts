@@ -12,6 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatCardModule } from '@angular/material/card';
 import { of, throwError } from 'rxjs';
+import { vi } from 'vitest';
 import { DuplicateTableViewComponent } from './duplicate-table-view.component';
 import { DuplicateService } from '../../../../services/duplicate.service';
 import { DuplicateGroupDto, PagedResponse, IndexedFileDto } from '../../../../models';
@@ -21,7 +22,7 @@ describe('DuplicateTableViewComponent', () => {
   let component: DuplicateTableViewComponent;
   let componentRef: ComponentRef<DuplicateTableViewComponent>;
   let fixture: ComponentFixture<DuplicateTableViewComponent>;
-  let mockDuplicateService: jasmine.SpyObj<DuplicateService>;
+  let mockDuplicateService: { getAll: ReturnType<typeof vi.fn> };
 
   // Mock data
   const mockFile1: IndexedFileDto = {
@@ -121,8 +122,9 @@ describe('DuplicateTableViewComponent', () => {
   };
 
   beforeEach(async () => {
-    mockDuplicateService = jasmine.createSpyObj('DuplicateService', ['getAll']);
-    mockDuplicateService.getAll.and.returnValue(of(mockPagedResponse));
+    mockDuplicateService = {
+      getAll: vi.fn().mockReturnValue(of(mockPagedResponse)),
+    };
 
     await TestBed.configureTestingModule({
       imports: [
@@ -153,11 +155,11 @@ describe('DuplicateTableViewComponent', () => {
     });
 
     it('should call loadGroups on ngOnInit', () => {
-      spyOn(component, 'loadGroups');
+      const loadGroupsSpy = vi.spyOn(component, 'loadGroups');
 
       component.ngOnInit();
 
-      expect(component.loadGroups).toHaveBeenCalled();
+      expect(loadGroupsSpy).toHaveBeenCalled();
     });
 
     it('should initialize with default pagination values', () => {
@@ -204,7 +206,7 @@ describe('DuplicateTableViewComponent', () => {
 
     it('should handle loading errors', fakeAsync(() => {
       const error = new Error('Failed to load');
-      mockDuplicateService.getAll.and.returnValue(throwError(() => error));
+      mockDuplicateService.getAll.mockReturnValue(throwError(() => error));
 
       fixture.detectChanges();
       tick();
@@ -247,13 +249,13 @@ describe('DuplicateTableViewComponent', () => {
         length: 100,
       };
 
-      spyOn(component, 'loadGroups');
+      const loadGroupsSpy = vi.spyOn(component, 'loadGroups');
 
       component.onPageChange(pageEvent);
 
       expect(component.pageIndex).toBe(1);
       expect(component.pageSize).toBe(50);
-      expect(component.loadGroups).toHaveBeenCalled();
+      expect(loadGroupsSpy).toHaveBeenCalled();
     });
 
     it('should clear selection on page change', () => {
@@ -428,14 +430,18 @@ describe('DuplicateTableViewComponent', () => {
       expect(component.selectedGroupIds().has('group-1')).toBe(false);
     });
 
-    it('should emit selectionChanged when selection is toggled', (done) => {
-      component.selectionChanged.subscribe((selectedIds: string[]) => {
-        expect(selectedIds).toContain('group-1');
-        expect(selectedIds.length).toBe(1);
-        done();
+    it('should emit selectionChanged when selection is toggled', async () => {
+      const promise = new Promise<string[]>((resolve) => {
+        component.selectionChanged.subscribe((selectedIds: string[]) => {
+          resolve(selectedIds);
+        });
       });
 
       component.toggleSelection(mockGroup1);
+
+      const selectedIds = await promise;
+      expect(selectedIds).toContain('group-1');
+      expect(selectedIds.length).toBe(1);
     });
 
     it('should select multiple groups', () => {
@@ -514,13 +520,17 @@ describe('DuplicateTableViewComponent', () => {
       expect(component.allSelected()).toBe(true);
     });
 
-    it('should emit selectionChanged when toggling all', (done) => {
-      component.selectionChanged.subscribe((selectedIds: string[]) => {
-        expect(selectedIds.length).toBe(3);
-        done();
+    it('should emit selectionChanged when toggling all', async () => {
+      const promise = new Promise<string[]>((resolve) => {
+        component.selectionChanged.subscribe((selectedIds: string[]) => {
+          resolve(selectedIds);
+        });
       });
 
       component.toggleAllSelection();
+
+      const selectedIds = await promise;
+      expect(selectedIds.length).toBe(3);
     });
   });
 
@@ -667,26 +677,31 @@ describe('DuplicateTableViewComponent', () => {
       tick();
     }));
 
-    it('should emit groupSelected output', (done) => {
-      component.groupSelected.subscribe((group: DuplicateGroupDto) => {
-        expect(group).toBe(mockGroup1);
-        done();
+    it('should emit groupSelected output', async () => {
+      const promise = new Promise<DuplicateGroupDto>((resolve) => {
+        component.groupSelected.subscribe((group: DuplicateGroupDto) => {
+          resolve(group);
+        });
       });
 
       component.groupSelected.emit(mockGroup1);
+
+      const group = await promise;
+      expect(group).toBe(mockGroup1);
     });
 
-    it('should emit selectionChanged with correct data', (done) => {
-      const expectedIds = ['group-1', 'group-2'];
+    it('should emit selectionChanged with correct data', async () => {
+      let receivedIds: string[] = [];
 
       component.selectionChanged.subscribe((ids: string[]) => {
-        expect(ids).toEqual(jasmine.arrayContaining(expectedIds));
-        expect(ids.length).toBe(2);
-        done();
+        receivedIds = ids;
       });
 
       component.toggleSelection(mockGroup1);
       component.toggleSelection(mockGroup2);
+
+      expect(receivedIds).toEqual(expect.arrayContaining(['group-1', 'group-2']));
+      expect(receivedIds.length).toBe(2);
     });
   });
 
@@ -702,7 +717,7 @@ describe('DuplicateTableViewComponent', () => {
         hasPreviousPage: false,
       };
 
-      mockDuplicateService.getAll.and.returnValue(of(emptyResponse));
+      mockDuplicateService.getAll.mockReturnValue(of(emptyResponse));
 
       fixture.detectChanges();
       tick();
@@ -727,7 +742,7 @@ describe('DuplicateTableViewComponent', () => {
     });
 
     it('should handle network errors gracefully', fakeAsync(() => {
-      mockDuplicateService.getAll.and.returnValue(
+      mockDuplicateService.getAll.mockReturnValue(
         throwError(() => new Error('Network error'))
       );
 
@@ -741,7 +756,7 @@ describe('DuplicateTableViewComponent', () => {
 
     it('should reset error on successful reload', fakeAsync(() => {
       // First load fails
-      mockDuplicateService.getAll.and.returnValue(
+      mockDuplicateService.getAll.mockReturnValue(
         throwError(() => new Error('Network error'))
       );
 
@@ -751,7 +766,7 @@ describe('DuplicateTableViewComponent', () => {
       expect(component.error()).toBe('Failed to load duplicate groups');
 
       // Second load succeeds
-      mockDuplicateService.getAll.and.returnValue(of(mockPagedResponse));
+      mockDuplicateService.getAll.mockReturnValue(of(mockPagedResponse));
 
       component.loadGroups();
       tick();
