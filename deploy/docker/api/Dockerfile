@@ -78,8 +78,8 @@ ENV BUILD_TIME=${BUILD_TIME}
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install curl for healthcheck and krb5-libs for PostgreSQL GSSAPI
+RUN apk add --no-cache curl krb5-libs
 
 # Create non-root user
 RUN addgroup -S appuser && adduser -S appuser -G appuser
