@@ -42,6 +42,15 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `12-003` Selection Algorithm | ✅ Complete | [#74](https://github.com/gbolabs/photos-index/pull/74) | A1/A4 |
 | `12-004` Bulk Override by Pattern | 🔲 Not Started | - | A1/A4 |
 | `12-005` Cleanup History View | 🔲 Not Started | - | A1/A3/A4 |
+| `13-001` Static Analysis Configuration | 🔲 Not Started | - | A1 |
+| `13-002` Magic Strings to Constants | 🔲 Not Started | - | A1 |
+| `13-003` Seal Classes for Performance | 🔲 Not Started | - | A1 |
+| `13-004` Remove Dead Code | 🔲 Not Started | - | A1 |
+| `13-005` Improve Exception Handling | 🔲 Not Started | - | A1 |
+| `13-006` Entity Framework Optimizations | 🔲 Not Started | - | A1 |
+| `13-007` Add XML Documentation | 🔲 Not Started | - | A1 |
+| `13-008` Security Hardening | 🔲 Not Started | - | A1/A4 |
+| `13-009` Async Best Practices | 🔲 Not Started | - | A1/A2 |
 
 **Infrastructure (not in backlog):**
 - ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)
@@ -128,6 +137,19 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 18. `09-thumbnail-offload/README.md` - Offload thumbnail generation to MPC
 19. `05-web-ui/006-file-detail-page.md` - File detail page with extended metadata
 20. `09-fixes/003-service-bus-communication.md` - Generic message bus for async ops
+
+### P5 - Code Quality (Ongoing)
+- `13-code-quality/001-static-analysis-configuration.md` (P1 - Foundation)
+- `13-code-quality/002-magic-strings-constants.md` (P1 - Type Safety)
+- `13-code-quality/008-security-hardening.md` (P1 - Critical Security)
+- `13-code-quality/003-sealed-classes.md` (P2 - Performance)
+- `13-code-quality/005-exception-handling.md` (P2 - Reliability)
+- `13-code-quality/004-remove-dead-code.md` (P3 - Cleanup)
+- `13-code-quality/006-ef-optimizations.md` (P3 - Performance)
+- `13-code-quality/007-xml-documentation.md` (P3 - Documentation)
+- `13-code-quality/009-async-best-practices.md` (P3 - Performance)
+
+See [13-code-quality/README.md](./13-code-quality/README.md) for details.
 
 ## Branch & PR Rules
 
