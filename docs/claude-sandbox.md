@@ -240,6 +240,53 @@ CONTAINER_SUFFIX=agent1 ./scripts/claude-sandbox.sh clone "implement ScanDirecto
 CONTAINER_SUFFIX=agent2 ./scripts/claude-sandbox.sh clone "implement IndexedFiles API"
 ```
 
+## Observability (OTel)
+
+Enable OpenTelemetry logging to capture all prompts and tool calls in the Aspire Dashboard.
+
+### Usage
+
+```bash
+# Start sandbox with OTel enabled
+./scripts/claude-sandbox.sh --otel mount
+
+# View prompts and tool calls
+open http://localhost:18888
+```
+
+### What Gets Logged
+
+- All user prompts sent to Claude
+- Tool calls (Bash, Read, Write, etc.)
+- Response metadata
+- Timestamps and session IDs
+
+### Architecture
+
+The `--otel` flag:
+1. Starts an Aspire Dashboard container (ports 18888/18889)
+2. Sets OTel environment variables for Claude Code
+3. All telemetry flows to Aspire via gRPC
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Host Machine                                            │
+│                                                         │
+│  ┌──────────────────┐     ┌──────────────────────────┐ │
+│  │ Aspire Dashboard │◄────│ Claude Code Container    │ │
+│  │ :18888 (UI)      │     │                          │ │
+│  │ :18889 (OTLP)    │     │ OTEL_EXPORTER_OTLP_*     │ │
+│  └──────────────────┘     │ CLAUDE_CODE_ENABLE_*     │ │
+│                           │ OTEL_LOG_USER_PROMPTS=1  │ │
+│                           └──────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Stopping
+
+The Aspire container runs with `--rm` and stops when the sandbox exits.
+To stop manually: `podman rm -f aspire-otel`
+
 ## Troubleshooting
 
 ### "Permission denied" on mounted files

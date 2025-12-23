@@ -2,7 +2,10 @@
 # Run Claude Code in a sandboxed Podman container with YOLO mode
 #
 # Usage:
-#   ./scripts/claude-sandbox.sh [clone|mount]
+#   ./scripts/claude-sandbox.sh [--otel] [clone|mount]
+#
+# Options:
+#   --otel - Enable OpenTelemetry logging to Aspire Dashboard
 #
 # Modes:
 #   clone  - Clone repo fresh inside container (safer, isolated)
@@ -14,6 +17,18 @@
 #   - Git configured with user.name and user.email
 
 set -euo pipefail
+
+# Parse --otel flag
+OTEL_ENABLED=false
+POSITIONAL_ARGS=()
+for arg in "$@"; do
+    if [[ "$arg" == "--otel" ]]; then
+        OTEL_ENABLED=true
+    else
+        POSITIONAL_ARGS+=("$arg")
+    fi
+done
+set -- "${POSITIONAL_ARGS[@]:-}"
 
 MODE="${1:-mount}"
 REPO_URL="https://github.com/gbolabs/photos-index.git"
@@ -29,6 +44,35 @@ NC='\033[0m'
 log() { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
+# Start Aspire Dashboard for OTel
+start_aspire_dashboard() {
+    log "Starting Aspire Dashboard for OTel..."
+
+    # Remove existing if present
+    podman rm -f aspire-otel 2>/dev/null || true
+
+    # Start Aspire Dashboard
+    podman run -d --rm \
+        --name aspire-otel \
+        -p 18888:18888 \
+        -p 18889:18889 \
+        -e DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true \
+        mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+
+    log "Aspire Dashboard: http://localhost:18888"
+}
+
+# Get OTel environment variables for podman
+get_otel_env_args() {
+    if [[ "$OTEL_ENABLED" == "true" ]]; then
+        echo "-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
+              -e OTEL_LOG_USER_PROMPTS=1 \
+              -e OTEL_LOGS_EXPORTER=otlp \
+              -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:18889 \
+              -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+    fi
+}
 
 # Get GitHub token interactively
 get_gh_token() {
@@ -100,6 +144,17 @@ run_mount_mode() {
     local git_name=$(git config user.name 2>/dev/null || echo "Claude Agent")
     local git_email=$(git config user.email 2>/dev/null || echo "claude@localhost")
 
+    # Build OTel args if enabled
+    local otel_args=""
+    if [[ "$OTEL_ENABLED" == "true" ]]; then
+        otel_args="-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
+                   -e OTEL_LOG_USER_PROMPTS=1 \
+                   -e OTEL_LOGS_EXPORTER=otlp \
+                   -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:18889 \
+                   -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+    fi
+
+    # shellcheck disable=SC2086
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
         -e GH_TOKEN="${GH_TOKEN:-}" \
@@ -109,6 +164,7 @@ run_mount_mode() {
         -e GIT_COMMITTER_EMAIL="$git_email" \
         -p 8443:8443 \
         -v "$(pwd):/workspace:Z" \
+        $otel_args \
         "$IMAGE_NAME" \
         "$@"
 }
@@ -121,6 +177,17 @@ run_clone_mode() {
     local git_email=$(git config user.email 2>/dev/null || echo "claude@localhost")
     local branch=$(git branch --show-current 2>/dev/null || echo "main")
 
+    # Build OTel args if enabled
+    local otel_args=""
+    if [[ "$OTEL_ENABLED" == "true" ]]; then
+        otel_args="-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
+                   -e OTEL_LOG_USER_PROMPTS=1 \
+                   -e OTEL_LOGS_EXPORTER=otlp \
+                   -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:18889 \
+                   -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+    fi
+
+    # shellcheck disable=SC2086
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
         -e GH_TOKEN="${GH_TOKEN:-}" \
@@ -131,6 +198,7 @@ run_clone_mode() {
         -e REPO_URL="$REPO_URL" \
         -e BRANCH="$branch" \
         -p 8443:8443 \
+        $otel_args \
         "$IMAGE_NAME" \
         "$@"
 }
@@ -144,6 +212,11 @@ main() {
         build_image
     else
         log "Using existing image (run 'podman rmi $IMAGE_NAME' to rebuild)"
+    fi
+
+    # Start Aspire Dashboard if OTel is enabled
+    if [[ "$OTEL_ENABLED" == "true" ]]; then
+        start_aspire_dashboard
     fi
 
     shift || true  # Remove mode argument

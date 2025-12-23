@@ -8,6 +8,11 @@ if [[ -n "${GH_TOKEN:-}" ]]; then
 else
     echo "⚠️  GitHub CLI not authenticated (GH_TOKEN not set)"
 fi
+if [[ "${CLAUDE_CODE_ENABLE_TELEMETRY:-}" == "1" ]]; then
+    echo "✅ Telemetry: Enabled (OTel to ${OTEL_EXPORTER_OTLP_ENDPOINT:-not set})"
+else
+    echo "ℹ️  Telemetry: Disabled (use --otel flag to enable)"
+fi
 echo ""
 # Start code-server in the background
 echo "🚀 Starting code-server on 0.0.0.0:8443..."
