@@ -24,14 +24,14 @@ export abstract class BasePage {
   constructor(page: Page) {
     this.page = page;
 
-    // Menu button to open the navigation drawer
-    this.menuButton = page.locator('mat-toolbar button mat-icon:text("menu")').locator('..').first();
+    // Menu button to open the navigation drawer - button containing menu icon in toolbar
+    this.menuButton = page.locator('mat-toolbar button').filter({ has: page.locator('mat-icon:text("menu")') }).first();
 
-    // Navigation links inside mat-drawer
-    this.navDashboard = page.locator('mat-drawer a[routerlink="/"]').first();
-    this.navSettings = page.locator('mat-drawer a[routerlink="/settings"]').first();
-    this.navFiles = page.locator('mat-drawer a[routerlink="/files"]').first();
-    this.navDuplicates = page.locator('mat-drawer a[routerlink="/duplicates"]').first();
+    // Navigation links inside mat-drawer/mat-nav-list
+    this.navDashboard = page.locator('mat-nav-list a').filter({ hasText: 'Dashboard' }).first();
+    this.navSettings = page.locator('mat-nav-list a').filter({ hasText: 'Settings' }).first();
+    this.navFiles = page.locator('mat-nav-list a').filter({ hasText: 'Files' }).first();
+    this.navDuplicates = page.locator('mat-nav-list a').filter({ hasText: 'Duplicates' }).first();
 
     // Common UI elements
     this.loadingSpinner = page.locator('mat-spinner, .loading-spinner');
@@ -43,14 +43,13 @@ export abstract class BasePage {
    * Open the navigation drawer if not already open
    */
   async openDrawer(): Promise<void> {
-    const drawer = this.page.locator('mat-drawer');
-    const isOpen = await drawer.getAttribute('ng-reflect-opened') === 'true' ||
-                   await drawer.locator('[class*="opened"]').count() > 0;
+    // Check if drawer content is visible (nav links)
+    const isOpen = await this.navDashboard.isVisible().catch(() => false);
 
     if (!isOpen) {
       await this.menuButton.click();
-      // Wait for drawer animation
-      await this.page.waitForTimeout(300);
+      // Wait for drawer animation and nav to be visible
+      await this.navDashboard.waitFor({ state: 'visible', timeout: 5000 });
     }
   }
 

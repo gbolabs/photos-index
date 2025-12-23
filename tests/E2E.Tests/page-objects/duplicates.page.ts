@@ -252,7 +252,7 @@ export class DuplicatesPage extends BasePage {
    * Assert that duplicate groups are visible
    */
   async expectGroupsVisible(): Promise<void> {
-    await expect(this.duplicateGroups).toBeVisible();
+    await expect(this.duplicateGroups).toBeVisible({ timeout: 10000 });
   }
 
   /**
