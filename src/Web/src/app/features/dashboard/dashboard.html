@@ -23,7 +23,7 @@
     <!-- Statistics Cards -->
     <div class="stats-grid">
       <!-- Total Files -->
-      <mat-card class="stat-card" data-testid="total-files">
+      <mat-card class="stat-card" routerLink="/files" data-testid="total-files">
         <mat-card-header>
           <mat-icon mat-card-avatar class="stat-icon files">photo_library</mat-icon>
           <mat-card-title>{{ statistics()?.totalFiles | number }}</mat-card-title>
