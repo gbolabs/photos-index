@@ -214,6 +214,19 @@ public class IndexedFileService : IIndexedFileService
         {
             try
             {
+                // Validate file size - reject 0-byte files
+                if (file.FileSize <= 0)
+                {
+                    failed++;
+                    errors.Add(new BatchOperationError
+                    {
+                        Item = file.FilePath,
+                        Error = "File size is zero or negative"
+                    });
+                    _logger.LogWarning("Rejecting file with invalid size {Size}: {Path}", file.FileSize, file.FilePath);
+                    continue;
+                }
+
                 // Check if file already exists by path
                 var existing = await _dbContext.IndexedFiles
                     .FirstOrDefaultAsync(f => f.FilePath == file.FilePath, ct);
