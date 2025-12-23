@@ -1,6 +1,11 @@
 #!/bin/bash
 # Development Environment Setup Script
 # Installs required dependencies for Photos Index development
+#
+# Usage:
+#   ./setup-dev-env.sh          # Full setup
+#   ./setup-dev-env.sh vibe     # Only setup Vibe CLI prompt
+#   ./setup-dev-env.sh --help   # Show help
 
 set -e
 
@@ -18,14 +23,24 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-echo "========================================"
-echo " Photos Index Development Setup"
-echo "========================================"
-echo ""
-
 # Check OS
 OS="$(uname -s)"
-log_info "Detected OS: $OS"
+
+show_help() {
+    echo "Usage: $0 [command]"
+    echo ""
+    echo "Commands:"
+    echo "  (none)    Full development environment setup"
+    echo "  vibe      Only install Mistral Vibe CLI prompt"
+    echo "  --help    Show this help message"
+    echo ""
+    exit 0
+}
+
+# Handle help early
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    show_help
+fi
 
 # =============================================================================
 # .NET SDK Check/Install
@@ -305,4 +320,15 @@ main() {
     fi
 }
 
-main "$@"
+# Run based on command
+case "${1:-}" in
+    vibe)
+        setup_vibe
+        echo ""
+        echo "Vibe CLI setup complete!"
+        echo "Run 'vibe' in the project directory to start."
+        ;;
+    "")
+        main
+        ;;
+esac
