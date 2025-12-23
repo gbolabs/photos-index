@@ -20,8 +20,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     apt-get install -y gh && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code CLI and Angular CLI
+RUN npm install -g @anthropic-ai/claude-code@latest @angular/cli@latest
+
+# Install code-server (VS Code in browser)
+RUN curl -fsSL https://code-server.dev/install.sh | sh
 
 # Create non-root user
 RUN useradd -m -s /bin/bash claude && \

@@ -43,9 +43,12 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `12-004` Bulk Override by Pattern | 🔲 Not Started | - | A1/A4 |
 | `12-005` Cleanup History View | 🔲 Not Started | - | A1/A3/A4 |
 
-**Infrastructure (not in backlog):**
-- ✅ Traefik Ingress - [#11](https://github.com/gbolabs/photos-index/pull/11)
-- ✅ Claude Container Enhancement - [#7](https://github.com/gbolabs/photos-index/pull/7)
+**Infrastructure & Developer Experience:**
+| Task | Status | PR |
+|------|--------|-----|
+| Traefik Ingress | ✅ Complete | [#11](https://github.com/gbolabs/photos-index/pull/11) |
+| Claude Container Enhancement | ✅ Complete | [#7](https://github.com/gbolabs/photos-index/pull/7) |
+| `06-005` VS Code Dev Container | ✅ Complete | [#80](https://github.com/gbolabs/photos-index/pull/80) |
 
 ## Agent Assignment Matrix
 
