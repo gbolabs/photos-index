@@ -17,10 +17,11 @@ services:
       start_period: 0s
 
   # API without OTEL and relaxed health check
+  # Note: OTEL endpoint must be a valid URI (code doesn't handle empty strings)
   api:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - OTEL_EXPORTER_OTLP_ENDPOINT=
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 5s
@@ -36,7 +37,7 @@ services:
       aspire-dashboard:
         condition: service_healthy
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 
   # Cleaner service - start without waiting for API to be healthy
   cleaner-service:
@@ -48,7 +49,7 @@ services:
       aspire-dashboard:
         condition: service_healthy
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 
   # Traefik without OTEL tracing
   traefik:
