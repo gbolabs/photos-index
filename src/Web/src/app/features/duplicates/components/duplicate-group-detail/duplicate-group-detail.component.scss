@@ -87,6 +87,15 @@
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  
+  // Improve touch target size for mobile
+  @media (hover: none) and (pointer: coarse) {
+    // Add visual feedback for touch by using active state
+    &:active {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: scale(0.98);
+    }
+  }
 
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -161,6 +170,15 @@
   &:hover .thumbnail-overlay {
     opacity: 1;
   }
+
+  // Always show overlay on touch devices (mobile/tablet)
+  @media (hover: none) and (pointer: coarse) {
+    .thumbnail-overlay {
+      opacity: 1;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+    }
+  }
+}
 }
 
 .file-name {

@@ -27,3 +27,31 @@ body {
   margin: 0;
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
+
+// Mobile touch improvements
+@media (hover: none) and (pointer: coarse) {
+  // Ensure all buttons and interactive elements have adequate touch targets (minimum 44x44px)
+  button[mat-icon-button] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  button[mat-button],
+  button[mat-raised-button],
+  button[mat-flat-button],
+  button[mat-stroked-button] {
+    min-height: 44px;
+    padding: 0 16px;
+  }
+
+  // Improve touch feedback for all clickable elements
+  a, button, [role="button"], mat-card[routerLink] {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  // Disable pull-to-refresh on mobile to prevent accidental refreshes
+  body {
+    overscroll-behavior-y: contain;
+  }
+}
+
