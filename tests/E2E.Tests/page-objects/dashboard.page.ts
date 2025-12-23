@@ -10,9 +10,9 @@ export class DashboardPage extends BasePage {
 
   // Statistics cards
   readonly totalFilesCard: Locator;
-  readonly storageUsedCard: Locator;
   readonly duplicatesCard: Locator;
   readonly savingsCard: Locator;
+  readonly directoriesCard: Locator;
 
   // Actions
   readonly refreshButton: Locator;
@@ -30,20 +30,20 @@ export class DashboardPage extends BasePage {
 
     // Statistics cards - use data-testid attributes for reliable selection
     this.totalFilesCard = page.locator('[data-testid="total-files"]');
-    this.storageUsedCard = page.locator('[data-testid="storage-used"]');
     this.duplicatesCard = page.locator('[data-testid="duplicates"]');
     this.savingsCard = page.locator('[data-testid="savings"]');
+    this.directoriesCard = page.locator('[data-testid="directories"]');
 
     // Action buttons
     this.refreshButton = page.getByRole('button', { name: /refresh/i });
     this.scanButton = page.getByRole('button', { name: /scan/i });
 
     // Directory sections
-    this.directoryCards = page.locator('.directory-card, [data-testid="directory-card"]');
-    this.directoryCardTitles = page.locator('.directory-card-title, [data-testid="directory-title"]');
+    this.directoryCards = page.locator('.directory-card, mat-card.directory-card, [data-testid="directory-card"]');
+    this.directoryCardTitles = page.locator('.directory-card-title, .path, [data-testid="directory-title"]');
 
     // Recent activity
-    this.recentActivity = page.locator('[data-testid="recent-activity"]');
+    this.recentActivity = page.locator('[data-testid="recent-activity"], .recent-activity');
   }
 
   /**
@@ -62,10 +62,10 @@ export class DashboardPage extends BasePage {
   }
 
   /**
-   * Get the storage used value
+   * Get the directories count
    */
-  async getStorageUsed(): Promise<string> {
-    return await this.storageUsedCard.textContent() ?? '';
+  async getDirectoriesCount(): Promise<string> {
+    return await this.directoriesCard.textContent() ?? '';
   }
 
   /**
@@ -138,16 +138,16 @@ export class DashboardPage extends BasePage {
    */
   async expectStatsVisible(): Promise<void> {
     await expect(this.totalFilesCard).toBeVisible({ timeout: 10000 });
-    await expect(this.storageUsedCard).toBeVisible();
     await expect(this.duplicatesCard).toBeVisible();
     await expect(this.savingsCard).toBeVisible();
+    await expect(this.directoriesCard).toBeVisible();
   }
 
   /**
    * Assert that the page title is correct
    */
   async expectPageTitle(): Promise<void> {
-    await expect(this.page).toHaveTitle(/Dashboard|PhotosIndex/i);
+    await expect(this.page).toHaveTitle(/Dashboard|Photos\s*Index/i);
   }
 
   /**

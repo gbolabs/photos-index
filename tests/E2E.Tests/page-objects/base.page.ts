@@ -18,19 +18,39 @@ export abstract class BasePage {
   readonly errorMessage: Locator;
   readonly successMessage: Locator;
 
+  // Menu button for opening drawer
+  readonly menuButton: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
-    // Navigation links - adjust selectors based on actual Angular implementation
-    this.navDashboard = page.getByRole('link', { name: 'Dashboard' });
-    this.navSettings = page.getByRole('link', { name: 'Settings' });
-    this.navFiles = page.getByRole('link', { name: 'Files' });
-    this.navDuplicates = page.getByRole('link', { name: 'Duplicates' });
+    // Menu button to open the navigation drawer - button containing menu icon in toolbar
+    this.menuButton = page.locator('mat-toolbar button').filter({ has: page.locator('mat-icon:text("menu")') }).first();
+
+    // Navigation links inside mat-drawer/mat-nav-list
+    this.navDashboard = page.locator('mat-nav-list a').filter({ hasText: 'Dashboard' }).first();
+    this.navSettings = page.locator('mat-nav-list a').filter({ hasText: 'Settings' }).first();
+    this.navFiles = page.locator('mat-nav-list a').filter({ hasText: 'Files' }).first();
+    this.navDuplicates = page.locator('mat-nav-list a').filter({ hasText: 'Duplicates' }).first();
 
     // Common UI elements
     this.loadingSpinner = page.locator('mat-spinner, .loading-spinner');
     this.errorMessage = page.locator('.error-message, mat-error');
     this.successMessage = page.locator('.success-message, mat-snack-bar-container');
+  }
+
+  /**
+   * Open the navigation drawer if not already open
+   */
+  async openDrawer(): Promise<void> {
+    // Check if drawer content is visible (nav links)
+    const isOpen = await this.navDashboard.isVisible().catch(() => false);
+
+    if (!isOpen) {
+      await this.menuButton.click();
+      // Wait for drawer animation and nav to be visible
+      await this.navDashboard.waitFor({ state: 'visible', timeout: 5000 });
+    }
   }
 
   /**
@@ -56,6 +76,7 @@ export abstract class BasePage {
    * Navigate to Dashboard page
    */
   async navigateToDashboard(): Promise<void> {
+    await this.openDrawer();
     await this.navDashboard.click();
     await this.waitForPageLoad();
   }
@@ -64,6 +85,7 @@ export abstract class BasePage {
    * Navigate to Settings page
    */
   async navigateToSettings(): Promise<void> {
+    await this.openDrawer();
     await this.navSettings.click();
     await this.waitForPageLoad();
   }
@@ -72,6 +94,7 @@ export abstract class BasePage {
    * Navigate to Files page
    */
   async navigateToFiles(): Promise<void> {
+    await this.openDrawer();
     await this.navFiles.click();
     await this.waitForPageLoad();
   }
@@ -80,6 +103,7 @@ export abstract class BasePage {
    * Navigate to Duplicates page
    */
   async navigateToDuplicates(): Promise<void> {
+    await this.openDrawer();
     await this.navDuplicates.click();
     await this.waitForPageLoad();
   }

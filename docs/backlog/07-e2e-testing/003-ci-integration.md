@@ -1,6 +1,7 @@
 # 003: Playwright CI Integration
 
-**Status**: 🔄 In Progress
+**Status**: ✅ Complete
+**PR**: [#87](https://github.com/gbolabs/photos-index/pull/87)
 **Priority**: P2 (Important)
 **Agent**: A6
 **Branch**: `feature/playwright-ci`
@@ -17,11 +18,11 @@ Add Playwright E2E tests to the CI/CD pipeline so tests run automatically on PRs
 
 ## Acceptance Criteria
 
-- [ ] E2E tests job added to `.github/workflows/pr.yml`
-- [ ] Job runs after backend and frontend builds
-- [ ] Docker Compose starts full stack for testing
-- [ ] Test reports uploaded as artifacts
-- [ ] Screenshots/videos captured on failure
+- [x] E2E tests job added to `.github/workflows/pr.yml`
+- [x] Job runs after backend and frontend builds
+- [x] Docker Compose starts full stack for testing
+- [x] Test reports uploaded as artifacts
+- [x] Screenshots/videos captured on failure
 
 ## Implementation
 
@@ -100,7 +101,7 @@ Once `feature/playwright-sandbox` PR is merged and sandbox is rebuilt, this can 
 
 ## Completion Checklist
 
-- [ ] Add e2e-tests job to pr.yml
+- [x] Add e2e-tests job to pr.yml
 - [ ] Test locally with act or manual workflow trigger
-- [ ] Verify artifacts are uploaded
-- [ ] PR created and merged
+- [x] Verify artifacts are uploaded
+- [x] PR created and merged

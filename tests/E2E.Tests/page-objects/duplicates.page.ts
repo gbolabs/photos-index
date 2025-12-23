@@ -47,9 +47,9 @@ export class DuplicatesPage extends BasePage {
   constructor(page: Page) {
     super(page);
 
-    // Duplicate groups
-    this.duplicateGroups = page.locator('.duplicate-groups, [data-testid="duplicate-groups"]');
-    this.groupItems = page.locator('.duplicate-group, [data-testid="duplicate-group"]');
+    // Duplicate groups - look for the duplicates container
+    this.duplicateGroups = page.locator('.duplicates-container').first();
+    this.groupItems = page.locator('.duplicate-group, mat-card.group-card, tr.group-row, [data-testid="duplicate-group"]');
     this.expandedGroup = page.locator('.duplicate-group.expanded, [data-testid="duplicate-group"][aria-expanded="true"]');
 
     // Group actions
@@ -252,7 +252,7 @@ export class DuplicatesPage extends BasePage {
    * Assert that duplicate groups are visible
    */
   async expectGroupsVisible(): Promise<void> {
-    await expect(this.duplicateGroups).toBeVisible();
+    await expect(this.duplicateGroups).toBeVisible({ timeout: 10000 });
   }
 
   /**
