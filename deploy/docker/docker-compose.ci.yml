@@ -1,0 +1,47 @@
+# CI-specific overrides for E2E testing
+# - Removes Aspire dependency (not needed for E2E tests)
+# - Simplifies health checks for faster startup
+
+services:
+  # Disable Aspire dashboard for CI (not needed for E2E tests)
+  aspire-dashboard:
+    profiles:
+      - disabled
+
+  # API without Aspire dependency
+  api:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=
+
+  # Indexing service without Aspire dependency
+  indexing-service:
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=
+
+  # Cleaner service without Aspire dependency
+  cleaner-service:
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=
+
+  # Traefik without OTEL tracing
+  traefik:
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=photos-network"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
