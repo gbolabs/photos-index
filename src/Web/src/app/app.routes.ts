@@ -1,17 +1,29 @@
 import { Routes } from '@angular/router';
-import { Dashboard } from './features/dashboard/dashboard';
-import { Duplicates } from './features/duplicates/duplicates';
-import { Settings } from './features/settings/settings';
-import { Indexing } from './features/indexing/indexing';
-import { Files } from './features/files/files';
-import { FileDetailComponent } from './features/files/file-detail/file-detail.component';
 
 export const routes: Routes = [
-  { path: '', component: Dashboard },
-  { path: 'indexing', component: Indexing },
-  { path: 'files', component: Files },
-  { path: 'files/:id', component: FileDetailComponent },
-  { path: 'duplicates', component: Duplicates },
-  { path: 'settings', component: Settings },
+  {
+    path: '',
+    loadComponent: () => import('./features/dashboard/dashboard').then(m => m.Dashboard)
+  },
+  {
+    path: 'indexing',
+    loadComponent: () => import('./features/indexing/indexing').then(m => m.Indexing)
+  },
+  {
+    path: 'files',
+    loadComponent: () => import('./features/files/files').then(m => m.Files)
+  },
+  {
+    path: 'files/:id',
+    loadComponent: () => import('./features/files/file-detail/file-detail.component').then(m => m.FileDetailComponent)
+  },
+  {
+    path: 'duplicates',
+    loadComponent: () => import('./features/duplicates/duplicates').then(m => m.Duplicates)
+  },
+  {
+    path: 'settings',
+    loadComponent: () => import('./features/settings/settings').then(m => m.Settings)
+  },
   { path: '**', redirectTo: '' }
 ];
