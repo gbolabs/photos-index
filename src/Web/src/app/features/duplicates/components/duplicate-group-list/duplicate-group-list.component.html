@@ -117,7 +117,7 @@
           <button
             mat-icon-button
             matTooltip="View Details"
-            (click)="viewGroup(group)"
+            (click)="viewGroup(group); $event.stopPropagation()"
           >
             <mat-icon>visibility</mat-icon>
           </button>
