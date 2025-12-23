@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -6,6 +6,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../core/api.service';
 import { ScanDirectoryDto, CreateScanDirectoryRequest, UpdateScanDirectoryRequest } from '../../core/models';
 import { DirectoryListComponent } from './components/directory-list/directory-list.component';
@@ -29,15 +30,14 @@ import { ConfirmDialogComponent, ConfirmDialogData } from './components/confirm-
   styleUrl: './settings.scss',
 })
 export class Settings implements OnInit {
+  private apiService = inject(ApiService);
+  private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
+  private destroyRef = inject(DestroyRef);
+
   directories = signal<ScanDirectoryDto[]>([]);
   loading = signal(true);
   error = signal<string | null>(null);
-
-  constructor(
-    private apiService: ApiService,
-    private snackBar: MatSnackBar,
-    private dialog: MatDialog
-  ) {}
 
   ngOnInit(): void {
     this.loadDirectories();
@@ -47,18 +47,20 @@ export class Settings implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.apiService.getDirectories().subscribe({
-      next: (directories) => {
-        this.directories.set(directories);
-        this.loading.set(false);
-      },
-      error: (error) => {
-        console.error('Error loading directories:', error);
-        this.error.set('Failed to load directories');
-        this.loading.set(false);
-        this.snackBar.open('Failed to load directories', 'Close', { duration: 5000 });
-      },
-    });
+    this.apiService.getDirectories()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (directories) => {
+          this.directories.set(directories);
+          this.loading.set(false);
+        },
+        error: (error) => {
+          console.error('Error loading directories:', error);
+          this.error.set('Failed to load directories');
+          this.loading.set(false);
+          this.snackBar.open('Failed to load directories', 'Close', { duration: 5000 });
+        },
+      });
   }
 
   onAddDirectory(): void {
@@ -67,20 +69,24 @@ export class Settings implements OnInit {
       data: { mode: 'create' } as DirectoryFormDialogData,
     });
 
-    dialogRef.afterClosed().subscribe((result: CreateScanDirectoryRequest | undefined) => {
-      if (result) {
-        this.apiService.createDirectory(result).subscribe({
-          next: () => {
-            this.snackBar.open('Directory added successfully', 'Close', { duration: 3000 });
-            this.loadDirectories();
-          },
-          error: (error) => {
-            console.error('Error adding directory:', error);
-            this.snackBar.open('Failed to add directory', 'Close', { duration: 5000 });
-          },
-        });
-      }
-    });
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result: CreateScanDirectoryRequest | undefined) => {
+        if (result) {
+          this.apiService.createDirectory(result)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: () => {
+                this.snackBar.open('Directory added successfully', 'Close', { duration: 3000 });
+                this.loadDirectories();
+              },
+              error: (error) => {
+                console.error('Error adding directory:', error);
+                this.snackBar.open('Failed to add directory', 'Close', { duration: 5000 });
+              },
+            });
+        }
+      });
   }
 
   onEditDirectory(directory: ScanDirectoryDto): void {
@@ -89,17 +95,21 @@ export class Settings implements OnInit {
       data: { mode: 'edit', directory } as DirectoryFormDialogData,
     });
 
-    dialogRef.afterClosed().subscribe((result: UpdateScanDirectoryRequest | undefined) => {
-      if (result) {
-        this.apiService.updateDirectory(directory.id, result).subscribe({
-          next: () => {
-            this.snackBar.open('Directory updated successfully', 'Close', { duration: 3000 });
-            this.loadDirectories();
-          },
-          error: (error) => {
-            console.error('Error updating directory:', error);
-            this.snackBar.open('Failed to update directory', 'Close', { duration: 5000 });
-          },
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result: UpdateScanDirectoryRequest | undefined) => {
+        if (result) {
+          this.apiService.updateDirectory(directory.id, result)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: () => {
+                this.snackBar.open('Directory updated successfully', 'Close', { duration: 3000 });
+                this.loadDirectories();
+              },
+              error: (error) => {
+                console.error('Error updating directory:', error);
+                this.snackBar.open('Failed to update directory', 'Close', { duration: 5000 });
+              },
         });
       }
     });
@@ -116,25 +126,30 @@ export class Settings implements OnInit {
       } as ConfirmDialogData,
     });
 
-    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
-      if (confirmed) {
-        this.apiService.deleteDirectory(directory.id).subscribe({
-          next: () => {
-            this.snackBar.open('Directory deleted successfully', 'Close', { duration: 3000 });
-            this.loadDirectories();
-          },
-          error: (error) => {
-            console.error('Error deleting directory:', error);
-            this.snackBar.open('Failed to delete directory', 'Close', { duration: 5000 });
-          },
-        });
-      }
-    });
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed: boolean) => {
+        if (confirmed) {
+          this.apiService.deleteDirectory(directory.id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: () => {
+                this.snackBar.open('Directory deleted successfully', 'Close', { duration: 3000 });
+                this.loadDirectories();
+              },
+              error: (error) => {
+                console.error('Error deleting directory:', error);
+                this.snackBar.open('Failed to delete directory', 'Close', { duration: 5000 });
+              },
+            });
+        }
+      });
   }
 
   onToggleDirectory(directory: ScanDirectoryDto): void {
     this.apiService
       .updateDirectory(directory.id, { isEnabled: !directory.isEnabled })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           const status = !directory.isEnabled ? 'enabled' : 'disabled';
