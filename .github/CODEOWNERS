@@ -17,7 +17,6 @@
 # Infrastructure
 /deploy/ @gbolabs
 /.github/ @gbolabs
-/.devcontainer/ @gbolabs
 
 # Documentation
 /docs/ @gbolabs
