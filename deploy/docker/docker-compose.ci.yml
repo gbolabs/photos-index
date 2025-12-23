@@ -2,6 +2,7 @@
 # - Uses stub for Aspire dashboard (faster startup)
 # - Relaxes health check dependencies
 # - Disables OTEL telemetry
+# - Configures cache-from for faster builds
 
 services:
   # Use a minimal stub instead of real Aspire dashboard
@@ -19,6 +20,9 @@ services:
   # API without OTEL and relaxed health check
   # Note: OTEL endpoint must be a valid URI (code doesn't handle empty strings)
   api:
+    build:
+      cache_from:
+        - ghcr.io/gbolabs/photos-index/api:latest
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
@@ -31,6 +35,9 @@ services:
 
   # Indexing service - start without waiting for API to be healthy
   indexing-service:
+    build:
+      cache_from:
+        - ghcr.io/gbolabs/photos-index/indexing-service:latest
     depends_on:
       api:
         condition: service_started
@@ -41,6 +48,9 @@ services:
 
   # Cleaner service - start without waiting for API to be healthy
   cleaner-service:
+    build:
+      cache_from:
+        - ghcr.io/gbolabs/photos-index/cleaner-service:latest
     depends_on:
       api:
         condition: service_started
@@ -50,6 +60,12 @@ services:
         condition: service_healthy
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+
+  # Web with cache-from
+  web:
+    build:
+      cache_from:
+        - ghcr.io/gbolabs/photos-index/web:latest
 
   # Traefik without OTEL tracing
   traefik:
