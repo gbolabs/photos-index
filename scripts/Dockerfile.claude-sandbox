@@ -23,6 +23,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Install Claude Code CLI and Angular CLI
 RUN npm install -g @anthropic-ai/claude-code@latest @angular/cli@latest
 
+# Install Playwright browsers and dependencies
+RUN npx playwright install --with-deps chromium firefox webkit
+
 # Install code-server (VS Code in browser)
 RUN curl -fsSL https://code-server.dev/install.sh | sh
 

@@ -74,6 +74,27 @@ get_otel_env_args() {
     fi
 }
 
+# Required GitHub token scopes for full functionality
+REQUIRED_SCOPES="repo,workflow"
+
+# Check if token has required scopes
+check_token_scopes() {
+    local scopes
+    scopes=$(gh auth status 2>&1 | grep -oP "Token scopes: '\K[^']*" || echo "")
+
+    if [[ -z "$scopes" ]]; then
+        return 1
+    fi
+
+    # Check for workflow scope (needed for pushing workflow files)
+    if [[ "$scopes" != *"workflow"* ]]; then
+        warn "Token missing 'workflow' scope (needed to push .github/workflows changes)"
+        return 1
+    fi
+
+    return 0
+}
+
 # Get GitHub token interactively
 get_gh_token() {
     if [[ -n "${GH_TOKEN:-}" ]]; then
@@ -83,13 +104,19 @@ get_gh_token() {
 
     if command -v gh >/dev/null 2>&1; then
         if gh auth status >/dev/null 2>&1; then
+            # Check if token has required scopes
+            if ! check_token_scopes; then
+                warn "Token missing required scopes. Refreshing..."
+                gh auth refresh -h github.com -s workflow
+            fi
+
             log "Getting GitHub token from gh CLI..."
             GH_TOKEN=$(gh auth token)
             export GH_TOKEN
             log "GitHub token obtained successfully"
             return 0
         else
-            warn "gh CLI not authenticated. Run 'gh auth login' first"
+            warn "gh CLI not authenticated. Run 'gh auth login -s workflow' first"
         fi
     else
         warn "gh CLI not installed"
@@ -98,8 +125,8 @@ get_gh_token() {
     echo ""
     echo -e "${YELLOW}GitHub token not available.${NC}"
     echo "Options:"
-    echo "  1. Run 'gh auth login' and re-run this script"
-    echo "  2. Set GH_TOKEN environment variable"
+    echo "  1. Run 'gh auth login -s workflow' and re-run this script"
+    echo "  2. Set GH_TOKEN environment variable (must include workflow scope)"
     echo "  3. Continue without GitHub CLI (some features won't work)"
     echo ""
     read -p "Continue without GitHub token? [y/N] " -n 1 -r
