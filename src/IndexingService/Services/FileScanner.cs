@@ -104,6 +104,13 @@ public class FileScanner : IFileScanner
                 {
                     continue;
                 }
+
+                // Skip 0-byte files as they cannot be valid images and would all share the same hash
+                if (fileInfo.Length == 0)
+                {
+                    _logger.LogDebug("Skipping 0-byte file: {Path}", filePath);
+                    continue;
+                }
             }
             catch (Exception ex)
             {
