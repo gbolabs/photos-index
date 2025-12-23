@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -29,15 +29,13 @@ import { ConfirmDialogComponent, ConfirmDialogData } from './components/confirm-
   styleUrl: './settings.scss',
 })
 export class Settings implements OnInit {
+  private apiService = inject(ApiService);
+  private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
+
   directories = signal<ScanDirectoryDto[]>([]);
   loading = signal(true);
   error = signal<string | null>(null);
-
-  constructor(
-    private apiService: ApiService,
-    private snackBar: MatSnackBar,
-    private dialog: MatDialog
-  ) {}
 
   ngOnInit(): void {
     this.loadDirectories();
