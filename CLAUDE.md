@@ -171,6 +171,16 @@ For patch releases (e.g., v0.1.1):
 
 ## Development Guidelines
 
+### Language Requirements
+
+**All repository content must be in English**, regardless of the language used to prompt AI assistants (Claude, Copilot, etc.):
+- Code comments
+- Commit messages
+- Pull request titles and descriptions
+- Documentation
+- Variable/function/class names
+- Log messages and error messages
+
 ### Test Coverage Requirements
 - API: 85% | IndexingService: 80% | CleanerService: 80% | Database: 75% | Web: 70%
 
