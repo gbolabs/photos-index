@@ -48,10 +48,10 @@ export class FilesPage extends BasePage {
     this.filterButton = page.getByRole('button', { name: /filter/i });
     this.sortDropdown = page.locator('mat-select, select[name="sort"]');
 
-    // File list/grid
-    this.fileList = page.locator('.file-list, [data-testid="file-list"]');
-    this.fileItems = page.locator('.file-item, [data-testid="file-item"]');
-    this.fileGrid = page.locator('.file-grid, [data-testid="file-grid"]');
+    // File list/grid - also match Angular Material table structure
+    this.fileList = page.locator('.file-list, .table-container, .files-container mat-table, [data-testid="file-list"]');
+    this.fileItems = page.locator('.file-item, tr.mat-mdc-row, mat-row, [data-testid="file-item"]');
+    this.fileGrid = page.locator('.file-grid, .files-container, [data-testid="file-grid"]');
 
     // View mode
     this.listViewButton = page.getByRole('button', { name: /list view/i });

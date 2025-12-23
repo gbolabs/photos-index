@@ -28,22 +28,22 @@ export class DashboardPage extends BasePage {
   constructor(page: Page) {
     super(page);
 
-    // Statistics cards - use data-testid attributes for reliable selection
-    this.totalFilesCard = page.locator('[data-testid="total-files"]');
-    this.storageUsedCard = page.locator('[data-testid="storage-used"]');
-    this.duplicatesCard = page.locator('[data-testid="duplicates"]');
-    this.savingsCard = page.locator('[data-testid="savings"]');
+    // Statistics cards - use mat-card-subtitle text to find specific cards
+    this.totalFilesCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Total Files")), [data-testid="total-files"]');
+    this.storageUsedCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Storage")), [data-testid="storage-used"]');
+    this.duplicatesCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Duplicate")), [data-testid="duplicates"]');
+    this.savingsCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Savings")), [data-testid="savings"]');
 
     // Action buttons
     this.refreshButton = page.getByRole('button', { name: /refresh/i });
     this.scanButton = page.getByRole('button', { name: /scan/i });
 
     // Directory sections
-    this.directoryCards = page.locator('.directory-card, [data-testid="directory-card"]');
-    this.directoryCardTitles = page.locator('.directory-card-title, [data-testid="directory-title"]');
+    this.directoryCards = page.locator('.directory-card, mat-card.directory-card, [data-testid="directory-card"]');
+    this.directoryCardTitles = page.locator('.directory-card-title, .path, [data-testid="directory-title"]');
 
     // Recent activity
-    this.recentActivity = page.locator('[data-testid="recent-activity"]');
+    this.recentActivity = page.locator('[data-testid="recent-activity"], .recent-activity');
   }
 
   /**
@@ -147,7 +147,7 @@ export class DashboardPage extends BasePage {
    * Assert that the page title is correct
    */
   async expectPageTitle(): Promise<void> {
-    await expect(this.page).toHaveTitle(/Dashboard|PhotosIndex/i);
+    await expect(this.page).toHaveTitle(/Dashboard|Photos\s*Index/i);
   }
 
   /**

@@ -90,19 +90,19 @@ test.describe('Smoke Tests', () => {
   test('page titles are correct', async ({ page }) => {
     // Dashboard
     await page.goto('/');
-    await expect(page).toHaveTitle(/PhotosIndex|Dashboard/i);
+    await expect(page).toHaveTitle(/Photos\s*Index|Dashboard/i);
 
     // Settings
     await page.goto('/settings');
-    await expect(page).toHaveTitle(/Settings|PhotosIndex/i);
+    await expect(page).toHaveTitle(/Settings|Photos\s*Index/i);
 
     // Files
     await page.goto('/files');
-    await expect(page).toHaveTitle(/Files|PhotosIndex/i);
+    await expect(page).toHaveTitle(/Files|Photos\s*Index/i);
 
     // Duplicates
     await page.goto('/duplicates');
-    await expect(page).toHaveTitle(/Duplicates|PhotosIndex/i);
+    await expect(page).toHaveTitle(/Duplicates|Photos\s*Index/i);
   });
 
   test('refresh button works on dashboard', async ({ dashboardPage }) => {
