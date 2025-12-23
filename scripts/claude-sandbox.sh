@@ -107,6 +107,7 @@ run_mount_mode() {
         -e GIT_AUTHOR_EMAIL="$git_email" \
         -e GIT_COMMITTER_NAME="$git_name" \
         -e GIT_COMMITTER_EMAIL="$git_email" \
+        -p 8443:8443 \
         -v "$(pwd):/workspace:Z" \
         "$IMAGE_NAME" \
         "$@"
@@ -129,6 +130,7 @@ run_clone_mode() {
         -e GIT_COMMITTER_EMAIL="$git_email" \
         -e REPO_URL="$REPO_URL" \
         -e BRANCH="$branch" \
+        -p 8443:8443 \
         "$IMAGE_NAME" \
         "$@"
 }

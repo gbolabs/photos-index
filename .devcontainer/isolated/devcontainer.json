@@ -1,8 +1,8 @@
 {
-  "name": "Photos Index Dev",
+  "name": "Photos Index Dev (Isolated)",
   "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".."
+    "dockerfile": "../Dockerfile",
+    "context": "../.."
   },
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
@@ -15,21 +15,6 @@
     {
       "source": "${localEnv:PODMAN_SOCK_PATH:${localEnv:HOME}/.local/share/containers/podman/machine/podman.sock}",
       "target": "/var/run/podman.sock",
-      "type": "bind"
-    },
-    {
-      "source": "${localEnv:HOME}/.config/gh",
-      "target": "/home/vscode/.config/gh",
-      "type": "bind"
-    },
-    {
-      "source": "${localEnv:HOME}/.gitconfig",
-      "target": "/home/vscode/.gitconfig",
-      "type": "bind"
-    },
-    {
-      "source": "${localEnv:HOME}/.claude",
-      "target": "/home/vscode/.claude",
       "type": "bind"
     }
   ],
@@ -65,7 +50,7 @@
   "otherPortsAttributes": {
     "onAutoForward": "ignore"
   },
-  "postCreateCommand": "dotnet restore src/PhotosIndex.sln && cd src/Web && npm install",
-  "postStartCommand": ".devcontainer/configure-podman.sh",
+  "postCreateCommand": "dotnet restore src/PhotosIndex.sln && cd src/Web && npm install && git config --global init.defaultBranch main",
+  "postStartCommand": ".devcontainer/configure-isolated.sh",
   "remoteUser": "vscode"
 }

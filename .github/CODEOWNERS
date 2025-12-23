@@ -1,0 +1,24 @@
+# Code Owners
+# These users will be automatically requested for review on PRs
+
+# Default owners for everything
+* @gbolabs
+
+# Backend (.NET)
+/src/Api/ @gbolabs
+/src/Database/ @gbolabs
+/src/IndexingService/ @gbolabs
+/src/CleanerService/ @gbolabs
+/src/Shared/ @gbolabs
+
+# Frontend (Angular)
+/src/Web/ @gbolabs
+
+# Infrastructure
+/deploy/ @gbolabs
+/.github/ @gbolabs
+/.devcontainer/ @gbolabs
+
+# Documentation
+/docs/ @gbolabs
+*.md @gbolabs

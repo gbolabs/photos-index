@@ -9,6 +9,8 @@ else
     echo "⚠️  GitHub CLI not authenticated (GH_TOKEN not set)"
 fi
 echo ""
+echo "💡 VS Code: Run 'code-server --bind-addr 0.0.0.0:8443' to access via browser"
+echo ""
 
 # Clone repo if in clone mode
 if [[ -n "${REPO_URL:-}" ]]; then
