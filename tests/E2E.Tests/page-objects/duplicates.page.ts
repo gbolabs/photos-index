@@ -47,8 +47,8 @@ export class DuplicatesPage extends BasePage {
   constructor(page: Page) {
     super(page);
 
-    // Duplicate groups - look for the duplicates container or component elements
-    this.duplicateGroups = page.locator('.duplicates-container, app-duplicate-group-list, app-duplicate-table-view, [data-testid="duplicate-groups"]');
+    // Duplicate groups - look for the duplicates container
+    this.duplicateGroups = page.locator('.duplicates-container').first();
     this.groupItems = page.locator('.duplicate-group, mat-card.group-card, tr.group-row, [data-testid="duplicate-group"]');
     this.expandedGroup = page.locator('.duplicate-group.expanded, [data-testid="duplicate-group"][aria-expanded="true"]');
 

@@ -18,19 +18,40 @@ export abstract class BasePage {
   readonly errorMessage: Locator;
   readonly successMessage: Locator;
 
+  // Menu button for opening drawer
+  readonly menuButton: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
-    // Navigation links - adjust selectors based on actual Angular implementation
-    this.navDashboard = page.getByRole('link', { name: 'Dashboard' });
-    this.navSettings = page.getByRole('link', { name: 'Settings' });
-    this.navFiles = page.getByRole('link', { name: 'Files' });
-    this.navDuplicates = page.getByRole('link', { name: 'Duplicates' });
+    // Menu button to open the navigation drawer
+    this.menuButton = page.locator('mat-toolbar button mat-icon:text("menu")').locator('..').first();
+
+    // Navigation links inside mat-drawer
+    this.navDashboard = page.locator('mat-drawer a[routerlink="/"]').first();
+    this.navSettings = page.locator('mat-drawer a[routerlink="/settings"]').first();
+    this.navFiles = page.locator('mat-drawer a[routerlink="/files"]').first();
+    this.navDuplicates = page.locator('mat-drawer a[routerlink="/duplicates"]').first();
 
     // Common UI elements
     this.loadingSpinner = page.locator('mat-spinner, .loading-spinner');
     this.errorMessage = page.locator('.error-message, mat-error');
     this.successMessage = page.locator('.success-message, mat-snack-bar-container');
+  }
+
+  /**
+   * Open the navigation drawer if not already open
+   */
+  async openDrawer(): Promise<void> {
+    const drawer = this.page.locator('mat-drawer');
+    const isOpen = await drawer.getAttribute('ng-reflect-opened') === 'true' ||
+                   await drawer.locator('[class*="opened"]').count() > 0;
+
+    if (!isOpen) {
+      await this.menuButton.click();
+      // Wait for drawer animation
+      await this.page.waitForTimeout(300);
+    }
   }
 
   /**
@@ -56,6 +77,7 @@ export abstract class BasePage {
    * Navigate to Dashboard page
    */
   async navigateToDashboard(): Promise<void> {
+    await this.openDrawer();
     await this.navDashboard.click();
     await this.waitForPageLoad();
   }
@@ -64,6 +86,7 @@ export abstract class BasePage {
    * Navigate to Settings page
    */
   async navigateToSettings(): Promise<void> {
+    await this.openDrawer();
     await this.navSettings.click();
     await this.waitForPageLoad();
   }
@@ -72,6 +95,7 @@ export abstract class BasePage {
    * Navigate to Files page
    */
   async navigateToFiles(): Promise<void> {
+    await this.openDrawer();
     await this.navFiles.click();
     await this.waitForPageLoad();
   }
@@ -80,6 +104,7 @@ export abstract class BasePage {
    * Navigate to Duplicates page
    */
   async navigateToDuplicates(): Promise<void> {
+    await this.openDrawer();
     await this.navDuplicates.click();
     await this.waitForPageLoad();
   }

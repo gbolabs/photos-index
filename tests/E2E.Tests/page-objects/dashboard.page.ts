@@ -28,11 +28,11 @@ export class DashboardPage extends BasePage {
   constructor(page: Page) {
     super(page);
 
-    // Statistics cards - use mat-card-subtitle text to find specific cards
-    this.totalFilesCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Total Files")), [data-testid="total-files"]');
-    this.storageUsedCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Storage")), [data-testid="storage-used"]');
-    this.duplicatesCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Duplicate")), [data-testid="duplicates"]');
-    this.savingsCard = page.locator('mat-card.stat-card:has(mat-card-subtitle:text("Savings")), [data-testid="savings"]');
+    // Statistics cards - use stats-grid to find cards by position or text content
+    this.totalFilesCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Total Files' }).first();
+    this.storageUsedCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Storage' }).first();
+    this.duplicatesCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Duplicate' }).first();
+    this.savingsCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Savings' }).first();
 
     // Action buttons
     this.refreshButton = page.getByRole('button', { name: /refresh/i });
