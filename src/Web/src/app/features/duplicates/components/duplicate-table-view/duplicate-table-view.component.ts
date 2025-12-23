@@ -56,6 +56,8 @@ export class DuplicateTableViewComponent implements OnInit {
   totalItems = signal(0);
   selectedGroupIds = signal<Set<string>>(new Set());
   expandedRows = signal<Map<string, RowState>>(new Map());
+  groupDetails = signal<Map<string, DuplicateGroupDto>>(new Map());
+  loadingDetails = signal<Set<string>>(new Set());
 
   // Pagination
   pageIndex = 0;
@@ -154,18 +156,38 @@ export class DuplicateTableViewComponent implements OnInit {
     });
   }
 
+  hasOriginalSelected(group: DuplicateGroupDto): boolean {
+    return !!group.originalFileId;
+  }
+
   getOriginalFile(group: DuplicateGroupDto): IndexedFileDto | null {
-    if (group.originalFileId && group.files) {
-      return group.files.find(f => f.id === group.originalFileId) || null;
+    // Try to get from detailed group data first
+    const detailed = this.groupDetails().get(group.id);
+    const groupToUse = detailed || group;
+
+    if (groupToUse.originalFileId && groupToUse.files && groupToUse.files.length > 0) {
+      return groupToUse.files.find(f => f.id === groupToUse.originalFileId) || null;
     }
     return null;
   }
 
   getDuplicateFiles(group: DuplicateGroupDto): IndexedFileDto[] {
-    if (!group.files) return [];
-    const originalId = group.originalFileId;
-    if (!originalId) return group.files;
-    return group.files.filter(f => f.id !== originalId);
+    // Try to get from detailed group data first
+    const detailed = this.groupDetails().get(group.id);
+    const groupToUse = detailed || group;
+
+    if (!groupToUse.files || groupToUse.files.length === 0) return [];
+    const originalId = groupToUse.originalFileId;
+    if (!originalId) return groupToUse.files;
+    return groupToUse.files.filter(f => f.id !== originalId);
+  }
+
+  isLoadingDetails(groupId: string): boolean {
+    return this.loadingDetails().has(groupId);
+  }
+
+  hasLoadedDetails(groupId: string): boolean {
+    return this.groupDetails().has(groupId);
   }
 
   getLatestDate(group: DuplicateGroupDto): string {
@@ -193,9 +215,43 @@ export class DuplicateTableViewComponent implements OnInit {
   toggleRowExpansion(groupId: string): void {
     const current = new Map(this.expandedRows());
     const rowState = current.get(groupId) || { expanded: false };
-    rowState.expanded = !rowState.expanded;
+    const newExpandedState = !rowState.expanded;
+    rowState.expanded = newExpandedState;
     current.set(groupId, rowState);
     this.expandedRows.set(current);
+
+    // Fetch group details when expanding if not already loaded
+    if (newExpandedState && !this.groupDetails().has(groupId)) {
+      this.loadGroupDetails(groupId);
+    }
+  }
+
+  private loadGroupDetails(groupId: string): void {
+    // Mark as loading
+    const loading = new Set(this.loadingDetails());
+    loading.add(groupId);
+    this.loadingDetails.set(loading);
+
+    this.duplicateService.getById(groupId).subscribe({
+      next: (group) => {
+        // Store the detailed group data
+        const details = new Map(this.groupDetails());
+        details.set(groupId, group);
+        this.groupDetails.set(details);
+
+        // Remove from loading
+        const loadingSet = new Set(this.loadingDetails());
+        loadingSet.delete(groupId);
+        this.loadingDetails.set(loadingSet);
+      },
+      error: (err) => {
+        console.error('Failed to load group details:', err);
+        // Remove from loading
+        const loadingSet = new Set(this.loadingDetails());
+        loadingSet.delete(groupId);
+        this.loadingDetails.set(loadingSet);
+      },
+    });
   }
 
   toggleSelection(group: DuplicateGroupDto): void {
