@@ -54,8 +54,6 @@ export class App implements OnInit, OnDestroy {
   }
   
   ngOnDestroy(): void {
-    if (this.breakpointSubscription) {
-      this.breakpointSubscription.unsubscribe();
-    }
+    this.breakpointSubscription?.unsubscribe();
   }
 }
