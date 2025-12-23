@@ -28,12 +28,29 @@ public class IndexedFilesController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResponse<IndexedFileDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PagedResponse<IndexedFileDto>>> Query(
         [FromQuery] FileQueryParameters query,
         CancellationToken ct = default)
     {
-        var result = await _service.QueryAsync(query, ct);
-        return Ok(result);
+        try
+        {
+            // Validate query parameters
+            if (query.Page < 1)
+                return BadRequest(ApiErrorResponse.BadRequest("Page must be at least 1"));
+            
+            if (query.PageSize < 1 || query.PageSize > 1000)
+                return BadRequest(ApiErrorResponse.BadRequest("PageSize must be between 1 and 1000"));
+
+            var result = await _service.QueryAsync(query, ct);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error querying indexed files");
+            return StatusCode(StatusCodes.Status500InternalServerError, 
+                ApiErrorResponse.InternalError("An error occurred while querying files"));
+        }
     }
 
     /// <summary>
@@ -113,6 +130,39 @@ public class IndexedFilesController : ControllerBase
     {
         var result = await _service.GetStatisticsAsync(ct);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Get metadata for multiple files in a single request.
+    /// </summary>
+    [HttpPost("metadata/batch")]
+    [ProducesResponseType(typeof(IReadOnlyList<IndexedFileDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<IndexedFileDto>>> GetBatchMetadata(
+        [FromBody] IReadOnlyList<Guid> fileIds,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            if (fileIds == null || fileIds.Count == 0)
+            {
+                return BadRequest(ApiErrorResponse.BadRequest("At least one file ID is required"));
+            }
+
+            if (fileIds.Count > 100)
+            {
+                return BadRequest(ApiErrorResponse.BadRequest("Maximum of 100 file IDs allowed per request"));
+            }
+
+            var result = await _service.GetBatchMetadataAsync(fileIds, ct);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting batch metadata for files");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                ApiErrorResponse.InternalError("An error occurred while getting file metadata"));
+        }
     }
 
     /// <summary>
