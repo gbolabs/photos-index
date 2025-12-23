@@ -253,6 +253,60 @@ public class IndexedFilesApiTests : IClassFixture<WebAppFactory>, IAsyncLifetime
     }
 
     [Fact]
+    public async Task BatchIngest_RejectsZeroByteFiles()
+    {
+        // Arrange
+        using var db = _factory.CreateDbContext();
+        var directory = await TestDataSeeder.SeedDirectoryAsync(db);
+
+        var request = new BatchIngestFilesRequest
+        {
+            ScanDirectoryId = directory.Id,
+            Files = new List<IngestFileItem>
+            {
+                new IngestFileItem
+                {
+                    FilePath = "/photos/valid.jpg",
+                    FileName = "valid.jpg",
+                    FileHash = "hash1",
+                    FileSize = 1024,
+                    ModifiedAt = DateTime.UtcNow
+                },
+                new IngestFileItem
+                {
+                    FilePath = "/photos/empty.jpg",
+                    FileName = "empty.jpg",
+                    FileHash = "hash2",
+                    FileSize = 0, // 0-byte file should be rejected
+                    ModifiedAt = DateTime.UtcNow
+                }
+            }
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/files/batch", request);
+
+        // Assert
+        response.Should().BeSuccessful();
+        var result = await response.Content.ReadFromJsonAsync<BatchOperationResponse>();
+        result.Should().NotBeNull();
+        result!.TotalRequested.Should().Be(2);
+        result.Succeeded.Should().Be(1); // Only the valid file should succeed
+        result.Failed.Should().Be(1); // Zero-byte file should fail
+        result.HasErrors.Should().BeTrue();
+        result.Errors.Should().HaveCount(1);
+        result.Errors![0].Item.Should().Be("/photos/empty.jpg");
+        result.Errors[0].Error.Should().Contain("zero");
+
+        // Verify only the valid file was ingested
+        var queryResponse = await _client.GetAsync("/api/files");
+        var files = await queryResponse.Content.ReadFromJsonAsync<PagedResponse<IndexedFileDto>>();
+        files!.Items.Should().HaveCount(1);
+        files.Items[0].FileName.Should().Be("valid.jpg");
+        files.Items[0].FileSize.Should().Be(1024);
+    }
+
+    [Fact]
     public async Task GetStatistics_ReturnsCorrectCounts()
     {
         // Arrange

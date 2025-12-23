@@ -277,4 +277,22 @@ public class FileScannerTests : IDisposable
         // Assert
         files.Should().HaveCount(2); // level1 and level2 only
     }
+
+    [Fact]
+    public async Task ScanAsync_SkipsZeroByteFiles()
+    {
+        // Arrange
+        _fixture.CreateFile("valid.jpg", new byte[1024]);
+        _fixture.CreateFile("empty.jpg", new byte[0]); // 0-byte file
+        _fixture.CreateFile("another-valid.png", new byte[512]);
+        var scanner = CreateScanner();
+
+        // Act
+        var files = await scanner.ScanAsync(_fixture.RootPath, false, CancellationToken.None).ToListAsync();
+
+        // Assert
+        files.Should().HaveCount(2); // Should skip the 0-byte file
+        files.Should().OnlyContain(f => f.FileSizeBytes > 0);
+        files.Should().NotContain(f => f.FileName == "empty.jpg");
+    }
 }
