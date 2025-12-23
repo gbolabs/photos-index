@@ -171,6 +171,16 @@ For patch releases (e.g., v0.1.1):
 
 ## Development Guidelines
 
+### Language Requirements
+
+**All repository content must be in English**, regardless of the language used to prompt AI assistants (Claude, Copilot, etc.):
+- Code comments
+- Commit messages
+- Pull request titles and descriptions
+- Documentation
+- Variable/function/class names
+- Log messages and error messages
+
 ### Test Coverage Requirements
 - API: 85% | IndexingService: 80% | CleanerService: 80% | Database: 75% | Web: 70%
 
@@ -179,6 +189,25 @@ For patch releases (e.g., v0.1.1):
 
 ### Resource Constraints
 Optimize for Synology NAS - use streaming for large files, pagination for queries, memory limits in Docker.
+
+### Architecture Decision Records (ADRs)
+
+Document significant architectural decisions in `docs/adrs/`. Use the template at `docs/adrs/000-template.md`.
+
+**When to create an ADR:**
+- Technology choices (frameworks, libraries, databases)
+- Architectural patterns (API design, data flow, service boundaries)
+- Development workflow decisions (CI/CD, branching strategy)
+- Standards affecting the whole codebase
+- Integration decisions (third-party services, protocols)
+
+**Do NOT create an ADR for:**
+- Bug fixes or minor refactoring
+- Implementation details within a single component
+- Temporary workarounds
+- Standard framework usage
+
+See `docs/adrs/README.md` for the full index and guidelines.
 
 ## Parallel Development
 

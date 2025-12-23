@@ -41,6 +41,7 @@ Closes #
 ## Checklist
 
 - [ ] My code follows the project's coding standards
+- [ ] All content is in English (comments, messages, documentation)
 - [ ] I have updated documentation as needed
 - [ ] I have added tests that prove my fix/feature works
 - [ ] All new and existing tests pass

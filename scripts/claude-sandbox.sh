@@ -2,10 +2,11 @@
 # Run Claude Code in a sandboxed Podman container with YOLO mode
 #
 # Usage:
-#   ./scripts/claude-sandbox.sh [--otel] [clone|mount]
+#   ./scripts/claude-sandbox.sh [options] [clone|mount]
 #
 # Options:
-#   --otel - Enable OpenTelemetry logging to Aspire Dashboard
+#   --otel             - Enable OpenTelemetry logging to Aspire Dashboard
+#   --skip-scope-check - Skip GitHub token scope validation (use if you don't need workflow scope)
 #
 # Modes:
 #   clone  - Clone repo fresh inside container (safer, isolated)
@@ -18,15 +19,22 @@
 
 set -euo pipefail
 
-# Parse --otel flag
+# Parse flags
 OTEL_ENABLED=false
+SKIP_SCOPE_CHECK=false
 POSITIONAL_ARGS=()
 for arg in "$@"; do
-    if [[ "$arg" == "--otel" ]]; then
-        OTEL_ENABLED=true
-    else
-        POSITIONAL_ARGS+=("$arg")
-    fi
+    case "$arg" in
+        --otel)
+            OTEL_ENABLED=true
+            ;;
+        --skip-scope-check)
+            SKIP_SCOPE_CHECK=true
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$arg")
+            ;;
+    esac
 done
 set -- "${POSITIONAL_ARGS[@]:-}"
 
@@ -80,11 +88,15 @@ REQUIRED_SCOPES="repo,workflow"
 # Check if token has required scopes
 check_token_scopes() {
     local scopes
-    scopes=$(gh auth status 2>&1 | grep -oP "Token scopes: '\K[^']*" || echo "")
+    # Use sed instead of grep -oP for macOS compatibility
+    scopes=$(gh auth status 2>&1 | grep "Token scopes:" | sed "s/.*Token scopes: //" || echo "")
 
     if [[ -z "$scopes" ]]; then
+        warn "Could not determine token scopes"
         return 1
     fi
+
+    log "Current token scopes: $scopes"
 
     # Check for workflow scope (needed for pushing workflow files)
     if [[ "$scopes" != *"workflow"* ]]; then
@@ -104,10 +116,14 @@ get_gh_token() {
 
     if command -v gh >/dev/null 2>&1; then
         if gh auth status >/dev/null 2>&1; then
-            # Check if token has required scopes
-            if ! check_token_scopes; then
-                warn "Token missing required scopes. Refreshing..."
-                gh auth refresh -h github.com -s workflow
+            # Check if token has required scopes (unless skipped)
+            if [[ "$SKIP_SCOPE_CHECK" != "true" ]]; then
+                if ! check_token_scopes; then
+                    warn "Token missing required scopes. Refreshing..."
+                    gh auth refresh -h github.com -s workflow
+                fi
+            else
+                log "Skipping scope check (--skip-scope-check)"
             fi
 
             log "Getting GitHub token from gh CLI..."
