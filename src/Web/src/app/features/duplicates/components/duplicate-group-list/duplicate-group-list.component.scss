@@ -154,6 +154,13 @@
   &:hover {
     background-color: rgba(0, 0, 0, 0.04);
   }
+
+  // Add touch feedback for mobile devices
+  @media (hover: none) and (pointer: coarse) {
+    &:active {
+      background-color: rgba(0, 0, 0, 0.08);
+    }
+  }
 }
 
 mat-paginator {

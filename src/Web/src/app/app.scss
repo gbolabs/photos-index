@@ -13,3 +13,18 @@
 .active-link {
   background-color: rgba(0, 0, 0, 0.04);
 }
+
+// Mobile responsive adjustments
+@media (max-width: 768px) {
+  .drawer-container {
+    height: calc(100vh - 56px); // Mobile toolbar is typically 56px
+  }
+
+  .drawer-sidenav {
+    width: 280px; // Slightly wider on mobile for easier touch
+  }
+
+  .drawer-content {
+    padding: 12px; // Reduce padding on mobile
+  }
+}

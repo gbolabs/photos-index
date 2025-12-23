@@ -54,6 +54,14 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
+  // Add touch feedback for mobile devices
+  @media (hover: none) and (pointer: coarse) {
+    &:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+  }
+
   mat-card-header {
     padding-bottom: 8px;
   }
