@@ -266,6 +266,7 @@ These can be built immediately with current implementation:
 | GPS clustering | 8-12h | "Photos taken in Paris" |
 | Burst detection | 4-6h | "20 photos in 2 minutes = event" |
 | Manual albums | 8-12h | User-created collections |
+| Metadata synchronization | 62-86h | See [001-ai-metadata-sync.md](001-ai-metadata-sync.md) |
 
 ---
 
