@@ -1,10 +1,10 @@
 # CI-specific overrides for E2E testing
-# - Relaxes Aspire health check (use a simple always-healthy image)
-# - Simplifies configuration for faster startup
+# - Uses stub for Aspire dashboard (faster startup)
+# - Relaxes health check dependencies
+# - Disables OTEL telemetry
 
 services:
-  # Use a minimal image instead of Aspire for CI
-  # This satisfies dependencies without the startup delay
+  # Use a minimal stub instead of real Aspire dashboard
   aspire-dashboard:
     image: busybox:latest
     container_name: photos-index-aspire
@@ -16,25 +16,37 @@ services:
       retries: 1
       start_period: 0s
 
-  # API without OTEL, with extended startup time
+  # API without OTEL and relaxed health check
   api:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - OTEL_EXPORTER_OTLP_ENDPOINT=
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 12
-      start_period: 60s
+      retries: 30
+      start_period: 30s
 
-  # Indexing service without OTEL
+  # Indexing service - start without waiting for API to be healthy
   indexing-service:
+    depends_on:
+      api:
+        condition: service_started
+      aspire-dashboard:
+        condition: service_healthy
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=
 
-  # Cleaner service without OTEL
+  # Cleaner service - start without waiting for API to be healthy
   cleaner-service:
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      aspire-dashboard:
+        condition: service_healthy
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=
 
