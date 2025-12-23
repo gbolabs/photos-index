@@ -98,7 +98,8 @@ test.describe('Files - Sorting', () => {
   });
 
   test('should display sort dropdown with options', async ({ page }) => {
-    const sortSelect = page.locator('mat-select').filter({ hasText: /Name|Sort/i }).first();
+    const sortField = page.locator('mat-form-field').filter({ hasText: 'Sort by' });
+    const sortSelect = sortField.locator('mat-select');
     await sortSelect.click();
 
     // Wait for options to appear
@@ -304,7 +305,7 @@ test.describe('Files - Empty and Error States', () => {
     const searchInput = page.locator('input[placeholder*="search" i]').first();
     await searchInput.fill('nonexistentfilenamethatwontmatch12345');
 
-    const searchButton = page.getByRole('button', { name: /search/i });
+    const searchButton = page.getByRole('button', { name: 'Search', exact: true });
     await searchButton.click();
 
     // Wait for results
