@@ -17,6 +17,9 @@ RUN apt-get update && apt-get install -y \
 # Install Angular CLI and Claude Code CLI
 RUN npm install -g @angular/cli@latest @anthropic-ai/claude-code@latest
 
+# Install Playwright browsers and dependencies
+RUN npx playwright install --with-deps chromium firefox webkit
+
 # Create non-root user for VS Code (handle existing GID/UID)
 ARG USERNAME=vscode
 ARG USER_UID=1000
