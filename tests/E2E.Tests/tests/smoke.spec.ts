@@ -16,9 +16,9 @@ test.describe('Smoke Tests', () => {
 
     // Verify all stat cards are present
     await expect(dashboardPage.totalFilesCard).toBeVisible();
-    await expect(dashboardPage.storageUsedCard).toBeVisible();
     await expect(dashboardPage.duplicatesCard).toBeVisible();
     await expect(dashboardPage.savingsCard).toBeVisible();
+    await expect(dashboardPage.directoriesCard).toBeVisible();
   });
 
   test('navigation works between pages', async ({ dashboardPage, page }) => {

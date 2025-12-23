@@ -10,9 +10,9 @@ export class DashboardPage extends BasePage {
 
   // Statistics cards
   readonly totalFilesCard: Locator;
-  readonly storageUsedCard: Locator;
   readonly duplicatesCard: Locator;
   readonly savingsCard: Locator;
+  readonly directoriesCard: Locator;
 
   // Actions
   readonly refreshButton: Locator;
@@ -28,11 +28,11 @@ export class DashboardPage extends BasePage {
   constructor(page: Page) {
     super(page);
 
-    // Statistics cards - use stats-grid to find cards by position or text content
-    this.totalFilesCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Total Files' }).first();
-    this.storageUsedCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Storage' }).first();
-    this.duplicatesCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Duplicate' }).first();
-    this.savingsCard = page.locator('.stats-grid mat-card').filter({ hasText: 'Savings' }).first();
+    // Statistics cards - use data-testid attributes for reliable selection
+    this.totalFilesCard = page.locator('[data-testid="total-files"]');
+    this.duplicatesCard = page.locator('[data-testid="duplicates"]');
+    this.savingsCard = page.locator('[data-testid="savings"]');
+    this.directoriesCard = page.locator('[data-testid="directories"]');
 
     // Action buttons
     this.refreshButton = page.getByRole('button', { name: /refresh/i });
@@ -62,10 +62,10 @@ export class DashboardPage extends BasePage {
   }
 
   /**
-   * Get the storage used value
+   * Get the directories count
    */
-  async getStorageUsed(): Promise<string> {
-    return await this.storageUsedCard.textContent() ?? '';
+  async getDirectoriesCount(): Promise<string> {
+    return await this.directoriesCard.textContent() ?? '';
   }
 
   /**
@@ -138,9 +138,9 @@ export class DashboardPage extends BasePage {
    */
   async expectStatsVisible(): Promise<void> {
     await expect(this.totalFilesCard).toBeVisible({ timeout: 10000 });
-    await expect(this.storageUsedCard).toBeVisible();
     await expect(this.duplicatesCard).toBeVisible();
     await expect(this.savingsCard).toBeVisible();
+    await expect(this.directoriesCard).toBeVisible();
   }
 
   /**

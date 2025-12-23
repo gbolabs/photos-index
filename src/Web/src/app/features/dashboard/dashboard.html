@@ -23,7 +23,7 @@
     <!-- Statistics Cards -->
     <div class="stats-grid">
       <!-- Total Files -->
-      <mat-card class="stat-card">
+      <mat-card class="stat-card" data-testid="total-files">
         <mat-card-header>
           <mat-icon mat-card-avatar class="stat-icon files">photo_library</mat-icon>
           <mat-card-title>{{ statistics()?.totalFiles | number }}</mat-card-title>
@@ -35,7 +35,7 @@
       </mat-card>
 
       <!-- Duplicate Groups -->
-      <mat-card class="stat-card" routerLink="/duplicates">
+      <mat-card class="stat-card" routerLink="/duplicates" data-testid="duplicates">
         <mat-card-header>
           <mat-icon mat-card-avatar class="stat-icon duplicates">content_copy</mat-icon>
           <mat-card-title>{{ statistics()?.duplicateGroups | number }}</mat-card-title>
@@ -47,7 +47,7 @@
       </mat-card>
 
       <!-- Potential Savings -->
-      <mat-card class="stat-card savings">
+      <mat-card class="stat-card savings" data-testid="savings">
         <mat-card-header>
           <mat-icon mat-card-avatar class="stat-icon savings">savings</mat-icon>
           <mat-card-title>{{ statistics()?.potentialSavingsBytes | fileSize }}</mat-card-title>
@@ -59,7 +59,7 @@
       </mat-card>
 
       <!-- Scan Directories -->
-      <mat-card class="stat-card" routerLink="/settings">
+      <mat-card class="stat-card" routerLink="/settings" data-testid="directories">
         <mat-card-header>
           <mat-icon mat-card-avatar class="stat-icon directories">folder</mat-icon>
           <mat-card-title>{{ directories().length }}</mat-card-title>
