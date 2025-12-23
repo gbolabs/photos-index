@@ -9,7 +9,10 @@ else
     echo "⚠️  GitHub CLI not authenticated (GH_TOKEN not set)"
 fi
 echo ""
-echo "💡 VS Code: Run 'code-server --bind-addr 0.0.0.0:8443' to access via browser"
+# Start code-server in the background
+echo "🚀 Starting code-server on 0.0.0.0:8443..."
+code-server --bind-addr 0.0.0.0:8443 --auth none &
+echo "✅ code-server running at http://0.0.0.0:8443"
 echo ""
 
 # Clone repo if in clone mode
