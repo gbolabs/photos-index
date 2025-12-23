@@ -50,35 +50,27 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ## Development Setup
 
-### Option 1: Dev Container (Recommended)
+### Quick Setup (Recommended)
 
-The easiest way to get started is using VS Code Dev Containers:
+Run the setup script to check and install all dependencies:
 
-1. **Prerequisites**:
-   - [VS Code](https://code.visualstudio.com/)
-   - [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-   - [Podman](https://podman.io/) with machine running (`podman machine start`)
+```bash
+./scripts/setup-dev-env.sh
+```
 
-2. **Open in Dev Container**:
-   - Open this repository in VS Code
-   - Press `Cmd/Ctrl+Shift+P` → "Dev Containers: Reopen in Container"
-   - Choose configuration:
-     - **Photos Index Dev** - Inherits host credentials (git, gh, claude)
-     - **Photos Index Dev (Isolated)** - Fresh environment, prompts for login
-   - Wait for the container to build (first time takes a few minutes)
+This script will:
+- Check for .NET 10 SDK (prompts for installation if missing)
+- Install Node.js via nvm (installs nvm if needed)
+- Install Angular CLI globally
+- Restore .NET dependencies
+- Install npm dependencies
 
-3. **Start developing** - All tools are pre-installed:
-   - .NET 10 SDK
-   - Node.js 24 with Angular CLI
-   - GitHub CLI (run `gh auth login` if using isolated mode)
-   - Podman (connected to host)
-
-### Option 2: Manual Setup
+### Manual Setup
 
 #### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 20+](https://nodejs.org/)
+- [Node.js 24](https://nodejs.org/) (recommend using [nvm](https://github.com/nvm-sh/nvm))
 - [Docker](https://www.docker.com/) or [Podman](https://podman.io/)
 - PostgreSQL 16+ (or use containers)
 

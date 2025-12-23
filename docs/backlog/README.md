@@ -49,7 +49,6 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 |------|--------|-----|
 | Traefik Ingress | ✅ Complete | [#11](https://github.com/gbolabs/photos-index/pull/11) |
 | Claude Container Enhancement | ✅ Complete | [#7](https://github.com/gbolabs/photos-index/pull/7) |
-| `06-005` VS Code Dev Container | ✅ Complete | [#80](https://github.com/gbolabs/photos-index/pull/80) |
 
 ## Agent Assignment Matrix
 

@@ -2,18 +2,6 @@
 
 Run Claude Code in an isolated Podman container with YOLO mode enabled. This provides a safe environment where Claude has full permissions without risking your host system.
 
-> **Note**: This is for **autonomous agent execution** (headless, YOLO mode).
-> For **interactive development** with VS Code, use the [Dev Container](./../.devcontainer/README.md) instead.
-
-## When to Use What?
-
-| Scenario | Use |
-|----------|-----|
-| Autonomous agent tasks | `scripts/claude-sandbox.sh` |
-| Parallel agent development | `scripts/claude-sandbox.sh` |
-| Interactive coding with IDE | `.devcontainer/` |
-| VS Code remote development | `.devcontainer/` |
-
 ## Why Use a Sandbox?
 
 - **Security**: Claude can't access files outside the container

@@ -10,7 +10,7 @@ Enable OpenTelemetry logging for Claude Code prompts, allowing developers to vie
 
 ## Problem Statement
 
-When running Claude Code in sandbox or devcontainer mode, there's no visibility into:
+When running Claude Code in sandbox mode, there's no visibility into:
 - What prompts were sent to the model
 - What tool calls were made
 - The sequence of operations
@@ -19,9 +19,8 @@ This makes debugging difficult and prevents auditing of AI-assisted development 
 
 ## Solution
 
-Add opt-in OTel logging to both the sandbox script and devcontainer:
+Add opt-in OTel logging to the sandbox script:
 - **Sandbox**: `--otel` flag starts Aspire Dashboard and configures OTel
-- **Devcontainer**: `source .devcontainer/start-claude-otel.sh` script
 
 ## Implementation
 
@@ -31,7 +30,6 @@ Add opt-in OTel logging to both the sandbox script and devcontainer:
 |------|--------|---------|
 | `scripts/claude-sandbox.sh` | Modify | Add `--otel` flag and Aspire startup |
 | `scripts/entrypoint.sh` | Modify | Display OTel status in banner |
-| `.devcontainer/start-claude-otel.sh` | Create | Script to enable OTel in devcontainer |
 | `docs/claude-sandbox.md` | Modify | Add Observability section |
 
 ### Environment Variables
@@ -51,19 +49,6 @@ Add opt-in OTel logging to both the sandbox script and devcontainer:
 ```bash
 # With OTel enabled
 ./scripts/claude-sandbox.sh --otel mount
-
-# View prompts
-open http://localhost:18888
-```
-
-### Devcontainer
-
-```bash
-# Enable OTel (sets env vars for current shell)
-source .devcontainer/start-claude-otel.sh
-
-# Run Claude Code
-claude
 
 # View prompts
 open http://localhost:18888
@@ -92,7 +77,6 @@ open http://localhost:18888
 - [ ] Claude Code sends telemetry to Aspire
 - [ ] Prompts visible in Aspire Dashboard logs
 - [ ] No Aspire container starts without `--otel`
-- [ ] Devcontainer script exports correct env vars
 - [ ] Documentation updated
 
 ## Testing
@@ -107,4 +91,3 @@ open http://localhost:18888
 
 - `08-observability/` - Application OTel setup
 - `scripts/claude-sandbox.sh` - YOLO sandbox script
-- `.devcontainer/` - Dev container configuration

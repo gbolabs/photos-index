@@ -36,6 +36,7 @@ An ADR is a short document that captures an important architectural decision alo
 |----|-------|--------|------|
 | [001](./001-copilot-claude-instructions.md) | GitHub Copilot and Claude Code Instructions | Accepted | 2025-12-23 |
 | [002](./002-english-language-requirement.md) | English Language Requirement | Accepted | 2025-12-23 |
+| [003](./003-remove-devcontainer-support.md) | Remove Dev Container Support | Accepted | 2025-12-23 |
 
 ## References
 
