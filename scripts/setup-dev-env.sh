@@ -178,6 +178,41 @@ install_project_deps() {
 }
 
 # =============================================================================
+# Mistral Vibe CLI Setup
+# =============================================================================
+setup_vibe() {
+    log_info "Setting up Mistral Vibe CLI..."
+
+    VIBE_HOME="${VIBE_HOME:-$HOME/.vibe}"
+    VIBE_PROMPTS_DIR="$VIBE_HOME/prompts"
+
+    # Create prompts directory if needed
+    if [ ! -d "$VIBE_PROMPTS_DIR" ]; then
+        log_info "Creating $VIBE_PROMPTS_DIR..."
+        mkdir -p "$VIBE_PROMPTS_DIR"
+    fi
+
+    # Copy project prompt if it exists
+    if [ -f "$PROJECT_ROOT/.vibe/prompts/photos-index.md" ]; then
+        log_info "Installing project prompt to $VIBE_PROMPTS_DIR/photos-index.md..."
+        cp "$PROJECT_ROOT/.vibe/prompts/photos-index.md" "$VIBE_PROMPTS_DIR/photos-index.md"
+        log_info "Vibe prompt installed successfully"
+    else
+        log_warn "Project Vibe prompt not found at .vibe/prompts/photos-index.md"
+    fi
+
+    # Check if vibe CLI is installed
+    if command -v vibe &> /dev/null; then
+        VIBE_VERSION=$(vibe --version 2>/dev/null || echo "unknown")
+        log_info "Vibe CLI found: $VIBE_VERSION"
+    else
+        log_warn "Vibe CLI not installed"
+        echo "  Install with: pip install mistral-vibe"
+        echo "  Or see: https://github.com/mistralai/mistral-vibe"
+    fi
+}
+
+# =============================================================================
 # Container Runtime Check
 # =============================================================================
 check_container_runtime() {
@@ -239,6 +274,10 @@ main() {
 
     # Check container runtime
     check_container_runtime || true
+    echo ""
+
+    # Setup Vibe CLI (optional)
+    setup_vibe || true
     echo ""
 
     # Install project dependencies if all tools are available
