@@ -1,0 +1,10 @@
+# Mistral Vibe CLI configuration for Photos Index project
+# See: https://docs.mistral.ai/mistral-vibe/introduction/configuration
+
+# Use the project-specific system prompt
+# Note: The prompt file must be copied to ~/.vibe/prompts/ first
+# Run: ./scripts/setup-dev-env.sh to set this up automatically
+system_prompt_id = "photos-index"
+
+# Recommended model for this project
+active_model = "devstral-2"
