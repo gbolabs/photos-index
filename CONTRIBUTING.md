@@ -4,6 +4,7 @@ Thank you for your interest in contributing to Photos Index! This document provi
 
 ## Table of Contents
 
+- [Language Requirements](#language-requirements)
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
@@ -12,6 +13,18 @@ Thank you for your interest in contributing to Photos Index! This document provi
 - [Coding Standards](#coding-standards)
 - [Testing Requirements](#testing-requirements)
 - [Documentation](#documentation)
+
+## Language Requirements
+
+**All repository content must be in English**, regardless of your native language or the language used to prompt AI assistants (Claude, Copilot, etc.):
+
+- Code comments
+- Commit messages
+- Pull request titles and descriptions
+- Issue titles and descriptions
+- Documentation
+- Variable, function, and class names
+- Log messages and error messages
 
 ## Code of Conduct
 
