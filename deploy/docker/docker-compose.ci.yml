@@ -16,11 +16,17 @@ services:
       retries: 1
       start_period: 0s
 
-  # API without OTEL
+  # API without OTEL, with extended startup time
   api:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - OTEL_EXPORTER_OTLP_ENDPOINT=
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
 
   # Indexing service without OTEL
   indexing-service:
