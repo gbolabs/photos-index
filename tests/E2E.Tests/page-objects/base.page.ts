@@ -9,6 +9,7 @@ export abstract class BasePage {
 
   // Common navigation elements
   readonly navDashboard: Locator;
+  readonly navIndexing: Locator;
   readonly navSettings: Locator;
   readonly navFiles: Locator;
   readonly navDuplicates: Locator;
@@ -29,6 +30,7 @@ export abstract class BasePage {
 
     // Navigation links inside mat-drawer/mat-nav-list
     this.navDashboard = page.locator('mat-nav-list a').filter({ hasText: 'Dashboard' }).first();
+    this.navIndexing = page.locator('mat-nav-list a').filter({ hasText: 'Indexing' }).first();
     this.navSettings = page.locator('mat-nav-list a').filter({ hasText: 'Settings' }).first();
     this.navFiles = page.locator('mat-nav-list a').filter({ hasText: 'Files' }).first();
     this.navDuplicates = page.locator('mat-nav-list a').filter({ hasText: 'Duplicates' }).first();
@@ -78,6 +80,15 @@ export abstract class BasePage {
   async navigateToDashboard(): Promise<void> {
     await this.openDrawer();
     await this.navDashboard.click();
+    await this.waitForPageLoad();
+  }
+
+  /**
+   * Navigate to Indexing page
+   */
+  async navigateToIndexing(): Promise<void> {
+    await this.openDrawer();
+    await this.navIndexing.click();
     await this.waitForPageLoad();
   }
 
