@@ -160,6 +160,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
       aspire-dashboard:
         condition: service_healthy
     environment:
@@ -170,6 +174,17 @@ services:
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=photos-index-api
       - OTEL_RESOURCE_ATTRIBUTES=service.version=${API_VERSION:-1.0.0}
+      # RabbitMQ configuration
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_USER:-photos}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-photos}
+      # MinIO configuration
+      - Minio__Endpoint=minio:9000
+      - Minio__AccessKey=${MINIO_ROOT_USER:-minioadmin}
+      - Minio__SecretKey=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - Minio__UseSsl=false
+      - Minio__ImagesBucket=images
+      - Minio__ThumbnailsBucket=thumbnails
     # Port exposed for direct access (optional - can be removed when using only Traefik)
     ports:
       - "${API_PORT:-5000}:8080"
@@ -254,6 +269,79 @@ services:
     volumes:
       - ${HOST_PHOTOS_DIRECTORY:-./photos}:/photos
       - cleaner_logs:/app/logs
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  # ===================================
+  # Metadata Service (EXIF extraction)
+  # ===================================
+  metadata-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/metadata-service:${IMAGE_VERSION:-latest}
+    build:
+      context: ../../
+      dockerfile: deploy/docker/metadata-service/Dockerfile
+    container_name: photos-index-metadata
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      aspire-dashboard:
+        condition: service_healthy
+    environment:
+      - DOTNET_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_SERVICE_NAME=photos-index-metadata
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${METADATA_VERSION:-1.0.0}
+      # RabbitMQ configuration
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_USER:-photos}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-photos}
+      # MinIO configuration
+      - Minio__Endpoint=minio:9000
+      - Minio__AccessKey=${MINIO_ROOT_USER:-minioadmin}
+      - Minio__SecretKey=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - Minio__UseSsl=false
+      - Minio__ImagesBucket=images
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  # ===================================
+  # Thumbnail Service (Image resizing)
+  # ===================================
+  thumbnail-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/thumbnail-service:${IMAGE_VERSION:-latest}
+    build:
+      context: ../../
+      dockerfile: deploy/docker/thumbnail-service/Dockerfile
+    container_name: photos-index-thumbnail
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      aspire-dashboard:
+        condition: service_healthy
+    environment:
+      - DOTNET_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_SERVICE_NAME=photos-index-thumbnail
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${THUMBNAIL_VERSION:-1.0.0}
+      # RabbitMQ configuration
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_USER:-photos}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-photos}
+      # MinIO configuration
+      - Minio__Endpoint=minio:9000
+      - Minio__AccessKey=${MINIO_ROOT_USER:-minioadmin}
+      - Minio__SecretKey=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - Minio__UseSsl=false
+      - Minio__ImagesBucket=images
+      - Minio__ThumbnailsBucket=thumbnails
     networks:
       - photos-network
     restart: unless-stopped

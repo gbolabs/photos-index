@@ -17,6 +17,16 @@ public record ThumbnailGeneratedMessage
     public Guid IndexedFileId { get; init; }
 
     /// <summary>
+    /// Whether the thumbnail generation was successful.
+    /// </summary>
+    public bool Success { get; init; }
+
+    /// <summary>
+    /// Error message if generation failed.
+    /// </summary>
+    public string? ErrorMessage { get; init; }
+
+    /// <summary>
     /// Object storage key where the original file is stored.
     /// </summary>
     public string OriginalObjectKey { get; init; } = string.Empty;

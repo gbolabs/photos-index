@@ -63,14 +63,15 @@ public class MessageSerializationTests
         {
             CorrelationId = correlationId,
             IndexedFileId = indexedFileId,
+            Success = true,
             ObjectKey = "files/abc123def456",
             Width = 1920,
             Height = 1080,
             DateTaken = dateTaken,
             CameraMake = "Canon",
             CameraModel = "EOS 5D Mark IV",
-            Latitude = 37.7749,
-            Longitude = -122.4194,
+            GpsLatitude = 37.7749,
+            GpsLongitude = -122.4194,
             Orientation = 1
         };
 
@@ -82,14 +83,15 @@ public class MessageSerializationTests
         deserialized.Should().NotBeNull();
         deserialized!.CorrelationId.Should().Be(correlationId);
         deserialized.IndexedFileId.Should().Be(indexedFileId);
+        deserialized.Success.Should().BeTrue();
         deserialized.ObjectKey.Should().Be("files/abc123def456");
         deserialized.Width.Should().Be(1920);
         deserialized.Height.Should().Be(1080);
         deserialized.DateTaken.Should().BeCloseTo(dateTaken, TimeSpan.FromMilliseconds(1));
         deserialized.CameraMake.Should().Be("Canon");
         deserialized.CameraModel.Should().Be("EOS 5D Mark IV");
-        deserialized.Latitude.Should().Be(37.7749);
-        deserialized.Longitude.Should().Be(-122.4194);
+        deserialized.GpsLatitude.Should().Be(37.7749);
+        deserialized.GpsLongitude.Should().Be(-122.4194);
         deserialized.Orientation.Should().Be(1);
     }
 
@@ -104,14 +106,15 @@ public class MessageSerializationTests
         {
             CorrelationId = correlationId,
             IndexedFileId = indexedFileId,
+            Success = true,
             ObjectKey = "files/abc123def456",
             Width = null,
             Height = null,
             DateTaken = null,
             CameraMake = null,
             CameraModel = null,
-            Latitude = null,
-            Longitude = null,
+            GpsLatitude = null,
+            GpsLongitude = null,
             Orientation = null
         };
 
@@ -123,14 +126,15 @@ public class MessageSerializationTests
         deserialized.Should().NotBeNull();
         deserialized!.CorrelationId.Should().Be(correlationId);
         deserialized.IndexedFileId.Should().Be(indexedFileId);
+        deserialized.Success.Should().BeTrue();
         deserialized.ObjectKey.Should().Be("files/abc123def456");
         deserialized.Width.Should().BeNull();
         deserialized.Height.Should().BeNull();
         deserialized.DateTaken.Should().BeNull();
         deserialized.CameraMake.Should().BeNull();
         deserialized.CameraModel.Should().BeNull();
-        deserialized.Latitude.Should().BeNull();
-        deserialized.Longitude.Should().BeNull();
+        deserialized.GpsLatitude.Should().BeNull();
+        deserialized.GpsLongitude.Should().BeNull();
         deserialized.Orientation.Should().BeNull();
     }
 

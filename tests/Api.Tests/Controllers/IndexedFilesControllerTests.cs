@@ -14,14 +14,16 @@ namespace Api.Tests.Controllers;
 public class IndexedFilesControllerTests
 {
     private readonly Mock<IIndexedFileService> _mockService;
+    private readonly Mock<IFileIngestService> _mockIngestService;
     private readonly Mock<ILogger<IndexedFilesController>> _mockLogger;
     private readonly IndexedFilesController _controller;
 
     public IndexedFilesControllerTests()
     {
         _mockService = new Mock<IIndexedFileService>();
+        _mockIngestService = new Mock<IFileIngestService>();
         _mockLogger = new Mock<ILogger<IndexedFilesController>>();
-        _controller = new IndexedFilesController(_mockService.Object, _mockLogger.Object);
+        _controller = new IndexedFilesController(_mockService.Object, _mockIngestService.Object, _mockLogger.Object);
     }
 
     [Fact]

@@ -15,11 +15,16 @@ namespace Api.Controllers;
 public class IndexedFilesController : ControllerBase
 {
     private readonly IIndexedFileService _service;
+    private readonly IFileIngestService _ingestService;
     private readonly ILogger<IndexedFilesController> _logger;
 
-    public IndexedFilesController(IIndexedFileService service, ILogger<IndexedFilesController> logger)
+    public IndexedFilesController(
+        IIndexedFileService service,
+        IFileIngestService ingestService,
+        ILogger<IndexedFilesController> logger)
     {
         _service = service;
+        _ingestService = ingestService;
         _logger = logger;
     }
 
@@ -119,6 +124,70 @@ public class IndexedFilesController : ControllerBase
 
         var result = await _service.BatchIngestAsync(request, ct);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Ingest a single file with image content for distributed processing.
+    /// </summary>
+    [HttpPost("ingest")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(FileIngestResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [RequestSizeLimit(100_000_000)] // 100 MB limit
+    public async Task<ActionResult<FileIngestResult>> IngestFile(
+        [FromForm] Guid scanDirectoryId,
+        [FromForm] string filePath,
+        [FromForm] string fileName,
+        [FromForm] string fileHash,
+        [FromForm] long fileSize,
+        [FromForm] DateTime modifiedAt,
+        IFormFile? file,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return BadRequest(ApiErrorResponse.BadRequest("FilePath is required"));
+        if (string.IsNullOrWhiteSpace(fileName))
+            return BadRequest(ApiErrorResponse.BadRequest("FileName is required"));
+        if (string.IsNullOrWhiteSpace(fileHash))
+            return BadRequest(ApiErrorResponse.BadRequest("FileHash is required"));
+
+        Stream? fileStream = null;
+        string? contentType = null;
+
+        if (file is not null)
+        {
+            fileStream = file.OpenReadStream();
+            contentType = file.ContentType;
+        }
+
+        try
+        {
+            var request = new FileIngestRequest
+            {
+                ScanDirectoryId = scanDirectoryId,
+                FilePath = filePath,
+                FileName = fileName,
+                FileHash = fileHash,
+                FileSize = fileSize,
+                ModifiedAt = modifiedAt,
+                FileContent = fileStream,
+                ContentType = contentType
+            };
+
+            var result = await _ingestService.IngestFileAsync(request, ct);
+
+            if (!result.Success)
+            {
+                return BadRequest(ApiErrorResponse.BadRequest(result.ErrorMessage ?? "Unknown error"));
+            }
+
+            return Ok(result);
+        }
+        finally
+        {
+            if (fileStream is not null)
+                await fileStream.DisposeAsync();
+        }
     }
 
     /// <summary>
