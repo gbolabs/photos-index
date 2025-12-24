@@ -38,6 +38,7 @@ An ADR is a short document that captures an important architectural decision alo
 | [002](./002-english-language-requirement.md) | English Language Requirement | Accepted | 2025-12-23 |
 | [003](./003-remove-devcontainer-support.md) | Remove Dev Container Support | Accepted | 2025-12-23 |
 | [004](./004-distributed-processing-architecture.md) | Distributed Processing Architecture | Proposed | 2025-12-24 |
+| [005](./005-claude-api-traffic-logging.md) | Claude API Traffic Logging via Proxy Container | Proposed | 2025-12-24 |
 
 ## References
 
