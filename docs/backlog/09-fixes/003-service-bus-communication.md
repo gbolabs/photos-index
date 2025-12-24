@@ -1,9 +1,15 @@
 # 003: Service Bus Communication
 
-**Status**: 🔲 Not Started
+**Status**: 🔗 Merged into v0.3.0 Architecture
 **Priority**: P3
 **Agent**: A2/A3
 **Estimated Effort**: Large
+**Superseded By**: [09: Distributed Processing](../09-thumbnail-offload/README.md)
+**Related ADR**: [ADR-004: Distributed Processing Architecture](../../adrs/004-distributed-processing-architecture.md)
+
+> **Note**: This task has been incorporated into the larger v0.3.0 Distributed Processing Architecture.
+> The service bus infrastructure (RabbitMQ + MassTransit) is now part of the thumbnail/metadata offload work.
+> See [09-thumbnail-offload/README.md](../09-thumbnail-offload/README.md) for the complete implementation plan.
 
 ## Objective
 
