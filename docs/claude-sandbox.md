@@ -230,7 +230,7 @@ CONTAINER_SUFFIX=agent2 ./scripts/claude-sandbox.sh clone "implement IndexedFile
 
 ## Observability (OTel)
 
-Enable OpenTelemetry logging to capture all prompts and tool calls in the Aspire Dashboard.
+Enable OpenTelemetry logging to capture prompts and tool calls in Seq.
 
 ### Usage
 
@@ -239,7 +239,7 @@ Enable OpenTelemetry logging to capture all prompts and tool calls in the Aspire
 ./scripts/claude-sandbox.sh --otel mount
 
 # View prompts and tool calls
-open http://localhost:18888
+open http://localhost:5341
 ```
 
 ### What Gets Logged
@@ -252,18 +252,18 @@ open http://localhost:18888
 ### Architecture
 
 The `--otel` flag:
-1. Starts an Aspire Dashboard container (ports 18888/18889)
+1. Starts a Seq container (port 5341)
 2. Sets OTel environment variables for Claude Code
-3. All telemetry flows to Aspire via gRPC
+3. All telemetry flows to Seq via OTLP
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Host Machine                                            │
 │                                                         │
 │  ┌──────────────────┐     ┌──────────────────────────┐ │
-│  │ Aspire Dashboard │◄────│ Claude Code Container    │ │
-│  │ :18888 (UI)      │     │                          │ │
-│  │ :18889 (OTLP)    │     │ OTEL_EXPORTER_OTLP_*     │ │
+│  │ Seq Dashboard    │◄────│ Claude Code Container    │ │
+│  │ :5341 (UI+OTLP)  │     │                          │ │
+│  │                  │     │ OTEL_EXPORTER_OTLP_*     │ │
 │  └──────────────────┘     │ CLAUDE_CODE_ENABLE_*     │ │
 │                           │ OTEL_LOG_USER_PROMPTS=1  │ │
 │                           └──────────────────────────┘ │
@@ -272,8 +272,79 @@ The `--otel` flag:
 
 ### Stopping
 
-The Aspire container runs with `--rm` and stops when the sandbox exits.
-To stop manually: `podman rm -f aspire-otel`
+The Seq container runs with `--rm` and stops when the sandbox exits.
+To stop manually: `podman rm -f seq-otel`
+
+## Full API Traffic Logging
+
+For complete visibility into all API requests and responses between Claude Code and Anthropic, use the `--log-api` flag.
+
+### Usage
+
+```bash
+# Enable full API traffic logging (requires --otel)
+./scripts/claude-sandbox.sh --otel --log-api mount
+
+# View in Seq Dashboard
+open http://localhost:5341
+```
+
+### What Gets Logged
+
+With `--log-api`, you get **everything**:
+
+| Data | `--otel` only | `--otel --log-api` |
+|------|---------------|---------------------|
+| User prompts | ✅ | ✅ |
+| Tool calls | ✅ | ✅ |
+| Full request bodies | ❌ | ✅ |
+| Full response bodies | ❌ | ✅ |
+| System prompts | ❌ | ✅ |
+| Conversation context | ❌ | ✅ |
+
+### Architecture
+
+The `--log-api` flag adds an HTTP proxy between Claude Code and Anthropic:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Host / Podman Network                                            │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ claude-api-logger Container                                 │ │
+│  │                                                             │ │
+│  │  ┌─────────────────────┐     ┌────────────────────────┐    │ │
+│  │  │ claude-code-logger  │────►│ Fluent Bit             │    │ │
+│  │  │ :8000 (HTTP)        │ log │ (OTLP export)          │────┼─┼──► Seq :5341
+│  │  └─────────────────────┘     └────────────────────────┘    │ │
+│  │           ▲                                                 │ │
+│  └───────────┼─────────────────────────────────────────────────┘ │
+│              │ HTTP (internal)                                   │
+│              │                                                   │
+│  ┌───────────┴─────────────────┐                                │
+│  │ Claude Code Container       │                                │
+│  │ ANTHROPIC_BASE_URL=         │──────────────────────────────► │
+│  │   http://api-logger:8800    │           HTTPS               │
+│  └─────────────────────────────┘      api.anthropic.com        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### How It Works
+
+1. **HTTP Bridge**: Claude Code connects to the proxy via HTTP (no TLS complexity)
+2. **Proxy captures traffic**: Full request/response bodies are logged
+3. **Fluent Bit ships logs**: Logs are sent to Seq via OTLP
+4. **Proxy forwards to Anthropic**: Requests continue to `api.anthropic.com` via HTTPS
+
+### Performance Impact
+
+The proxy adds negligible latency (~1-5ms) on API calls that typically take 2-30+ seconds.
+
+### Security Notes
+
+- HTTP traffic is **internal only** (within Podman network)
+- API key is visible in logs - treat Seq data as sensitive
+- No traffic leaves the container unencrypted (proxy uses HTTPS to Anthropic)
 
 ## Troubleshooting
 
