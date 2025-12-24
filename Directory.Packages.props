@@ -26,6 +26,13 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.14.0-beta.2" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.14.0-beta.2" />
 
+    <!-- Messaging -->
+    <PackageVersion Include="MassTransit" Version="8.3.5" />
+    <PackageVersion Include="MassTransit.RabbitMQ" Version="8.3.5" />
+
+    <!-- Object Storage -->
+    <PackageVersion Include="Minio" Version="6.0.4" />
+
     <!-- Other -->
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.6" />

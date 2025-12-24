@@ -10,10 +10,15 @@ data:
   ASPNETCORE_ENVIRONMENT: "Development"
   POSTGRES_USER: "photosuser"
   POSTGRES_DB: "photosindex"
+  RABBITMQ_USER: "photos"
+  MINIO_ROOT_USER: "minioadmin"
   # In a pod, all containers share localhost
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:18889"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   API_BASE_URL: "http://localhost:5080"
+  RABBITMQ_HOST: "localhost"
+  RABBITMQ_PORT: "5672"
+  MINIO_ENDPOINT: "localhost:9000"
   INDEXING_INTERVAL_MINUTES: "5"
   CLEANER_ENABLED: "false"
 ---
@@ -23,6 +28,8 @@ metadata:
   name: photos-index-secrets
 stringData:
   POSTGRES_PASSWORD: "photospass"
+  RABBITMQ_PASSWORD: "photos"
+  MINIO_ROOT_PASSWORD: "minioadmin"
 ---
 apiVersion: v1
 kind: Pod
@@ -74,6 +81,53 @@ spec:
       volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
+
+    # RabbitMQ Message Broker
+    - name: rabbitmq
+      image: docker.io/library/rabbitmq:3-management-alpine
+      ports:
+        - containerPort: 5672
+          hostPort: 5672
+        - containerPort: 15672
+          hostPort: 15672
+      env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_USER
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: RABBITMQ_PASSWORD
+      volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+
+    # MinIO Object Storage
+    - name: minio
+      image: docker.io/minio/minio:latest
+      command: ["minio", "server", "/data", "--console-address", ":9001"]
+      ports:
+        - containerPort: 9000
+          hostPort: 9000
+        - containerPort: 9001
+          hostPort: 9001
+      env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ROOT_USER
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: MINIO_ROOT_PASSWORD
+      volumeMounts:
+        - name: minio-data
+          mountPath: /data
 
     # Aspire Dashboard for observability
     - name: aspire-dashboard
@@ -223,6 +277,10 @@ spec:
     - name: postgres-data
       persistentVolumeClaim:
         claimName: postgres-pvc
+    - name: rabbitmq-data
+      emptyDir: {}
+    - name: minio-data
+      emptyDir: {}
     - name: photos
       hostPath:
         path: /tmp/photos
