@@ -120,6 +120,24 @@ public class ScanDirectoryService : IScanDirectoryService
         return true;
     }
 
+    public async Task<int> TriggerScanAllAsync(CancellationToken ct)
+    {
+        var enabledDirectories = await _dbContext.ScanDirectories
+            .Where(d => d.IsEnabled)
+            .ToListAsync(ct);
+
+        foreach (var directory in enabledDirectories)
+        {
+            // In a real implementation, this would publish a message to a queue
+            // For now, we just log the intent
+            _logger.LogInformation("Scan triggered for directory {Id} at path {Path}", directory.Id, directory.Path);
+        }
+
+        _logger.LogInformation("Scan triggered for {Count} enabled directories", enabledDirectories.Count);
+
+        return enabledDirectories.Count;
+    }
+
     public async Task<bool> PathExistsAsync(string path, CancellationToken ct)
     {
         return await _dbContext.ScanDirectories
