@@ -22,7 +22,7 @@ describe('DuplicateTableViewComponent', () => {
   let component: DuplicateTableViewComponent;
   let componentRef: ComponentRef<DuplicateTableViewComponent>;
   let fixture: ComponentFixture<DuplicateTableViewComponent>;
-  let mockDuplicateService: { getAll: ReturnType<typeof vi.fn> };
+  let mockDuplicateService: { getAll: ReturnType<typeof vi.fn>; getById: ReturnType<typeof vi.fn> };
 
   // Mock data
   const mockFile1: IndexedFileDto = {
@@ -124,6 +124,14 @@ describe('DuplicateTableViewComponent', () => {
   beforeEach(async () => {
     mockDuplicateService = {
       getAll: vi.fn().mockReturnValue(of(mockPagedResponse)),
+      getById: vi.fn().mockImplementation((id: string) => {
+        const groups: Record<string, DuplicateGroupDto> = {
+          'group-1': mockGroup1,
+          'group-2': mockGroup2,
+          'group-3': mockGroup3,
+        };
+        return of(groups[id] || mockGroup1);
+      }),
     };
 
     await TestBed.configureTestingModule({
