@@ -81,6 +81,53 @@ services:
     restart: unless-stopped
 
   # ===================================
+  # RabbitMQ Message Broker
+  # ===================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: photos-index-rabbitmq
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-photos}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-photos}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  # ===================================
+  # MinIO Object Storage
+  # ===================================
+  minio:
+    image: minio/minio:latest
+    container_name: photos-index-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  # ===================================
   # Aspire Dashboard (Observability)
   # ===================================
   aspire-dashboard:
@@ -248,6 +295,10 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  minio_data:
     driver: local
   indexing_thumbnails:
     driver: local
