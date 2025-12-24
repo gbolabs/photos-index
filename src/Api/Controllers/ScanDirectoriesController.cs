@@ -145,6 +145,26 @@ public class ScanDirectoriesController : ControllerBase
     }
 
     /// <summary>
+    /// Trigger a scan for a directory (alias for trigger-scan).
+    /// </summary>
+    [HttpPost("{id:guid}/scan")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public Task<IActionResult> Scan(Guid id, CancellationToken ct = default)
+        => TriggerScan(id, ct);
+
+    /// <summary>
+    /// Trigger a scan for all enabled directories.
+    /// </summary>
+    [HttpPost("scan-all")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> ScanAll(CancellationToken ct = default)
+    {
+        await _service.TriggerScanAllAsync(ct);
+        return Accepted();
+    }
+
+    /// <summary>
     /// Update the last scanned timestamp for a directory.
     /// </summary>
     [HttpPatch("{id:guid}/last-scanned")]

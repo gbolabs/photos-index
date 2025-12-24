@@ -15,6 +15,7 @@ public interface IScanDirectoryService
     Task<ScanDirectoryDto?> UpdateAsync(Guid id, UpdateScanDirectoryRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<bool> TriggerScanAsync(Guid id, CancellationToken ct);
+    Task<int> TriggerScanAllAsync(CancellationToken ct);
     Task<bool> PathExistsAsync(string path, CancellationToken ct);
     Task<bool> UpdateLastScannedAsync(Guid id, CancellationToken ct);
 }
