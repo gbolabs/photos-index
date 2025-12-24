@@ -34,12 +34,14 @@ Options:
   --log-api          Enable full API traffic logging (requires --otel)
   --no-persist       Disable Seq volume persistence (ephemeral mode)
   --branch=BRANCH    Branch to checkout in clone mode [default: main]
+  --rm               Remove container on exit (disables 'recover' mode)
   --skip-scope-check Skip GitHub token scope validation
   -h, --help         Show this help message
 
 Modes:
   clone              Clone repo fresh inside container (uses 'main' branch)
   mount              Mount current directory (faster, changes persist)
+  recover            Restart and attach to a stopped container
 
 Examples:
   # Default: Seq with persistence + main branch
@@ -56,6 +58,12 @@ Examples:
 
   # Just mount current directory
   ./scripts/claude-sandbox.sh mount
+
+  # If container crashes, recover and continue:
+  ./scripts/claude-sandbox.sh recover
+
+  # Auto-remove container on exit (no recovery possible)
+  ./scripts/claude-sandbox.sh --otel --rm clone
 
   # Rebuild the Docker image
   ./scripts/claude-sandbox.sh build
@@ -80,6 +88,7 @@ LOG_API_ENABLED=false
 SKIP_SCOPE_CHECK=false
 SEQ_PERSIST=true   # Default to persistent (with volume)
 BRANCH="main"      # Default to main branch
+KEEP_CONTAINER=true   # Keep containers by default (enables recovery)
 POSITIONAL_ARGS=()
 
 for arg in "$@"; do
@@ -95,6 +104,9 @@ for arg in "$@"; do
             ;;
         --skip-scope-check)
             SKIP_SCOPE_CHECK=true
+            ;;
+        --rm)
+            KEEP_CONTAINER=false
             ;;
         --branch=*)
             BRANCH="${arg#*=}"
@@ -336,8 +348,18 @@ run_mount_mode() {
         api_logger_args=$(get_api_logger_env_args)
     fi
 
+    # Determine if we should use --rm
+    local rm_flag=""
+    if [[ "$KEEP_CONTAINER" == "false" ]]; then
+        rm_flag="--rm"
+        log "Container will be removed after exit (--rm)"
+    fi
+
+    # Remove existing container if it exists (can't reuse name otherwise)
+    podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
+
     # shellcheck disable=SC2086
-    podman run -it --rm \
+    podman run -it $rm_flag \
         --name "$CONTAINER_NAME" \
         -e GH_TOKEN="${GH_TOKEN:-}" \
         -e GIT_AUTHOR_NAME="$git_name" \
@@ -372,8 +394,18 @@ run_clone_mode() {
         api_logger_args=$(get_api_logger_env_args)
     fi
 
+    # Determine if we should use --rm
+    local rm_flag=""
+    if [[ "$KEEP_CONTAINER" == "false" ]]; then
+        rm_flag="--rm"
+        log "Container will be removed after exit (--rm)"
+    fi
+
+    # Remove existing container if it exists (can't reuse name otherwise)
+    podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
+
     # shellcheck disable=SC2086
-    podman run -it --rm \
+    podman run -it $rm_flag \
         --name "$CONTAINER_NAME" \
         -e GH_TOKEN="${GH_TOKEN:-}" \
         -e GIT_AUTHOR_NAME="$git_name" \
@@ -387,6 +419,57 @@ run_clone_mode() {
         $api_logger_args \
         "$IMAGE_NAME" \
         "$@"
+}
+
+# Recover and attach to an existing stopped container
+run_recover_mode() {
+    log "Running in RECOVER mode (restarting stopped container)"
+
+    # Check if container exists
+    if ! podman container exists "$CONTAINER_NAME"; then
+        error "No container named '$CONTAINER_NAME' found. Run with 'clone' or 'mount' first (use --keep to enable recovery)."
+    fi
+
+    # Check container state
+    local state
+    state=$(podman inspect --format '{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || echo "unknown")
+
+    case "$state" in
+        running)
+            log "Container is already running, attaching..."
+            podman attach "$CONTAINER_NAME"
+            ;;
+        exited|stopped|created)
+            log "Container state: $state. Starting and attaching..."
+
+            # Start Seq if OTel was enabled (check if seq-otel container exists)
+            if podman container exists seq-otel; then
+                local seq_state
+                seq_state=$(podman inspect --format '{{.State.Status}}' seq-otel 2>/dev/null || echo "unknown")
+                if [[ "$seq_state" != "running" ]]; then
+                    log "Restarting Seq container..."
+                    podman start seq-otel
+                fi
+            fi
+
+            # Start API logger if it exists
+            if podman container exists "$API_LOGGER_CONTAINER"; then
+                local logger_state
+                logger_state=$(podman inspect --format '{{.State.Status}}' "$API_LOGGER_CONTAINER" 2>/dev/null || echo "unknown")
+                if [[ "$logger_state" != "running" ]]; then
+                    log "Restarting API logger container..."
+                    podman start "$API_LOGGER_CONTAINER"
+                fi
+            fi
+
+            # Start and attach to main container
+            podman start "$CONTAINER_NAME"
+            podman attach "$CONTAINER_NAME"
+            ;;
+        *)
+            error "Container is in unexpected state: $state"
+            ;;
+    esac
 }
 
 # Main
@@ -437,11 +520,14 @@ main() {
         clone)
             run_clone_mode "$@"
             ;;
+        recover)
+            run_recover_mode
+            ;;
         build)
             build_image
             ;;
         *)
-            error "Unknown mode: $MODE (use 'mount', 'clone', or 'build')"
+            error "Unknown mode: $MODE (use 'mount', 'clone', 'recover', or 'build')"
             ;;
     esac
 }
