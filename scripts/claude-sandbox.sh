@@ -42,6 +42,7 @@ Modes:
   clone              Clone repo into persistent volume (survives crashes)
   mount              Mount current directory (faster, changes persist)
   recover            Restart and attach to a stopped container
+  clean              Remove containers/volumes/images (use with --containers, --volumes, --images, --all)
 
 Examples:
   # Default: Seq with persistence + main branch
@@ -76,9 +77,16 @@ Volumes:
   claude-workspace   Workspace for clone mode (survives crashes)
   seq-data           Seq logs (with --otel, unless --no-persist)
 
-Cleanup:
-  podman volume rm claude-workspace   # Remove workspace
-  podman volume rm seq-data           # Remove Seq logs
+Clean mode options (use with 'clean'):
+  --containers       Remove sandbox containers (claude-sandbox, seq-otel, claude-api-logger)
+  --volumes          Remove volumes (claude-workspace, seq-data)
+  --images           Remove images (claude-sandbox, claude-api-logger)
+  --all              Remove everything (containers + volumes + images)
+
+Cleanup examples:
+  ./scripts/claude-sandbox.sh clean --containers   # Stop and remove containers
+  ./scripts/claude-sandbox.sh clean --volumes      # Remove persistent data
+  ./scripts/claude-sandbox.sh clean --all          # Full cleanup
 EOF
 }
 
@@ -89,6 +97,9 @@ SKIP_SCOPE_CHECK=false
 SEQ_PERSIST=true   # Default to persistent (with volume)
 BRANCH="main"      # Default to main branch
 KEEP_CONTAINER=true   # Keep containers by default (enables recovery)
+CLEAN_IMAGES=false
+CLEAN_VOLUMES=false
+CLEAN_CONTAINERS=false
 POSITIONAL_ARGS=()
 
 for arg in "$@"; do
@@ -107,6 +118,20 @@ for arg in "$@"; do
             ;;
         --rm)
             KEEP_CONTAINER=false
+            ;;
+        --images)
+            CLEAN_IMAGES=true
+            ;;
+        --volumes)
+            CLEAN_VOLUMES=true
+            ;;
+        --containers)
+            CLEAN_CONTAINERS=true
+            ;;
+        --all)
+            CLEAN_IMAGES=true
+            CLEAN_VOLUMES=true
+            CLEAN_CONTAINERS=true
             ;;
         --branch=*)
             BRANCH="${arg#*=}"
@@ -482,6 +507,56 @@ run_recover_mode() {
     esac
 }
 
+# Clean up containers, volumes, and/or images
+run_clean_mode() {
+    local cleaned=false
+
+    # Check if any clean option was specified
+    if [[ "$CLEAN_CONTAINERS" == "false" ]] && [[ "$CLEAN_VOLUMES" == "false" ]] && [[ "$CLEAN_IMAGES" == "false" ]]; then
+        error "Clean mode requires at least one of: --containers, --volumes, --images, or --all"
+    fi
+
+    # Clean containers
+    if [[ "$CLEAN_CONTAINERS" == "true" ]]; then
+        log "Removing containers..."
+        for container in "$CONTAINER_NAME" "seq-otel" "$API_LOGGER_CONTAINER"; do
+            if podman container exists "$container" 2>/dev/null; then
+                log "  Removing container: $container"
+                podman rm -f "$container" 2>/dev/null || true
+            fi
+        done
+        cleaned=true
+    fi
+
+    # Clean volumes
+    if [[ "$CLEAN_VOLUMES" == "true" ]]; then
+        log "Removing volumes..."
+        for volume in "$WORKSPACE_VOLUME" "seq-data"; do
+            if podman volume exists "$volume" 2>/dev/null; then
+                log "  Removing volume: $volume"
+                podman volume rm "$volume" 2>/dev/null || true
+            fi
+        done
+        cleaned=true
+    fi
+
+    # Clean images
+    if [[ "$CLEAN_IMAGES" == "true" ]]; then
+        log "Removing images..."
+        for image in "$IMAGE_NAME" "$API_LOGGER_IMAGE"; do
+            if podman image exists "$image" 2>/dev/null; then
+                log "  Removing image: $image"
+                podman rmi "$image" 2>/dev/null || true
+            fi
+        done
+        cleaned=true
+    fi
+
+    if [[ "$cleaned" == "true" ]]; then
+        log "Cleanup complete"
+    fi
+}
+
 # Main
 main() {
     # Handle -h or help flags to pass to Claude Code CLI
@@ -496,7 +571,20 @@ main() {
         run_mount_mode "$@"
         return
     fi
-    
+
+    # Handle modes that don't need full setup
+    case "$MODE" in
+        clean)
+            run_clean_mode
+            return
+            ;;
+        build)
+            build_image
+            return
+            ;;
+    esac
+
+    # Full setup for container modes
     check_prereqs
 
     # Validate --log-api requires --otel
@@ -533,11 +621,8 @@ main() {
         recover)
             run_recover_mode
             ;;
-        build)
-            build_image
-            ;;
         *)
-            error "Unknown mode: $MODE (use 'mount', 'clone', 'recover', or 'build')"
+            error "Unknown mode: $MODE (use 'mount', 'clone', 'recover', 'clean', or 'build')"
             ;;
     esac
 }
