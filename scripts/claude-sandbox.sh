@@ -1,35 +1,84 @@
 #!/bin/bash
-# Run Claude Code in a sandboxed Podman container with YOLO mode
+# Run Claude Code in a sandboxed Podman container
 #
-# Usage:
-#   ./scripts/claude-sandbox.sh [options] [clone|mount]
+# Simplified Usage:
+#   ./scripts/claude-sandbox.sh --otel clone          # Default: persistent Seq + main branch
+#   ./scripts/claude-sandbox.sh --otel --no-persist clone  # Ephemeral Seq
+#   ./scripts/claude-sandbox.sh --help                # Show full help
 #
-# Options:
-#   --otel             - Enable OpenTelemetry logging to Aspire Dashboard
-#   --skip-scope-check - Skip GitHub token scope validation (use if you don't need workflow scope)
-#
-# Modes:
-#   clone  - Clone repo fresh inside container (safer, isolated)
-#   mount  - Mount current directory (faster, changes persist)
-#
-# Prerequisites:
-#   - Podman installed
-#   - GH_TOKEN environment variable set (for gh CLI)
-#   - Git configured with user.name and user.email
+# Features:
+#   - Seq OTel receiver with persistence control
+#   - Simple branch specification
+#   - Clean, focused interface
 
 set -euo pipefail
+
+# Show help message
+show_help() {
+    cat << EOF
+Claude Sandbox Script - Simplified Development Environment
+
+Usage:
+  ./scripts/claude-sandbox.sh [options] [clone|mount]
+
+Options:
+  --otel             Enable OpenTelemetry logging with Seq
+  --no-persist       Disable Seq volume persistence (ephemeral mode)
+  --branch=BRANCH    Branch to checkout in clone mode [default: main]
+  --skip-scope-check Skip GitHub token scope validation
+  -h, --help         Show this help message
+
+Modes:
+  clone              Clone repo fresh inside container (uses 'main' branch)
+  mount              Mount current directory (faster, changes persist)
+
+Examples:
+  # Default: Seq with persistence + main branch
+  ./scripts/claude-sandbox.sh --otel clone
+
+  # Ephemeral Seq (no persistence)
+  ./scripts/claude-sandbox.sh --otel --no-persist clone
+
+  # Specific branch
+  ./scripts/claude-sandbox.sh --otel --branch=feature-branch clone
+
+  # Just mount current directory
+  ./scripts/claude-sandbox.sh mount
+
+Persistence:
+  With --otel (default): Logs persist in 'seq-data' volume across runs
+  With --otel --no-persist: Logs are ephemeral (lost on container restart)
+  Without --otel: No OTel logging
+
+Cleanup:
+  Remove persistent Seq data: podman volume rm seq-data
+EOF
+}
 
 # Parse flags
 OTEL_ENABLED=false
 SKIP_SCOPE_CHECK=false
+SEQ_PERSIST=true   # Default to persistent (with volume)
+BRANCH="main"      # Default to main branch
 POSITIONAL_ARGS=()
+
 for arg in "$@"; do
     case "$arg" in
         --otel)
             OTEL_ENABLED=true
             ;;
+        --no-persist)
+            SEQ_PERSIST=false
+            ;;
         --skip-scope-check)
             SKIP_SCOPE_CHECK=true
+            ;;
+        --branch=*)
+            BRANCH="${arg#*=}"
+            ;;
+        -h|--help)
+            show_help
+            exit 0
             ;;
         *)
             POSITIONAL_ARGS+=("$arg")
@@ -53,22 +102,38 @@ log() { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
-# Start Aspire Dashboard for OTel
-start_aspire_dashboard() {
-    log "Starting Aspire Dashboard for OTel..."
+# Start Seq for OTel logging
+start_seq() {
+    log "Starting Seq for OTel logging..."
 
-    # Remove existing if present
-    podman rm -f aspire-otel 2>/dev/null || true
+    # Remove existing container if present
+    podman rm -f seq-otel 2>/dev/null || true
 
-    # Start Aspire Dashboard
+    local volume_args=""
+    local persist_msg=""
+
+    if [[ "$SEQ_PERSIST" == "true" ]]; then
+        # Create volume for persistent storage if it doesn't exist
+        if ! podman volume exists seq-data; then
+            podman volume create seq-data
+        fi
+        volume_args="-v seq-data:/data"
+        persist_msg="(persistent)"
+    else
+        persist_msg="(ephemeral)"
+    fi
+
+    # Start Seq
     podman run -d --rm \
-        --name aspire-otel \
-        -p 18888:18888 \
-        -p 18889:18889 \
-        -e DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true \
-        mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+        --name seq-otel \
+        -p 5341:80 \
+        -p 5342:5341 \
+        -e ACCEPT_EULA=Y \
+        $volume_args \
+        datalust/seq:latest
 
-    log "Aspire Dashboard: http://localhost:18888"
+    log "Seq Dashboard: http://localhost:5341 $persist_msg"
+    log "Seq OTLP Endpoint: http://host.containers.internal:5342"
 }
 
 # Get OTel environment variables for podman
@@ -77,7 +142,7 @@ get_otel_env_args() {
         echo "-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
               -e OTEL_LOG_USER_PROMPTS=1 \
               -e OTEL_LOGS_EXPORTER=otlp \
-              -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:18889 \
+              -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:5342 \
               -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
     fi
 }
@@ -187,14 +252,10 @@ run_mount_mode() {
     local git_name=$(git config user.name 2>/dev/null || echo "Claude Agent")
     local git_email=$(git config user.email 2>/dev/null || echo "claude@localhost")
 
-    # Build OTel args if enabled
+    # Get OTel environment variables
     local otel_args=""
     if [[ "$OTEL_ENABLED" == "true" ]]; then
-        otel_args="-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
-                   -e OTEL_LOG_USER_PROMPTS=1 \
-                   -e OTEL_LOGS_EXPORTER=otlp \
-                   -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:18889 \
-                   -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+        otel_args=$(get_otel_env_args)
     fi
 
     # shellcheck disable=SC2086
@@ -218,16 +279,12 @@ run_clone_mode() {
 
     local git_name=$(git config user.name 2>/dev/null || echo "Claude Agent")
     local git_email=$(git config user.email 2>/dev/null || echo "claude@localhost")
-    local branch=$(git branch --show-current 2>/dev/null || echo "main")
+    local branch="$BRANCH"
 
-    # Build OTel args if enabled
+    # Get OTel environment variables
     local otel_args=""
     if [[ "$OTEL_ENABLED" == "true" ]]; then
-        otel_args="-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
-                   -e OTEL_LOG_USER_PROMPTS=1 \
-                   -e OTEL_LOGS_EXPORTER=otlp \
-                   -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:18889 \
-                   -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+        otel_args=$(get_otel_env_args)
     fi
 
     # shellcheck disable=SC2086
@@ -257,9 +314,9 @@ main() {
         log "Using existing image (run 'podman rmi $IMAGE_NAME' to rebuild)"
     fi
 
-    # Start Aspire Dashboard if OTel is enabled
+    # Start Seq if OTel is enabled
     if [[ "$OTEL_ENABLED" == "true" ]]; then
-        start_aspire_dashboard
+        start_seq
     fi
 
     shift || true  # Remove mode argument
