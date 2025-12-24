@@ -1,13 +1,15 @@
 #!/bin/bash
-# Run Claude Code in a sandboxed Podman container
+# Vibe Sandbox Script - Simplified Development Environment for Mistral Vibe CLI
 #
 # Simplified Usage:
-#   ./scripts/claude-sandbox.sh --otel clone          # Default: persistent Seq + main branch
-#   ./scripts/claude-sandbox.sh --otel --no-persist clone  # Ephemeral Seq
-#   ./scripts/claude-sandbox.sh --help                # Show full help
+#   ./scripts/vibe-sandbox.sh clone          # Default: accept-all mode + main branch
+#   ./scripts/vibe-sandbox.sh --accept-all clone  # Explicit accept-all mode
+#   ./scripts/vibe-sandbox.sh mount          # Mount current directory
+#   ./scripts/vibe-sandbox.sh --help         # Show full help
 #
 # Features:
-#   - Seq OTel receiver with persistence control
+#   - Accept-all mode for Vibe CLI (automatic prompt acceptance)
+#   - Vibe context forwarding (mounts ~/.vibe directory)
 #   - Simple branch specification
 #   - Clean, focused interface
 
@@ -15,73 +17,77 @@ set -euo pipefail
 
 # Default values when no parameters are given
 if [[ $# -eq 0 ]]; then
-    set -- --otel clone
+    set -- --accept-all clone
 fi
 
 # Show help message
 show_help() {
     cat << EOF
-Claude Sandbox Script - Simplified Development Environment
+Vibe Sandbox Script - Development Environment for Mistral Vibe CLI
 
 Usage:
-  ./scripts/claude-sandbox.sh [options] [clone|mount]
-  ./scripts/claude-sandbox.sh          # Default: --otel clone
+  ./scripts/vibe-sandbox.sh [options] [clone|mount|build]
+  ./scripts/vibe-sandbox.sh          # Default: --accept-all clone
 
 Options:
-  --otel             Enable OpenTelemetry logging with Seq
-  --no-persist       Disable Seq volume persistence (ephemeral mode)
-  --branch=BRANCH    Branch to checkout in clone mode [default: main]
+  --accept-all      Enable accept-all mode for Vibe CLI (default)
+  --no-accept-all   Disable accept-all mode
+  --no-context      Disable Vibe context forwarding
+  --branch=BRANCH   Branch to checkout in clone mode [default: main]
   --skip-scope-check Skip GitHub token scope validation
-  -h, --help         Show this help message
+  -h, --help        Show this help message
 
 Modes:
-  clone              Clone repo fresh inside container (uses 'main' branch)
+  clone              Clone repo fresh inside container
   mount              Mount current directory (faster, changes persist)
+  build              Rebuild the Docker image
+
+Vibe Features:
+  Accept-All Mode:  Automatically accepts all Vibe prompts (VIBE_ACCEPT_ALL=1)
+  Context Forwarding: Mounts ~/.vibe directory for consistent configuration
 
 Examples:
-  # Default: Seq with persistence + main branch
-  ./scripts/claude-sandbox.sh --otel clone
+  # Default: Accept-all mode + main branch
+  ./scripts/vibe-sandbox.sh clone
 
-  # Ephemeral Seq (no persistence)
-  ./scripts/claude-sandbox.sh --otel --no-persist clone
-
-  # Specific branch
-  ./scripts/claude-sandbox.sh --otel --branch=feature-branch clone
+  # Specific branch without accept-all
+  ./scripts/vibe-sandbox.sh --branch=feature-branch clone
 
   # Just mount current directory
-  ./scripts/claude-sandbox.sh mount
+  ./scripts/vibe-sandbox.sh mount
+
+  # Disable context forwarding
+  ./scripts/vibe-sandbox.sh --no-context mount
+
+  # Specific branch with explicit accept-all
+  ./scripts/vibe-sandbox.sh --accept-all --branch=feature-branch clone
 
   # Rebuild the Docker image
-  ./scripts/claude-sandbox.sh build
+  ./scripts/vibe-sandbox.sh build
 
-  # Pass -h to Claude Code CLI for help
-  ./scripts/claude-sandbox.sh -h
-  ./scripts/claude-sandbox.sh help
-
-Persistence:
-  With --otel (default): Logs persist in 'seq-data' volume across runs
-  With --otel --no-persist: Logs are ephemeral (lost on container restart)
-  Without --otel: No OTel logging
-
-Cleanup:
-  Remove persistent Seq data: podman volume rm seq-data
+  # Pass -h to Vibe CLI for help
+  ./scripts/vibe-sandbox.sh -h
+  ./scripts/vibe-sandbox.sh help
 EOF
 }
 
 # Parse flags
-OTEL_ENABLED=false
+ACCEPT_ALL_MODE=true   # Default to accept-all mode
+FORWARD_VIBE_CONTEXT=true
 SKIP_SCOPE_CHECK=false
-SEQ_PERSIST=true   # Default to persistent (with volume)
-BRANCH="main"      # Default to main branch
+BRANCH="main"
 POSITIONAL_ARGS=()
 
 for arg in "$@"; do
     case "$arg" in
-        --otel)
-            OTEL_ENABLED=true
+        --accept-all)
+            ACCEPT_ALL_MODE=true
             ;;
-        --no-persist)
-            SEQ_PERSIST=false
+        --no-accept-all)
+            ACCEPT_ALL_MODE=false
+            ;;
+        --no-context)
+            FORWARD_VIBE_CONTEXT=false
             ;;
         --skip-scope-check)
             SKIP_SCOPE_CHECK=true
@@ -102,8 +108,8 @@ set -- "${POSITIONAL_ARGS[@]:-}"
 
 MODE="${1:-mount}"
 REPO_URL="https://github.com/gbolabs/photos-index.git"
-CONTAINER_NAME="claude-sandbox"
-IMAGE_NAME="claude-sandbox:latest"
+CONTAINER_NAME="vibe-sandbox"
+IMAGE_NAME="vibe-sandbox:latest"
 
 # Colors
 RED='\033[0;31m'
@@ -115,49 +121,39 @@ log() { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
-# Start Seq for OTel logging
-start_seq() {
-    log "Starting Seq for OTel logging..."
-
-    # Remove existing container if present
-    podman rm -f seq-otel 2>/dev/null || true
-
-    local volume_args=""
-    local persist_msg=""
-
-    if [[ "$SEQ_PERSIST" == "true" ]]; then
-        # Create volume for persistent storage if it doesn't exist
-        if ! podman volume exists seq-data; then
-            podman volume create seq-data
-        fi
-        volume_args="-v seq-data:/data"
-        persist_msg="(persistent)"
-    else
-        persist_msg="(ephemeral)"
+# Forward Vibe CLI context to container
+forward_vibe_context() {
+    local vibe_args=""
+    
+    if [[ "$FORWARD_VIBE_CONTEXT" == "true" ]]; then
+        # Mount Vibe configuration directory
+        vibe_args+=" -v ${VIBE_HOME:-$HOME/.vibe}:${VIBE_HOME:-/root/.vibe}:Z"
+        # Don't log here - logging adds color codes that break command strings
     fi
-
-    # Start Seq
-    podman run -d --rm \
-        --name seq-otel \
-        -p 5341:80 \
-        -p 5342:5341 \
-        -e ACCEPT_EULA=Y \
-        $volume_args \
-        datalust/seq:latest
-
-    log "Seq Dashboard: http://localhost:5341 $persist_msg"
-    log "Seq OTLP Endpoint: http://host.containers.internal:5342"
+    
+    echo "$vibe_args"
 }
 
-# Get OTel environment variables for podman
-get_otel_env_args() {
-    if [[ "$OTEL_ENABLED" == "true" ]]; then
-        echo "-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
-              -e OTEL_LOG_USER_PROMPTS=1 \
-              -e OTEL_LOGS_EXPORTER=otlp \
-              -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:5342 \
-              -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+# Get Vibe environment variables for podman
+get_vibe_env_args() {
+    local env_args=""
+    
+    # Set accept-all mode
+    if [[ "$ACCEPT_ALL_MODE" == "true" ]]; then
+        env_args+=" -e VIBE_ACCEPT_ALL=1"
+        # Don't log here - logging adds color codes that break command strings
     fi
+    
+    # Forward any existing Vibe environment variables
+    if [[ -n "${VIBE_MODEL:-}" ]]; then
+        env_args+=" -e VIBE_MODEL=${VIBE_MODEL}"
+    fi
+    
+    if [[ -n "${VIBE_PROMPT:-}" ]]; then
+        env_args+=" -e VIBE_PROMPT=${VIBE_PROMPT}"
+    fi
+    
+    echo "$env_args"
 }
 
 # Required GitHub token scopes for full functionality
@@ -168,20 +164,20 @@ check_token_scopes() {
     local scopes
     # Use sed instead of grep -oP for macOS compatibility
     scopes=$(gh auth status 2>&1 | grep "Token scopes:" | sed "s/.*Token scopes: //" || echo "")
-
+    
     if [[ -z "$scopes" ]]; then
         warn "Could not determine token scopes"
         return 1
     fi
-
+    
     log "Current token scopes: $scopes"
-
+    
     # Check for workflow scope (needed for pushing workflow files)
     if [[ "$scopes" != *"workflow"* ]]; then
         warn "Token missing 'workflow' scope (needed to push .github/workflows changes)"
         return 1
     fi
-
+    
     return 0
 }
 
@@ -191,7 +187,7 @@ get_gh_token() {
         log "Using GH_TOKEN from environment"
         return 0
     fi
-
+    
     if command -v gh >/dev/null 2>&1; then
         if gh auth status >/dev/null 2>&1; then
             # Check if token has required scopes (unless skipped)
@@ -203,7 +199,7 @@ get_gh_token() {
             else
                 log "Skipping scope check (--skip-scope-check)"
             fi
-
+            
             log "Getting GitHub token from gh CLI..."
             GH_TOKEN=$(gh auth token)
             export GH_TOKEN
@@ -215,7 +211,7 @@ get_gh_token() {
     else
         warn "gh CLI not installed"
     fi
-
+    
     echo ""
     echo -e "${YELLOW}GitHub token not available.${NC}"
     echo "Options:"
@@ -233,44 +229,55 @@ get_gh_token() {
 # Check prerequisites
 check_prereqs() {
     log "Checking prerequisites..."
-
+    
     command -v podman >/dev/null 2>&1 || error "Podman is not installed"
-
+    
     # Interactive token setup
     get_gh_token
-
+    
     log "Prerequisites OK"
 }
 
 # Build the container image
 build_image() {
     log "Building container image..."
-
+    
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local dockerfile="$script_dir/Dockerfile.claude-sandbox"
-
+    local dockerfile="$script_dir/Dockerfile.vibe-sandbox"
+    
     if [[ ! -f "$dockerfile" ]]; then
         error "Dockerfile not found: $dockerfile"
     fi
-
+    
     podman build -t "$IMAGE_NAME" -f "$dockerfile" "$script_dir/.."
-
+    
     log "Image built successfully"
 }
 
 # Run container with mounted source
 run_mount_mode() {
     log "Running in MOUNT mode (current directory mounted)"
-
-    local git_name=$(git config user.name 2>/dev/null || echo "Claude Agent")
-    local git_email=$(git config user.email 2>/dev/null || echo "claude@localhost")
-
-    # Get OTel environment variables
-    local otel_args=""
-    if [[ "$OTEL_ENABLED" == "true" ]]; then
-        otel_args=$(get_otel_env_args)
+    
+    local git_name=$(git config user.name 2>/dev/null || echo "Vibe Agent")
+    local git_email=$(git config user.email 2>/dev/null || echo "vibe@localhost")
+    
+    # Get Vibe-specific arguments
+    local vibe_args=$(forward_vibe_context)
+    local vibe_env_args=$(get_vibe_env_args)
+    
+    # Log Vibe context info after getting the args
+    if [[ "$FORWARD_VIBE_CONTEXT" == "true" ]]; then
+        log "Forwarding Vibe context from ${VIBE_HOME:-$HOME/.vibe}"
+    else
+        log "Vibe context forwarding disabled"
     fi
-
+    
+    if [[ "$ACCEPT_ALL_MODE" == "true" ]]; then
+        log "Accept-all mode enabled (VIBE_ACCEPT_ALL=1)"
+    else
+        log "Accept-all mode disabled"
+    fi
+    
     # shellcheck disable=SC2086
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
@@ -279,9 +286,11 @@ run_mount_mode() {
         -e GIT_AUTHOR_EMAIL="$git_email" \
         -e GIT_COMMITTER_NAME="$git_name" \
         -e GIT_COMMITTER_EMAIL="$git_email" \
-        -p 8443:8443 \
+        -e MISTRAL_API_KEY="${MISTRAL_API_KEY:-}" \
+        -p 8444:8444 \
         -v "$(pwd):/workspace:Z" \
-        $otel_args \
+        $vibe_args \
+        $vibe_env_args \
         "$IMAGE_NAME" \
         "$@"
 }
@@ -289,17 +298,28 @@ run_mount_mode() {
 # Run container with cloned source
 run_clone_mode() {
     log "Running in CLONE mode (fresh clone inside container)"
-
-    local git_name=$(git config user.name 2>/dev/null || echo "Claude Agent")
-    local git_email=$(git config user.email 2>/dev/null || echo "claude@localhost")
+    
+    local git_name=$(git config user.name 2>/dev/null || echo "Vibe Agent")
+    local git_email=$(git config user.email 2>/dev/null || echo "vibe@localhost")
     local branch="$BRANCH"
-
-    # Get OTel environment variables
-    local otel_args=""
-    if [[ "$OTEL_ENABLED" == "true" ]]; then
-        otel_args=$(get_otel_env_args)
+    
+    # Get Vibe-specific arguments
+    local vibe_args=$(forward_vibe_context)
+    local vibe_env_args=$(get_vibe_env_args)
+    
+    # Log Vibe context info after getting the args
+    if [[ "$FORWARD_VIBE_CONTEXT" == "true" ]]; then
+        log "Forwarding Vibe context from ${VIBE_HOME:-$HOME/.vibe}"
+    else
+        log "Vibe context forwarding disabled"
     fi
-
+    
+    if [[ "$ACCEPT_ALL_MODE" == "true" ]]; then
+        log "Accept-all mode enabled (VIBE_ACCEPT_ALL=1)"
+    else
+        log "Accept-all mode disabled"
+    fi
+    
     # shellcheck disable=SC2086
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
@@ -308,19 +328,21 @@ run_clone_mode() {
         -e GIT_AUTHOR_EMAIL="$git_email" \
         -e GIT_COMMITTER_NAME="$git_name" \
         -e GIT_COMMITTER_EMAIL="$git_email" \
+        -e MISTRAL_API_KEY="${MISTRAL_API_KEY:-}" \
         -e REPO_URL="$REPO_URL" \
         -e BRANCH="$branch" \
-        -p 8443:8443 \
-        $otel_args \
+        -p 8444:8444 \
+        $vibe_args \
+        $vibe_env_args \
         "$IMAGE_NAME" \
         "$@"
 }
 
 # Main
 main() {
-    # Handle -h or help flags to pass to Claude Code CLI
+    # Handle -h or help flags to pass to Vibe CLI
     if [[ "$1" == "-h" ]] || [[ "$1" == "help" ]]; then
-        # Build image if needed, then pass -h to Claude Code CLI
+        # Build image if needed, then pass -h to Vibe CLI
         if ! podman image exists "$IMAGE_NAME"; then
             build_image
         else
@@ -332,21 +354,16 @@ main() {
     fi
     
     check_prereqs
-
+    
     # Build image if it doesn't exist
     if ! podman image exists "$IMAGE_NAME"; then
         build_image
     else
         log "Using existing image (run 'podman rmi $IMAGE_NAME' to rebuild)"
     fi
-
-    # Start Seq if OTel is enabled
-    if [[ "$OTEL_ENABLED" == "true" ]]; then
-        start_seq
-    fi
-
+    
     shift || true  # Remove mode argument
-
+    
     case "$MODE" in
         mount)
             run_mount_mode "$@"

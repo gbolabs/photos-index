@@ -49,6 +49,54 @@ public class IndexedFilesControllerTests
     }
 
     [Fact]
+    public async Task GetBatchMetadata_ReturnsFiles_WhenValidRequest()
+    {
+        // Arrange
+        var fileIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
+        var expected = new List<IndexedFileDto>
+        {
+            new IndexedFileDto { Id = fileIds[0], FilePath = "/photos/test1.jpg", FileName = "test1.jpg", FileHash = "abc123" },
+            new IndexedFileDto { Id = fileIds[1], FilePath = "/photos/test2.jpg", FileName = "test2.jpg", FileHash = "def456" }
+        };
+        _mockService.Setup(s => s.GetBatchMetadataAsync(fileIds, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _controller.GetBatchMetadata(fileIds);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<List<IndexedFileDto>>().Subject;
+        response.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetBatchMetadata_ReturnsBadRequest_WhenEmptyList()
+    {
+        // Arrange
+        var fileIds = new List<Guid>();
+
+        // Act
+        var result = await _controller.GetBatchMetadata(fileIds);
+
+        // Assert
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetBatchMetadata_ReturnsBadRequest_WhenTooManyIds()
+    {
+        // Arrange
+        var fileIds = Enumerable.Range(0, 101).Select(_ => Guid.NewGuid()).ToList();
+
+        // Act
+        var result = await _controller.GetBatchMetadata(fileIds);
+
+        // Assert
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task GetById_ReturnsFile_WhenFound()
     {
         // Arrange

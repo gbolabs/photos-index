@@ -480,6 +480,16 @@ public class IndexedFileService : IIndexedFileService
         return results;
     }
 
+    public async Task<IReadOnlyList<IndexedFileDto>> GetBatchMetadataAsync(IReadOnlyList<Guid> fileIds, CancellationToken ct)
+    {
+        var entities = await _dbContext.IndexedFiles
+            .AsNoTracking()
+            .Where(f => fileIds.Contains(f.Id))
+            .ToListAsync(ct);
+
+        return entities.Select(MapToDto).ToList();
+    }
+
     private static IndexedFileDto MapToDto(IndexedFile entity) => new()
     {
         Id = entity.Id,
