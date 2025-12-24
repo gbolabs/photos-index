@@ -13,6 +13,11 @@
 
 set -euo pipefail
 
+# Default values when no parameters are given
+if [[ $# -eq 0 ]]; then
+    set -- --otel clone
+fi
+
 # Show help message
 show_help() {
     cat << EOF
@@ -20,6 +25,7 @@ Claude Sandbox Script - Simplified Development Environment
 
 Usage:
   ./scripts/claude-sandbox.sh [options] [clone|mount]
+  ./scripts/claude-sandbox.sh          # Default: --otel clone
 
 Options:
   --otel             Enable OpenTelemetry logging with Seq
