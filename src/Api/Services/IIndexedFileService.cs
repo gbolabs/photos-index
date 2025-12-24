@@ -17,4 +17,5 @@ public interface IIndexedFileService
     Task<FileStatisticsDto> GetStatisticsAsync(CancellationToken ct);
     Task<bool> SoftDeleteAsync(Guid id, CancellationToken ct);
     Task<IReadOnlyList<FileNeedsReindexDto>> CheckNeedsReindexAsync(CheckFilesNeedReindexRequest request, CancellationToken ct);
+    Task<IReadOnlyList<IndexedFileDto>> GetBatchMetadataAsync(IReadOnlyList<Guid> fileIds, CancellationToken ct);
 }
