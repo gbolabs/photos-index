@@ -673,3 +673,87 @@ For personal projects:
 - **Maintainable > Scalable**: Easy to maintain over enterprise-scale
 
 The goal is a system that works well at home, not an enterprise platform!
+
+## Deployment Environments
+
+### Local Development (Podman)
+
+**Purpose**: Developer workstations for coding and testing
+**Technology**: Podman (rootless containers)
+**Configuration**: `deploy/kubernetes/photos-index.yaml`
+**Services**: All services (API, Indexing, Metadata, Thumbnail, RabbitMQ, MinIO)
+
+**Setup**:
+```bash
+# Start local development environment
+cd deploy/kubernetes
+./local-dev.sh start
+
+# Stop environment
+./local-dev.sh stop
+```
+
+**Requirements**:
+- Podman 4.0+
+- Podman Compose
+- .NET 10 SDK
+- Node 24+
+
+### Synology NAS (Docker Compose)
+
+**Purpose**: Production file indexing on Synology NAS
+**Technology**: Docker Compose
+**Configuration**: `deploy/docker/docker-compose.synology.yml`
+**Services**: IndexingService only (minimal footprint)
+
+**Setup**:
+```bash
+# Configure environment
+cp deploy/docker/.env.synology .env
+# Edit .env with Synology-specific settings
+
+# Start indexing service
+docker-compose -f docker-compose.synology.yml up -d
+```
+
+**Requirements**:
+- Docker 20.10+
+- Docker Compose 2.0+
+- Synology DSM 7.0+
+- Minimum 2GB RAM allocated to Docker
+
+### TrueNAS MPC (Docker Compose)
+
+**Purpose**: Production processing infrastructure on TrueNAS MPC
+**Technology**: Docker Compose
+**Configuration**: `deploy/docker/docker-compose.yml`
+**Services**: API, MetadataService, ThumbnailService, RabbitMQ, MinIO
+
+**Setup**:
+```bash
+# Configure environment
+cp deploy/docker/.env.truenas .env
+# Edit .env with TrueNAS-specific settings
+
+# Start infrastructure
+docker-compose up -d
+```
+
+**Requirements**:
+- Docker 20.10+
+- Docker Compose 2.0+
+- TrueNAS Scale/CORE
+- Minimum 8GB RAM, 4 CPU cores
+
+### Environment Comparison
+
+| Feature | Local (Podman) | Synology NAS | TrueNAS MPC |
+|---------|---------------|--------------|-------------|
+| Purpose | Development | Production Indexing | Production Processing |
+| Container Runtime | Podman | Docker | Docker |
+| Orchestration | Podman Compose | Docker Compose | Docker Compose |
+| Services | All | IndexingService only | API + Processing Services |
+| Resource Requirements | Medium | Low | High |
+| Storage | Local volumes | NAS volumes | MPC volumes |
+| Network | Localhost | LAN | LAN |
+| Monitoring | Aspire Dashboard | Basic logs | Full monitoring |
