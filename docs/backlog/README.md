@@ -26,6 +26,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `07-001` Playwright Setup | ✅ Complete | [#16](https://github.com/gbolabs/photos-index/pull/16) | A6 |
 | `07-002` User Workflows | 🔲 Not Started | - | A6 |
 | `07-003` Playwright CI Integration | ✅ Complete | [#87](https://github.com/gbolabs/photos-index/pull/87) | A6 |
+| `06-008` Claude API Traffic Logging | 🔲 Not Started | - | - |
 | `08-001` Swagger in Production | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A1 |
 | `08-002` API TraceId in Responses | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A1 |
 | `08-003` Traefik OTEL Integration | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
