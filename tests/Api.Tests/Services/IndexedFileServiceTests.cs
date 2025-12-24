@@ -31,9 +31,9 @@ public class IndexedFileServiceTests
         
         // Create a real configuration with the required values
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string>
+            .AddInMemoryCollection(new List<KeyValuePair<string, string?>>
             {
-                {"ThumbnailDirectory", "/tmp/thumbnails"}
+                new KeyValuePair<string, string?>("ThumbnailDirectory", "/tmp/thumbnails")
             })
             .Build();
 
