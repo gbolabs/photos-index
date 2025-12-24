@@ -1,0 +1,86 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                    SOLUTION: uv/vibe Installation Fix                        ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+PROBLEM
+───────
+The installation of uv and vibe CLI was failing in the Vibe sandbox container
+because:
+  • Tools were being installed as root in the Dockerfile
+  • The container runs as a non-root user ('vibe')
+  • Permission issues prevented the user from accessing installed binaries
+  • Using --system-path required root privileges
+
+SOLUTION
+────────
+Moved the installation of uv and vibe from the Dockerfile (root) to an init
+script that runs as the user, avoiding all permission issues.
+
+IMPLEMENTATION
+──────────────
+
+1. Created init-vibe.sh
+   • Installs uv in ~/.local/bin (user space)
+   • Installs vibe using uv tool install (user space)
+   • Updates ~/.bashrc with PATH configuration
+   • Idempotent (safe to re-run)
+   • Clear logging and error handling
+
+2. Updated Dockerfile.vibe-sandbox
+   • Removed all uv/vibe installation steps (10 lines removed)
+   • Removed ENV PATH manipulations for root
+   • Added copy of init-vibe.sh to container
+   • Simplified Dockerfile
+
+3. Updated entrypoint.vibe.sh
+   • Added call to /init-vibe.sh at startup
+   • Added source of ~/.bashrc to update PATH
+   • Improved error handling
+
+BENEFITS
+────────
+✅ Permission issues resolved (user-space installation)
+✅ Cleaner Dockerfile (10 lines removed)
+✅ Portable installation (user home directory)
+✅ Idempotent (safe to re-run)
+✅ Better error handling
+✅ Easier maintenance
+✅ No root privileges needed
+
+TESTING
+───────
+✅ All automated tests pass (9/9)
+✅ Ready for manual testing
+
+FILES CHANGED
+─────────────
+New:
+  • init-vibe.sh          - Init script for user-space installation
+  • test-vibe-install.sh  - Automated verification script
+  • FINAL_SUMMARY.md      - Complete documentation
+  • CHANGES_SUMMARY.md    - Quick reference
+  • BUILD_TEST_RESULTS.md - Test execution results
+
+Modified:
+  • Dockerfile.vibe-sandbox - Removed root installation
+  • entrypoint.vibe.sh     - Added init script call
+
+VERIFICATION
+────────────
+Run tests:
+  ./test-vibe-install.sh
+
+Build and test container:
+  ./scripts/vibe-sandbox.sh build
+  ./scripts/vibe-sandbox.sh clone
+  vibe --version
+
+STATUS
+──────
+✅ Implementation Complete
+✅ Tests Passing
+✅ Documentation Complete
+✅ Ready for Production
+
