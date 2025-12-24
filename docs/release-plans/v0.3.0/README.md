@@ -1,7 +1,10 @@
 # v0.3.0 Release Plan
 
 ## Summary
-Major release with user-facing features and architectural improvement for thumbnail/metadata offloading to the API (MPC).
+
+Major release introducing distributed processing architecture with event-driven microservices. Offloads compute-intensive operations (thumbnail generation, metadata extraction) from Synology NAS to MPC (TrueNAS).
+
+**Related ADR**: [ADR-004: Distributed Processing Architecture](../../adrs/004-distributed-processing-architecture.md)
 
 ## Features to Bundle
 
@@ -27,180 +30,210 @@ Major release with user-facing features and architectural improvement for thumbn
 - `src/IndexingService/Models/HashResult.cs`
 - Streaming SHA256, progress reporting, parallel batch processing
 
-### 4. Thumbnail & Metadata Offload to API (`09-thumbnail-offload`)
-**Branch:** `feature/thumbnail-offload`
+### 4. Distributed Processing Architecture (`09-thumbnail-offload`)
+**Branch:** `feature/distributed-processing`
 
-This is the major architectural change - offload compute-intensive work from Synology (IndexingService) to MPC (API).
+This is the major architectural change - offload compute-intensive work from Synology (IndexingService) to MPC using event-driven microservices.
 
-**Phase A: Database & Models**
-- `src/Database/Entities/ThumbnailJob.cs` (new entity)
-- EF Core migration for `ThumbnailJobs` table
-- `src/Api/Repositories/IThumbnailJobRepository.cs`
+**New Infrastructure:**
+- RabbitMQ (message bus)
+- MinIO (object storage)
 
-**Phase B: API Changes**
-- Modify `POST /api/files/batch` to accept multipart form data with image bytes
-- Save temp images, create ThumbnailJob records
-- Add `GET /api/thumbnails/status` endpoint
+**New Services:**
+- `src/MetadataService/` - EXIF extraction service
+- `src/ThumbnailService/` - Thumbnail generation service
 
-**Phase C: ThumbnailWorker (BackgroundService in API)**
-- `src/Api/Workers/ThumbnailWorker.cs`
-- `src/Api/Services/ThumbnailGenerator.cs` (ImageSharp)
-- `src/Api/Services/ThumbnailRecoveryService.cs` (crash recovery)
-- Configurable parallelism (default 4 workers)
+**Phase A: Infrastructure Setup**
+- Add RabbitMQ container to docker-compose
+- Add MinIO container to docker-compose
+- Create `src/Shared/Messages/` contracts
+- Create `src/Shared/Storage/` MinIO client abstraction
+- Add NuGet packages: MassTransit.RabbitMQ, AWSSDK.S3
 
-**Phase D: IndexingService Changes**
-- Add `OFFLOAD_PROCESSING=true` config option
-- Read image bytes for new/changed files
-- Send multipart batch with filesystem metadata + images
-- **NO local EXIF extraction** - only filesystem data (path, size, dates)
-- Hash computation stays local (needed for dedup before sending)
+**Phase B: API Gateway Enhancement**
+- Modify `POST /api/files/ingest` for multipart form data
+- Add MinIO client for saving incoming images
+- Add MassTransit publisher for FileDiscoveredMessage
+- Add consumers for MetadataExtracted/ThumbnailGenerated messages
+- Add `/api/processing/status` endpoint
 
-**Phase E: Monitoring**
-- OpenTelemetry metrics for thumbnail queue
-- Health check endpoint
-- Aspire dashboard updates
+**Phase C: MetadataService**
+- Create `src/MetadataService/` project
+- Implement FileDiscoveredConsumer
+- Create MetadataExtractor (ImageSharp-based)
+- Add MinIO client for downloading images
+
+**Phase D: ThumbnailService**
+- Create `src/ThumbnailService/` project
+- Implement FileDiscoveredConsumer
+- Create ThumbnailGenerator (ImageSharp-based)
+- Add MinIO client for download/upload
+
+**Phase E: IndexingService Simplification**
+- Modify batch endpoint to send multipart with image bytes
+- Remove local metadata extraction
+- Remove local thumbnail generation
+- **NO new dependencies** - just HTTP to API
+
+**Phase F: Deployment & Observability**
+- Update docker-compose.yml and kubernetes manifest
+- Add OpenTelemetry to new services
+- Add Traefik route for MinIO thumbnails
+- Configure RabbitMQ/MinIO console access
+
+## Architecture Overview
+
+```
+IndexingService (Synology - MINIMAL responsibilities)
+    |
+    | HTTP POST /api/files/ingest (multipart: metadata + image bytes)
+    v
++------------------------------------------------------------------+
+| API Service (Gateway + SOLE DB OWNER)                             |
+|  1. Save image to MinIO (temp-images bucket)                      |
+|  2. Create IndexedFile record in PostgreSQL                       |
+|  3. Publish FileDiscoveredMessage to RabbitMQ                     |
++------------------------------------------------------------------+
+    |
+    v RabbitMQ (fan-out exchange)
+    |
+    +-----------------------------+-----------------------------+
+    v                             v                             |
++------------------+      +------------------+                  |
+| MetadataService  |      | ThumbnailService |                  |
+| (NO DB ACCESS)   |      | (NO DB ACCESS)   |                  |
+| - Extract EXIF   |      | - Generate thumb |                  |
+| - Publish result |      | - Upload MinIO   |                  |
++------------------+      +------------------+                  |
+         |                         |                            |
+         +-------------------------+----------------------------+
+                                   |
+                                   v (messages back to API)
+                           API updates PostgreSQL
+
+FRONTEND: Traefik routes /thumbnails/* directly to MinIO
+```
+
+## Key Design Decisions
+
+- **Message Bus:** RabbitMQ + MassTransit (Apache 2.0)
+- **Object Storage:** MinIO (Apache 2.0)
+- **API is SOLE DB owner:** Processing services never touch database
+- **Frontend thumbnail access:** Traefik direct to MinIO (Phase 1), Presigned URLs (Phase 2 with auth)
+- **IndexingService dependency:** HTTP to API only (no message bus client)
 
 ## Implementation Order
 
 1. **Hash Computer** (`03-002`) - independent, can be done first
 2. **Dashboard** (`05-002`) - frontend, independent
 3. **Directory Settings** (`05-003`) - frontend, independent
-4. **Thumbnail Offload** (`09-thumbnail-offload`) - depends on hash computer being integrated
+4. **Infrastructure** - RabbitMQ, MinIO containers
+5. **API Gateway** - multipart ingest, MassTransit
+6. **MetadataService** - new container
+7. **ThumbnailService** - new container
+8. **IndexingService changes** - multipart support
 
-Tasks 1-3 can be done in parallel.
+Tasks 1-3 can be done in parallel. Tasks 4-8 are sequential.
 
-## Key Decisions
+## Test Coverage Requirements
 
-- **Multipart form** (not Base64) for image transfer - avoids 33% overhead
-- **ThumbnailWorker inside API** (not separate service) - simpler for now, can extract later
-- **PostgreSQL queue** (ThumbnailJobs table) - no RabbitMQ dependency yet
-- **EXIF extraction on API side** - offload ImageSharp compute from Synology
-- **Hash computation on IndexingService** - needed for dedup before sending to API
-
-### Architecture Split
-```
-IndexingService (Synology - low CPU):
-  ├── File scanning (I/O)
-  ├── SHA256 hash computation (streaming)
-  └── Read image bytes (I/O)
-
-API (MPC - high CPU):
-  ├── EXIF metadata extraction (ImageSharp)
-  ├── Thumbnail generation (ImageSharp)
-  └── Database storage
-```
+| Component | Coverage |
+|-----------|----------|
+| Hash Computer | 90% |
+| Dashboard | 80% |
+| Directory Settings | 80% |
+| MetadataService | 85% |
+| ThumbnailService | 85% |
+| API ingest/consumers | 90% |
 
 ## Configuration Changes
 
-### IndexingService
+### IndexingService (Synology)
 ```env
-OFFLOAD_THUMBNAILS=true
+API_ENDPOINT=http://api:5000
 BATCH_SIZE=50
 GENERATE_THUMBNAILS=false
+EXTRACT_METADATA=false
 ```
 
-### API
+### API (MPC)
 ```env
-THUMBNAIL_TEMP_DIR=/app/temp/images
-THUMBNAIL_DIR=/app/thumbnails
-THUMBNAIL_WORKER_PARALLELISM=4
-THUMBNAIL_WORKER_BATCH_SIZE=10
+# MinIO
+MINIO_ENDPOINT=minio:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_TEMP_BUCKET=temp-images
+MINIO_THUMBNAIL_BUCKET=thumbnails
+
+# RabbitMQ
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_USER=photos
+RABBITMQ_PASSWORD=photos
 ```
 
-## Test Coverage Requirements
-- Hash Computer: 90%
-- Dashboard: 80%
-- Directory Settings: 80%
-- ThumbnailWorker: 85%
-- API batch endpoint: 90%
-
-## Testing Strategy
-
-### Unit Tests
-| Component | Coverage | Key Tests |
-|-----------|----------|-----------|
-| HashComputer | 90% | Streaming, large files, cancellation, locked files |
-| ThumbnailWorker | 85% | Job processing, retry logic, crash recovery |
-| ThumbnailGenerator | 90% | EXIF extraction, resize, auto-orient, corrupted images |
-| Dashboard | 80% | Stats display, loading states, error handling |
-| Directory Settings | 80% | CRUD operations, form validation, dialogs |
-
-### Integration Tests
-- `tests/Integration.Tests/ThumbnailOffloadTests.cs`
-  - Full flow: IndexingService → API batch → ThumbnailWorker → thumbnail file
-  - Crash recovery scenarios (API restart mid-processing)
-  - Concurrent batch processing
-
-### E2E Tests (Playwright)
-- Dashboard data display and refresh
-- Directory add/edit/delete flow
-- Thumbnail visibility in file views
-
-### Performance Tests
-- Hash computation: measure throughput for 1MB, 100MB, 1GB files
-- Thumbnail processing: target >10/second with parallelism=4
-- Network transfer: verify multipart efficiency vs Base64
+### New Services
+```env
+MESSAGE_BUS_CONNECTION=amqp://rabbitmq:5672
+MINIO_ENDPOINT=minio:9000
+MAX_PARALLELISM=4  # MetadataService
+MAX_PARALLELISM=8  # ThumbnailService
+```
 
 ## Documentation Updates
 
-### User Documentation
-- `docs/user-guide/dashboard.md` - Dashboard features and usage
-- `docs/user-guide/directory-management.md` - Managing scan directories
-- Update deployment docs with new config options
-
-### Technical Documentation
-- `docs/architecture/thumbnail-offload.md` - Architecture decision and flow
+### Required
+- `docs/adrs/004-distributed-processing-architecture.md` - Architecture decision
+- `docs/backlog/09-thumbnail-offload/README.md` - Updated with full architecture
 - Update `CLAUDE.md` with new services/components
-- API documentation (Swagger) for new/modified endpoints
+- API documentation (Swagger) for new endpoints
 
-## Architecture Decision Records (ADRs)
-
-### ADR Required
-- **ADR-00X: Thumbnail Processing Offload**
-  - Context: Synology NAS CPU limitations
-  - Decision: Offload to API (MPC) via multipart batch
-  - Consequences: Network dependency, but better resource utilization
-  - Alternatives considered: On-demand generation, separate service, message queue
-
-### ADR Consideration
-- **ADR-00Y: PostgreSQL Queue vs Message Bus** (if needed)
-  - Why ThumbnailJobs table instead of RabbitMQ
-  - Trade-offs and migration path
+### User Documentation
+- `docs/user-guide/dashboard.md` - Dashboard features
+- `docs/user-guide/directory-management.md` - Managing directories
+- Update deployment docs with new config options
 
 ## Backlog Updates
 
 After implementation, update `docs/backlog/README.md`:
-- Mark `03-002` Hash Computer as ✅ Complete
-- Mark `05-002` Dashboard as ✅ Complete
-- Mark `05-003` Directory Settings as ✅ Complete
-- Mark `09-thumbnail-offload` as ✅ Complete
-- Update task files with PR links
+- Mark `03-002` Hash Computer as Complete
+- Mark `05-002` Dashboard as Complete
+- Mark `05-003` Directory Settings as Complete
+- Mark `09-thumbnail-offload` as Complete
+- Mark `09-003` Service Bus as Merged (superseded by 09-thumbnail-offload)
 
 ## Release Checklist
 
 ### Pre-release
 - [ ] All features merged to main
 - [ ] CI passing (unit, integration, E2E)
+- [ ] ADR-004 written and approved
 - [ ] Documentation updated
-- [ ] ADR written and reviewed
 - [ ] Backlog updated
 
 ### Release
 - [ ] Create tag `v0.3.0`
-- [ ] Verify container images published
-- [ ] Update deployment examples with new config
+- [ ] Verify container images published:
+  - `ghcr.io/gbolabs/photos-index/api:v0.3.0`
+  - `ghcr.io/gbolabs/photos-index/web:v0.3.0`
+  - `ghcr.io/gbolabs/photos-index/indexing-service:v0.3.0`
+  - `ghcr.io/gbolabs/photos-index/metadata-service:v0.3.0`
+  - `ghcr.io/gbolabs/photos-index/thumbnail-service:v0.3.0`
+- [ ] Update deployment examples with new services
 
 ### Post-release
-- [ ] Monitor Aspire dashboard for thumbnail queue
+- [ ] Monitor RabbitMQ management UI for message flow
+- [ ] Monitor MinIO console for storage usage
 - [ ] Verify Synology CPU usage reduced
-- [ ] Collect performance metrics
+- [ ] Collect processing rate metrics (target: >10/sec)
 
 ## Success Criteria
+
 - [ ] Dashboard shows stats, directories, quick actions
 - [ ] Users can manage directories via UI
 - [ ] Hash computation is streaming and memory-efficient
 - [ ] Thumbnails generated on MPC without impacting Synology
-- [ ] Processing rate: >10 thumbnails/second
-- [ ] Zero data loss on crashes/restarts
-- [ ] ADR documented and approved
+- [ ] Metadata extraction on MPC without impacting Synology
+- [ ] Processing rate: >10 items/second with parallelism
+- [ ] Zero data loss on service restarts
+- [ ] ADR-004 documented and approved
 - [ ] Test coverage targets met
