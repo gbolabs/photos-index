@@ -39,7 +39,7 @@ Options:
   -h, --help         Show this help message
 
 Modes:
-  clone              Clone repo fresh inside container (uses 'main' branch)
+  clone              Clone repo into persistent volume (survives crashes)
   mount              Mount current directory (faster, changes persist)
   recover            Restart and attach to a stopped container
 
@@ -72,13 +72,13 @@ Examples:
   ./scripts/claude-sandbox.sh -h
   ./scripts/claude-sandbox.sh help
 
-Persistence:
-  With --otel (default): Logs persist in 'seq-data' volume across runs
-  With --otel --no-persist: Logs are ephemeral (lost on container restart)
-  Without --otel: No OTel logging
+Volumes:
+  claude-workspace   Workspace for clone mode (survives crashes)
+  seq-data           Seq logs (with --otel, unless --no-persist)
 
 Cleanup:
-  Remove persistent Seq data: podman volume rm seq-data
+  podman volume rm claude-workspace   # Remove workspace
+  podman volume rm seq-data           # Remove Seq logs
 EOF
 }
 
@@ -126,6 +126,7 @@ MODE="${1:-mount}"
 REPO_URL="https://github.com/gbolabs/photos-index.git"
 CONTAINER_NAME="claude-sandbox"
 IMAGE_NAME="claude-sandbox:latest"
+WORKSPACE_VOLUME="claude-workspace"  # Volume for clone mode workspace
 
 # Colors
 RED='\033[0;31m'
@@ -376,7 +377,7 @@ run_mount_mode() {
 
 # Run container with cloned source
 run_clone_mode() {
-    log "Running in CLONE mode (fresh clone inside container)"
+    log "Running in CLONE mode (workspace on persistent volume)"
 
     local git_name=$(git config user.name 2>/dev/null || echo "Claude Agent")
     local git_email=$(git config user.email 2>/dev/null || echo "claude@localhost")
@@ -401,6 +402,14 @@ run_clone_mode() {
         log "Container will be removed after exit (--rm)"
     fi
 
+    # Create workspace volume if it doesn't exist
+    if ! podman volume exists "$WORKSPACE_VOLUME"; then
+        log "Creating workspace volume: $WORKSPACE_VOLUME"
+        podman volume create "$WORKSPACE_VOLUME"
+    else
+        log "Reusing existing workspace volume: $WORKSPACE_VOLUME"
+    fi
+
     # Remove existing container if it exists (can't reuse name otherwise)
     podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
@@ -415,6 +424,7 @@ run_clone_mode() {
         -e REPO_URL="$REPO_URL" \
         -e BRANCH="$branch" \
         -p 8443:8443 \
+        -v "$WORKSPACE_VOLUME:/workspace:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
