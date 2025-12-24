@@ -3,11 +3,13 @@
 #
 # Simplified Usage:
 #   ./scripts/claude-sandbox.sh --otel clone          # Default: persistent Seq + main branch
+#   ./scripts/claude-sandbox.sh --otel --log-api clone    # With full API traffic logging
 #   ./scripts/claude-sandbox.sh --otel --no-persist clone  # Ephemeral Seq
 #   ./scripts/claude-sandbox.sh --help                # Show full help
 #
 # Features:
 #   - Seq OTel receiver with persistence control
+#   - API traffic logging via proxy (--log-api)
 #   - Simple branch specification
 #   - Clean, focused interface
 
@@ -29,6 +31,7 @@ Usage:
 
 Options:
   --otel             Enable OpenTelemetry logging with Seq
+  --log-api          Enable full API traffic logging (requires --otel)
   --no-persist       Disable Seq volume persistence (ephemeral mode)
   --branch=BRANCH    Branch to checkout in clone mode [default: main]
   --skip-scope-check Skip GitHub token scope validation
@@ -41,6 +44,9 @@ Modes:
 Examples:
   # Default: Seq with persistence + main branch
   ./scripts/claude-sandbox.sh --otel clone
+
+  # With full API traffic logging (see all requests/responses)
+  ./scripts/claude-sandbox.sh --otel --log-api clone
 
   # Ephemeral Seq (no persistence)
   ./scripts/claude-sandbox.sh --otel --no-persist clone
@@ -70,6 +76,7 @@ EOF
 
 # Parse flags
 OTEL_ENABLED=false
+LOG_API_ENABLED=false
 SKIP_SCOPE_CHECK=false
 SEQ_PERSIST=true   # Default to persistent (with volume)
 BRANCH="main"      # Default to main branch
@@ -79,6 +86,9 @@ for arg in "$@"; do
     case "$arg" in
         --otel)
             OTEL_ENABLED=true
+            ;;
+        --log-api)
+            LOG_API_ENABLED=true
             ;;
         --no-persist)
             SEQ_PERSIST=false
@@ -156,6 +166,56 @@ get_otel_env_args() {
               -e OTEL_LOGS_EXPORTER=otlp \
               -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:5341/ingest/otlp \
               -e OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf"
+    fi
+}
+
+# API Logger image name
+API_LOGGER_IMAGE="claude-api-logger:latest"
+API_LOGGER_CONTAINER="claude-api-logger"
+
+# Build the API logger image
+build_api_logger_image() {
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local logger_dir="$script_dir/claude-api-logger"
+
+    if [[ ! -d "$logger_dir" ]]; then
+        error "API logger directory not found: $logger_dir"
+    fi
+
+    log "Building API logger image..."
+    podman build -t "$API_LOGGER_IMAGE" "$logger_dir"
+    log "API logger image built successfully"
+}
+
+# Start the API logger container
+start_api_logger() {
+    log "Starting API traffic logger..."
+
+    # Remove existing container if present
+    podman rm -f "$API_LOGGER_CONTAINER" 2>/dev/null || true
+
+    # Build image if it doesn't exist
+    if ! podman image exists "$API_LOGGER_IMAGE"; then
+        build_api_logger_image
+    fi
+
+    # Start the logger container
+    # Uses host network to communicate with Seq on host.containers.internal
+    podman run -d --rm \
+        --name "$API_LOGGER_CONTAINER" \
+        -p 8800:8000 \
+        -e SEQ_HOST=host.containers.internal \
+        "$API_LOGGER_IMAGE"
+
+    log "API Logger Proxy: http://localhost:8800"
+    log "Traffic logs will appear in Seq Dashboard"
+}
+
+# Get API logger environment variables for Claude container
+get_api_logger_env_args() {
+    if [[ "$LOG_API_ENABLED" == "true" ]]; then
+        # Point Claude Code to our proxy instead of Anthropic directly
+        echo "-e ANTHROPIC_BASE_URL=http://host.containers.internal:8800"
     fi
 }
 
@@ -270,6 +330,12 @@ run_mount_mode() {
         otel_args=$(get_otel_env_args)
     fi
 
+    # Get API logger environment variables
+    local api_logger_args=""
+    if [[ "$LOG_API_ENABLED" == "true" ]]; then
+        api_logger_args=$(get_api_logger_env_args)
+    fi
+
     # shellcheck disable=SC2086
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
@@ -281,6 +347,7 @@ run_mount_mode() {
         -p 8443:8443 \
         -v "$(pwd):/workspace:Z" \
         $otel_args \
+        $api_logger_args \
         "$IMAGE_NAME" \
         "$@"
 }
@@ -299,6 +366,12 @@ run_clone_mode() {
         otel_args=$(get_otel_env_args)
     fi
 
+    # Get API logger environment variables
+    local api_logger_args=""
+    if [[ "$LOG_API_ENABLED" == "true" ]]; then
+        api_logger_args=$(get_api_logger_env_args)
+    fi
+
     # shellcheck disable=SC2086
     podman run -it --rm \
         --name "$CONTAINER_NAME" \
@@ -311,6 +384,7 @@ run_clone_mode() {
         -e BRANCH="$branch" \
         -p 8443:8443 \
         $otel_args \
+        $api_logger_args \
         "$IMAGE_NAME" \
         "$@"
 }
@@ -332,6 +406,11 @@ main() {
     
     check_prereqs
 
+    # Validate --log-api requires --otel
+    if [[ "$LOG_API_ENABLED" == "true" ]] && [[ "$OTEL_ENABLED" != "true" ]]; then
+        error "--log-api requires --otel (API logs are shipped to Seq)"
+    fi
+
     # Build image if it doesn't exist
     if ! podman image exists "$IMAGE_NAME"; then
         build_image
@@ -342,6 +421,11 @@ main() {
     # Start Seq if OTel is enabled
     if [[ "$OTEL_ENABLED" == "true" ]]; then
         start_seq
+    fi
+
+    # Start API logger if enabled (after Seq, so logs have somewhere to go)
+    if [[ "$LOG_API_ENABLED" == "true" ]]; then
+        start_api_logger
     fi
 
     shift || true  # Remove mode argument
