@@ -136,17 +136,16 @@ start_seq() {
         persist_msg="(ephemeral)"
     fi
 
-    # Start Seq
-    podman run -d --rm \
-        --name seq-otel \
-        -p 5341:80 \
-        -p 5342:5341 \
-        -e ACCEPT_EULA=Y \
-        $volume_args \
-        datalust/seq:latest
+        # Start Seq (port 80 serves both UI and OTLP ingestion)
+        podman run -d --rm \
+            --name seq-otel \
+            -p 5341:80 \
+            -e ACCEPT_EULA=Y \
+            $volume_args \
+            datalust/seq:latest
 
     log "Seq Dashboard: http://localhost:5341 $persist_msg"
-    log "Seq OTLP Endpoint: http://host.containers.internal:5342"
+    log "Seq OTLP Endpoint: http://host.containers.internal:5341/ingest/otlp (http/protobuf)"
 }
 
 # Get OTel environment variables for podman
@@ -155,8 +154,8 @@ get_otel_env_args() {
         echo "-e CLAUDE_CODE_ENABLE_TELEMETRY=1 \
               -e OTEL_LOG_USER_PROMPTS=1 \
               -e OTEL_LOGS_EXPORTER=otlp \
-              -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:5342 \
-              -e OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+              -e OTEL_EXPORTER_OTLP_ENDPOINT=http://host.containers.internal:5341/ingest/otlp \
+              -e OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf"
     fi
 }
 
