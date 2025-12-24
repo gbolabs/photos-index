@@ -619,3 +619,57 @@ These improvements enhance the v0.3.0 release plan by adding:
 - **Cost awareness** for efficient resource usage
 
 The core architecture remains excellent - these enhancements focus on making it production-grade and operationally robust.
+
+## Home/Personal Use Considerations
+
+For personal/home use, consider a simplified approach:
+
+### Recommended for Home Use
+
+**✅ Keep:**
+- Core distributed processing architecture
+- Simple error handling (basic retries)
+- Basic monitoring (Aspire dashboard)
+- MinIO public bucket for thumbnails
+- Simple deployment (docker-compose)
+
+**❌ Skip (Overkill for Home):**
+- Complex monitoring (Prometheus/Grafana)
+- Advanced security (TLS, IAM policies)
+- Canary deployments
+- Feature flags
+- Exhaustive test coverage (>80%)
+- Detailed documentation
+
+### Simplified Home Deployment
+
+```yaml
+# Minimal docker-compose for home use
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    ports: ["5672:5672", "15672:15672"]
+    environment:
+      RABBITMQ_DEFAULT_USER: photos
+      RABBITMQ_DEFAULT_PASS: photos
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports: ["9000:9000", "9001:9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+```
+
+### Home Use Philosophy
+
+For personal projects:
+- **KISS Principle**: Keep It Simple, Stupid
+- **YAGNI Principle**: You Aren't Gonna Need It
+- **Functional > Perfect**: Working solution over perfect architecture
+- **Maintainable > Scalable**: Easy to maintain over enterprise-scale
+
+The goal is a system that works well at home, not an enterprise platform!
