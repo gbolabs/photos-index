@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photos Index - Observability Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 3rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.2);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        .card-title { font-size: 1.25rem; font-weight: 600; }
+        .card-desc { color: #aaa; font-size: 0.9rem; line-height: 1.5; }
+        .card-port {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        .grafana .card-icon { background: linear-gradient(135deg, #f46800, #f9b233); }
+        .jaeger .card-icon { background: linear-gradient(135deg, #00bcd4, #0097a7); }
+        .rabbitmq .card-icon { background: linear-gradient(135deg, #ff6600, #ff8533); }
+        .minio .card-icon { background: linear-gradient(135deg, #c72c48, #e91e63); }
+        .traefik .card-icon { background: linear-gradient(135deg, #37abc8, #2196f3); }
+        .app .card-icon { background: linear-gradient(135deg, #7b2cbf, #9c27b0); }
+        .section-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #666;
+            margin: 2rem 0 1rem;
+        }
+        .status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Photos Index</h1>
+        <p class="subtitle">Observability Portal</p>
+
+        <div class="section-title"><span class="status"></span>Observability</div>
+        <div class="grid">
+            <a href="/grafana/" class="card grafana">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Grafana</div>
+                </div>
+                <div class="card-desc">Unified dashboard for logs and traces. Query Loki for logs, Jaeger for traces.</div>
+                <div class="card-port">:3000</div>
+            </a>
+            <a href="/jaeger/" class="card jaeger">
+                <div class="card-header">
+                    <div class="card-icon">🔍</div>
+                    <div class="card-title">Jaeger</div>
+                </div>
+                <div class="card-desc">Distributed tracing. View request flows across services, analyze latencies.</div>
+                <div class="card-port">:16686</div>
+            </a>
+        </div>
+
+        <div class="section-title"><span class="status"></span>Infrastructure</div>
+        <div class="grid">
+            <a href="/rabbitmq/" class="card rabbitmq">
+                <div class="card-header">
+                    <div class="card-icon">🐰</div>
+                    <div class="card-title">RabbitMQ</div>
+                </div>
+                <div class="card-desc">Message broker management. Monitor queues, exchanges, and connections.</div>
+                <div class="card-port">:15672</div>
+            </a>
+            <a href="/minio/" class="card minio">
+                <div class="card-header">
+                    <div class="card-icon">🪣</div>
+                    <div class="card-title">MinIO</div>
+                </div>
+                <div class="card-desc">Object storage console. Browse buckets, manage files and policies.</div>
+                <div class="card-port">:9001</div>
+            </a>
+            <a href="/traefik/" class="card traefik">
+                <div class="card-header">
+                    <div class="card-icon">🔀</div>
+                    <div class="card-title">Traefik</div>
+                </div>
+                <div class="card-desc">Reverse proxy dashboard. View routes, services, and middleware.</div>
+                <div class="card-port">:8080</div>
+            </a>
+        </div>
+
+        <div class="section-title"><span class="status"></span>Application</div>
+        <div class="grid">
+            <a href="/" class="card app">
+                <div class="card-header">
+                    <div class="card-icon">📷</div>
+                    <div class="card-title">Photos Index</div>
+                </div>
+                <div class="card-desc">Main application. Browse photos, manage duplicates, view metadata.</div>
+                <div class="card-port">:8050</div>
+            </a>
+            <a href="/api/swagger" class="card app">
+                <div class="card-header">
+                    <div class="card-icon">📚</div>
+                    <div class="card-title">API Docs</div>
+                </div>
+                <div class="card-desc">Swagger/OpenAPI documentation. Explore and test API endpoints.</div>
+                <div class="card-port">/api/swagger</div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

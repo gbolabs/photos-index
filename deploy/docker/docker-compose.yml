@@ -42,7 +42,7 @@ services:
       - "--tracing.serviceName=photos-index-traefik"
       - "--tracing.sampleRate=${TRAEFIK_TRACE_SAMPLE_RATE:-1.0}"
     ports:
-      - "${TRAEFIK_HTTP_PORT:-80}:80"
+      - "${TRAEFIK_HTTP_PORT:-8050}:80"
       - "${TRAEFIK_HTTPS_PORT:-443}:443"
       - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
     volumes:
@@ -53,9 +53,13 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      # Dashboard router (optional - access via http://localhost:8080)
-      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
-      - "traefik.http.routers.traefik.service=api@internal"
+      # Dashboard router via /traefik path
+      - "traefik.http.routers.traefik-dashboard.rule=PathPrefix(`/traefik`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=web"
+      - "traefik.http.routers.traefik-dashboard.priority=110"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-strip-prefix"
+      - "traefik.http.middlewares.traefik-strip-prefix.stripprefix.prefixes=/traefik"
 
   # ===================================
   # PostgreSQL Database
@@ -107,6 +111,14 @@ services:
     networks:
       - photos-network
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rabbitmq.rule=PathPrefix(`/rabbitmq`)"
+      - "traefik.http.routers.rabbitmq.entrypoints=web"
+      - "traefik.http.routers.rabbitmq.priority=110"
+      - "traefik.http.routers.rabbitmq.middlewares=rabbitmq-strip-prefix"
+      - "traefik.http.middlewares.rabbitmq-strip-prefix.stripprefix.prefixes=/rabbitmq"
+      - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
 
   # ===================================
   # MinIO Object Storage
@@ -121,6 +133,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-http://localhost:8050/minio/}
     volumes:
       - minio_data:/data
     healthcheck:
@@ -133,6 +146,14 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
+      # MinIO Console router
+      - "traefik.http.routers.minio-console.rule=PathPrefix(`/minio`)"
+      - "traefik.http.routers.minio-console.entrypoints=web"
+      - "traefik.http.routers.minio-console.priority=110"
+      - "traefik.http.routers.minio-console.service=minio-console"
+      - "traefik.http.routers.minio-console.middlewares=minio-strip-prefix"
+      - "traefik.http.middlewares.minio-strip-prefix.stripprefix.prefixes=/minio"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
       # Thumbnails router - direct access to MinIO thumbnails bucket
       - "traefik.http.routers.thumbnails.rule=PathPrefix(`/thumbnails`)"
       - "traefik.http.routers.thumbnails.entrypoints=web"
@@ -155,9 +176,104 @@ services:
       - "${JAEGER_OTLP_PORT:-4317}:4317"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
+      - SPAN_STORAGE_TYPE=badger
+      - BADGER_EPHEMERAL=false
+      - BADGER_DIRECTORY_VALUE=/badger/data
+      - BADGER_DIRECTORY_KEY=/badger/key
+      - QUERY_BASE_PATH=/jaeger
+    volumes:
+      - jaeger_data:/badger
     networks:
       - photos-network
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jaeger.rule=PathPrefix(`/jaeger`)"
+      - "traefik.http.routers.jaeger.entrypoints=web"
+      - "traefik.http.routers.jaeger.priority=110"
+      - "traefik.http.services.jaeger.loadbalancer.server.port=16686"
+
+  # ===================================
+  # Loki (Log Aggregation)
+  # ===================================
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: photos-index-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  # ===================================
+  # Promtail (Log Collector)
+  # ===================================
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: photos-index-promtail
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    configs:
+      - source: promtail_config
+        target: /etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - photos-network
+    restart: unless-stopped
+
+  # ===================================
+  # Grafana (Unified Dashboard)
+  # ===================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: photos-index-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+    configs:
+      - source: grafana_datasources
+        target: /etc/grafana/provisioning/datasources/datasources.yml
+    depends_on:
+      - loki
+      - jaeger
+    networks:
+      - photos-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=PathPrefix(`/grafana`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.routers.grafana.priority=110"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  # ===================================
+  # Observability Portal (Static HTML)
+  # ===================================
+  obs-portal:
+    image: nginx:alpine
+    container_name: photos-index-obs-portal
+    configs:
+      - source: obs_html
+        target: /usr/share/nginx/html/index.html
+    networks:
+      - photos-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.obs.rule=PathPrefix(`/obs`)"
+      - "traefik.http.routers.obs.entrypoints=web"
+      - "traefik.http.routers.obs.priority=110"
+      - "traefik.http.routers.obs.middlewares=obs-strip-prefix"
+      - "traefik.http.middlewares.obs-strip-prefix.stripprefix.prefixes=/obs"
+      - "traefik.http.services.obs.loadbalancer.server.port=80"
 
   # ===================================
   # API Service
@@ -395,6 +511,231 @@ services:
       # - "traefik.http.routers.web-secure.tls.certresolver=letsencrypt"
       # - "traefik.http.routers.web-secure.priority=1"
 
+configs:
+  promtail_config:
+    content: |
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 5s
+          relabel_configs:
+            - source_labels: ['__meta_docker_container_name']
+              regex: '/(.*)'
+              target_label: 'container'
+            - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+              target_label: 'service'
+
+  grafana_datasources:
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Jaeger
+          type: jaeger
+          uid: jaeger
+          url: http://jaeger:16686
+          access: proxy
+          isDefault: false
+        - name: Loki
+          type: loki
+          uid: loki
+          url: http://loki:3100
+          access: proxy
+          isDefault: true
+          jsonData:
+            derivedFields:
+              - name: TraceID
+                matcherRegex: '"traceId":"([a-f0-9]+)"'
+                url: '$${__value.raw}'
+                datasourceUid: jaeger
+
+  obs_html:
+    content: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Photos Index - Observability Portal</title>
+          <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                  min-height: 100vh;
+                  color: #fff;
+                  padding: 2rem;
+              }
+              .container { max-width: 1200px; margin: 0 auto; }
+              h1 {
+                  text-align: center;
+                  margin-bottom: 0.5rem;
+                  font-size: 2.5rem;
+                  background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+                  -webkit-background-clip: text;
+                  -webkit-text-fill-color: transparent;
+              }
+              .subtitle {
+                  text-align: center;
+                  color: #888;
+                  margin-bottom: 3rem;
+              }
+              .grid {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                  gap: 1.5rem;
+              }
+              .card {
+                  background: rgba(255,255,255,0.05);
+                  border: 1px solid rgba(255,255,255,0.1);
+                  border-radius: 16px;
+                  padding: 1.5rem;
+                  transition: transform 0.2s, box-shadow 0.2s;
+                  text-decoration: none;
+                  color: inherit;
+                  display: block;
+              }
+              .card:hover {
+                  transform: translateY(-4px);
+                  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+                  border-color: rgba(255,255,255,0.2);
+              }
+              .card-header {
+                  display: flex;
+                  align-items: center;
+                  gap: 1rem;
+                  margin-bottom: 1rem;
+              }
+              .card-icon {
+                  width: 48px;
+                  height: 48px;
+                  border-radius: 12px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 1.5rem;
+              }
+              .card-title { font-size: 1.25rem; font-weight: 600; }
+              .card-desc { color: #aaa; font-size: 0.9rem; line-height: 1.5; }
+              .card-port {
+                  margin-top: 1rem;
+                  padding-top: 1rem;
+                  border-top: 1px solid rgba(255,255,255,0.1);
+                  font-family: monospace;
+                  font-size: 0.85rem;
+                  color: #666;
+              }
+              .grafana .card-icon { background: linear-gradient(135deg, #f46800, #f9b233); }
+              .jaeger .card-icon { background: linear-gradient(135deg, #00bcd4, #0097a7); }
+              .rabbitmq .card-icon { background: linear-gradient(135deg, #ff6600, #ff8533); }
+              .minio .card-icon { background: linear-gradient(135deg, #c72c48, #e91e63); }
+              .traefik .card-icon { background: linear-gradient(135deg, #37abc8, #2196f3); }
+              .app .card-icon { background: linear-gradient(135deg, #7b2cbf, #9c27b0); }
+              .section-title {
+                  font-size: 0.9rem;
+                  text-transform: uppercase;
+                  letter-spacing: 2px;
+                  color: #666;
+                  margin: 2rem 0 1rem;
+              }
+              .status {
+                  display: inline-block;
+                  width: 8px;
+                  height: 8px;
+                  border-radius: 50%;
+                  background: #4caf50;
+                  margin-right: 0.5rem;
+                  animation: pulse 2s infinite;
+              }
+              @keyframes pulse {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: 0.5; }
+              }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h1>Photos Index</h1>
+              <p class="subtitle">Observability Portal</p>
+
+              <div class="section-title"><span class="status"></span>Observability</div>
+              <div class="grid">
+                  <a href="/grafana/" class="card grafana">
+                      <div class="card-header">
+                          <div class="card-icon">📊</div>
+                          <div class="card-title">Grafana</div>
+                      </div>
+                      <div class="card-desc">Unified dashboard for logs and traces. Query Loki for logs, Jaeger for traces.</div>
+                      <div class="card-port">:3000</div>
+                  </a>
+                  <a href="/jaeger/" class="card jaeger">
+                      <div class="card-header">
+                          <div class="card-icon">🔍</div>
+                          <div class="card-title">Jaeger</div>
+                      </div>
+                      <div class="card-desc">Distributed tracing. View request flows across services, analyze latencies.</div>
+                      <div class="card-port">:16686</div>
+                  </a>
+              </div>
+
+              <div class="section-title"><span class="status"></span>Infrastructure</div>
+              <div class="grid">
+                  <a href="/rabbitmq/" class="card rabbitmq">
+                      <div class="card-header">
+                          <div class="card-icon">🐰</div>
+                          <div class="card-title">RabbitMQ</div>
+                      </div>
+                      <div class="card-desc">Message broker management. Monitor queues, exchanges, and connections.</div>
+                      <div class="card-port">:15672</div>
+                  </a>
+                  <a href="/minio/" class="card minio">
+                      <div class="card-header">
+                          <div class="card-icon">🪣</div>
+                          <div class="card-title">MinIO</div>
+                      </div>
+                      <div class="card-desc">Object storage console. Browse buckets, manage files and policies.</div>
+                      <div class="card-port">:9001</div>
+                  </a>
+                  <a href="/traefik/" class="card traefik">
+                      <div class="card-header">
+                          <div class="card-icon">🔀</div>
+                          <div class="card-title">Traefik</div>
+                      </div>
+                      <div class="card-desc">Reverse proxy dashboard. View routes, services, and middleware.</div>
+                      <div class="card-port">:8080</div>
+                  </a>
+              </div>
+
+              <div class="section-title"><span class="status"></span>Application</div>
+              <div class="grid">
+                  <a href="/" class="card app">
+                      <div class="card-header">
+                          <div class="card-icon">📷</div>
+                          <div class="card-title">Photos Index</div>
+                      </div>
+                      <div class="card-desc">Main application. Browse photos, manage duplicates, view metadata.</div>
+                      <div class="card-port">:8050</div>
+                  </a>
+                  <a href="/api/swagger" class="card app">
+                      <div class="card-header">
+                          <div class="card-icon">📚</div>
+                          <div class="card-title">API Docs</div>
+                      </div>
+                      <div class="card-desc">Swagger/OpenAPI documentation. Explore and test API endpoints.</div>
+                      <div class="card-port">/api/swagger</div>
+                  </a>
+              </div>
+          </div>
+      </body>
+      </html>
+
 volumes:
   postgres_data:
     driver: local
@@ -407,6 +748,12 @@ volumes:
   cleaner_logs:
     driver: local
   traefik_letsencrypt:
+    driver: local
+  jaeger_data:
+    driver: local
+  loki_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:
