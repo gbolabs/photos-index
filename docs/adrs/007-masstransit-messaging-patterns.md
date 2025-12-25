@@ -316,6 +316,49 @@ Design consumers to handle duplicate messages (RabbitMQ at-least-once delivery):
 if (file.ThumbnailPath is not null) return;
 ```
 
+## MinIO Thumbnail Access
+
+### Storage Structure
+
+```
+MinIO Buckets:
+├── images/
+│   └── files/{hash}          # Original images uploaded by API
+└── thumbnails/
+    └── thumbs/{hash}.jpg     # Generated thumbnails
+```
+
+### Traefik Routing
+
+```
+Web Request                    Traefik                         MinIO
+────────────────────────────────────────────────────────────────────────
+/thumbnails/thumbs/{hash}.jpg  → (no strip prefix) →  /thumbnails/thumbs/{hash}.jpg
+                                                       ↓
+                                                bucket: thumbnails
+                                                key: thumbs/{hash}.jpg
+```
+
+**Important**: Do NOT use strip-prefix middleware for thumbnail routes. MinIO path-style URLs include the bucket name in the path.
+
+### Bucket Policy
+
+MinIO buckets are private by default. To allow anonymous thumbnail access:
+
+```bash
+# Inside MinIO container
+mc alias set local http://localhost:9000 minioadmin minioadmin
+mc anonymous set download local/thumbnails
+```
+
+### Common Issues
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| 403 Forbidden | Bucket not public | `mc anonymous set download local/thumbnails` |
+| 404 Not Found | Strip-prefix removing bucket name | Remove `stripprefix` middleware from Traefik |
+| No thumbnail in UI | ThumbnailService not receiving messages | Check queue names (v0.3.6 fix) |
+
 ## Release History
 
 | Version | Issue | Root Cause | Fix |
@@ -323,6 +366,7 @@ if (file.ThumbnailPath is not null) return;
 | v0.3.4 | Files not processed by MetadataService/ThumbnailService | IndexingOrchestrator didn't upload file content in distributed mode | Added `ProcessAndIngestDistributedAsync` with `IngestFileWithContentAsync` |
 | v0.3.5 | MetadataService fails to save DateTaken | DateTime parsed with `Kind=Unspecified`, PostgreSQL requires UTC | Use `AssumeUniversal \| AdjustToUniversal` |
 | v0.3.6 | Files get metadata OR thumbnail, not both | Services competed for same queue due to identical consumer names | Unique queue names per service |
+| v0.3.6+ | Thumbnails return 403/404 | Traefik strip-prefix + private bucket | Remove strip-prefix, set bucket policy |
 
 ## References
 
