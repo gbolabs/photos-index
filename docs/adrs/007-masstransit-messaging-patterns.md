@@ -359,6 +359,36 @@ mc anonymous set download local/thumbnails
 | 404 Not Found | Strip-prefix removing bucket name | Remove `stripprefix` middleware from Traefik |
 | No thumbnail in UI | ThumbnailService not receiving messages | Check queue names (v0.3.6 fix) |
 
+## Operations
+
+### Full Reset (TrueNAS)
+
+Reset database, MinIO storage, and message queues for a fresh scan:
+
+```bash
+# Stop stack
+sudo docker compose down
+
+# Clear PostgreSQL data
+sudo rm -rf /mnt/hdr1/dbs/photos-index/*
+
+# Clear MinIO buckets
+sudo rm -rf /mnt/hdr1/apps/photos-index/minio/*
+
+# Start stack (EF migrations recreate DB)
+sudo docker compose up -d
+
+# After MinIO is healthy, set bucket policy
+sudo docker exec -it photos-index-minio mc alias set local http://localhost:9000 minioadmin minioadmin
+sudo docker exec -it photos-index-minio mc anonymous set download local/thumbnails
+```
+
+Optional - purge RabbitMQ queues if stale messages exist:
+```bash
+sudo docker exec -it photos-index-rabbitmq rabbitmqctl purge_queue metadata-file-discovered
+sudo docker exec -it photos-index-rabbitmq rabbitmqctl purge_queue thumbnail-file-discovered
+```
+
 ## Release History
 
 | Version | Issue | Root Cause | Fix |
