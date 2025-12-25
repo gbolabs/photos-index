@@ -109,14 +109,23 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
         if (string.IsNullOrWhiteSpace(value)) return false;
 
         // EXIF format: "YYYY:MM:DD HH:MM:SS"
+        // Use AssumeUniversal to ensure the DateTime has Kind=Utc for PostgreSQL compatibility
         if (DateTime.TryParseExact(value, "yyyy:MM:dd HH:mm:ss",
             System.Globalization.CultureInfo.InvariantCulture,
-            System.Globalization.DateTimeStyles.None, out result))
+            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+            out result))
         {
             return true;
         }
 
-        return DateTime.TryParse(value, out result);
+        if (DateTime.TryParse(value, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+            out result))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static string? ExtractExifString(Image image, ExifTag<string> tag)
