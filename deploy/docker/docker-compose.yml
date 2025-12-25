@@ -84,14 +84,19 @@ services:
   # RabbitMQ Message Broker
   # ===================================
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:4-management-alpine
     container_name: photos-index-rabbitmq
+    command: >
+      /bin/sh -c "echo '[rabbitmq_management,rabbitmq_prometheus,rabbitmq_opentelemetry].' > /etc/rabbitmq/enabled_plugins && exec docker-entrypoint.sh rabbitmq-server"
     ports:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-photos}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-photos}
+      # OpenTelemetry configuration
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+      OTEL_SERVICE_NAME: rabbitmq
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:

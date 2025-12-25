@@ -84,7 +84,14 @@ spec:
 
     # RabbitMQ Message Broker
     - name: rabbitmq
-      image: docker.io/library/rabbitmq:3-management-alpine
+      image: docker.io/library/rabbitmq:4-management-alpine
+      command:
+        - /bin/sh
+        - -c
+        - |
+          # Enable OpenTelemetry plugin before starting
+          echo '[rabbitmq_management,rabbitmq_prometheus,rabbitmq_opentelemetry].' > /etc/rabbitmq/enabled_plugins
+          exec docker-entrypoint.sh rabbitmq-server
       ports:
         - containerPort: 5672
           hostPort: 5672
@@ -101,6 +108,11 @@ spec:
             secretKeyRef:
               name: photos-index-secrets
               key: RABBITMQ_PASSWORD
+        # OpenTelemetry configuration for RabbitMQ
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://localhost:18889"
+        - name: OTEL_SERVICE_NAME
+          value: "rabbitmq"
       volumeMounts:
         - name: rabbitmq-data
           mountPath: /var/lib/rabbitmq

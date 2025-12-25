@@ -53,6 +53,7 @@ public static class OpenTelemetryExtensions
                 tracing
                     .SetResourceBuilder(resourceBuilder)
                     .AddSource(effectiveServiceName)
+                    .AddSource("MassTransit") // RabbitMQ message tracing
                     .AddHttpClientInstrumentation(options =>
                     {
                         options.FilterHttpRequestMessage = _ => true;
@@ -102,6 +103,7 @@ public static class OpenTelemetryExtensions
                 metrics
                     .SetResourceBuilder(resourceBuilder)
                     .AddMeter(effectiveServiceName)
+                    .AddMeter("MassTransit") // RabbitMQ message metrics
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddProcessInstrumentation();
