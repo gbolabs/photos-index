@@ -23,6 +23,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `05-005` Duplicate Viewer | ✅ Complete | [#10](https://github.com/gbolabs/photos-index/pull/10) | A4 |
 | `06-001` API Integration Tests | ✅ Complete | [#18](https://github.com/gbolabs/photos-index/pull/18) | A5 |
 | `06-002` Service Integration Tests | 🔲 Not Started | - | A5 |
+| `06-003` Distributed Service Tests | 🔲 Not Started | - | A5 |
 | `07-001` Playwright Setup | ✅ Complete | [#16](https://github.com/gbolabs/photos-index/pull/16) | A6 |
 | `07-002` User Workflows | 🔲 Not Started | - | A6 |
 | `07-003` Playwright CI Integration | ✅ Complete | [#87](https://github.com/gbolabs/photos-index/pull/87) | A6 |
