@@ -40,6 +40,8 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `09-004` Thumbnail Offload to MPC | 🔲 Not Started | - | A1/A2 |
 | `03-004` Indexing Performance Optimizations | 🔲 Not Started | - | A2 |
 | `05-006` File Detail Page | 🔲 Not Started | - | A4 |
+| `05-007` Tile View with Details | 🔲 Not Started | - | A4 |
+| `03-005` Camera Model Lookup | 🔲 Not Started | - | A2 |
 | `11-001` TrueNAS + Synology Split | 🔲 Not Started | - | A4 |
 | `12-001` Duplicate Table View | ✅ Complete | [#71](https://github.com/gbolabs/photos-index/pull/71) | A4 |
 | `12-002` Batch Validation & Undo | ✅ Complete | [#72](https://github.com/gbolabs/photos-index/pull/72) | A1/A4 |
