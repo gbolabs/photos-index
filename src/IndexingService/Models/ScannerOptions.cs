@@ -24,6 +24,12 @@ public class ScannerOptions
     public bool SkipHiddenDirectories { get; set; } = true;
 
     /// <summary>
+    /// Directory names to exclude from scanning (case-insensitive).
+    /// Default includes Synology's @eaDir metadata folder.
+    /// </summary>
+    public string[] ExcludedDirectoryNames { get; set; } = ["@eaDir", "@SynoResource", "#recycle", "@tmp"];
+
+    /// <summary>
     /// Follow symbolic links when scanning.
     /// </summary>
     public bool FollowSymlinks { get; set; } = false;

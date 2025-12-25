@@ -13,6 +13,7 @@ public class FileScanner : IFileScanner
     private readonly ScannerOptions _options;
     private readonly ILogger<FileScanner> _logger;
     private readonly HashSet<string> _supportedExtensions;
+    private readonly HashSet<string> _excludedDirectoryNames;
 
     public FileScanner(IOptions<ScannerOptions> options, ILogger<FileScanner> logger)
     {
@@ -20,6 +21,9 @@ public class FileScanner : IFileScanner
         _logger = logger;
         _supportedExtensions = new HashSet<string>(
             _options.SupportedExtensions.Select(e => e.ToLowerInvariant()),
+            StringComparer.OrdinalIgnoreCase);
+        _excludedDirectoryNames = new HashSet<string>(
+            _options.ExcludedDirectoryNames,
             StringComparer.OrdinalIgnoreCase);
     }
 
@@ -76,14 +80,11 @@ public class FileScanner : IFileScanner
                 continue;
             }
 
-            // Skip hidden directories if configured
-            if (_options.SkipHiddenDirectories)
+            // Skip hidden or excluded directories
+            var directory = Path.GetDirectoryName(filePath);
+            if (directory is not null && ContainsExcludedDirectory(directory, directoryPath))
             {
-                var directory = Path.GetDirectoryName(filePath);
-                if (directory is not null && ContainsHiddenDirectory(directory, directoryPath))
-                {
-                    continue;
-                }
+                continue;
             }
 
             // Check extension
@@ -151,12 +152,27 @@ public class FileScanner : IFileScanner
             filesFound, directoriesScanned, errors);
     }
 
-    private bool ContainsHiddenDirectory(string fullPath, string basePath)
+    private bool ContainsExcludedDirectory(string fullPath, string basePath)
     {
         var relativePath = Path.GetRelativePath(basePath, fullPath);
         var parts = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        return parts.Any(p => p.StartsWith('.') && p != "." && p != "..");
+        foreach (var part in parts)
+        {
+            // Skip hidden directories (starting with dot)
+            if (_options.SkipHiddenDirectories && part.StartsWith('.') && part != "." && part != "..")
+            {
+                return true;
+            }
+
+            // Skip excluded directory names (e.g., @eaDir)
+            if (_excludedDirectoryNames.Contains(part))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static int CountDirectoryDepth(string currentDir, string baseDir)
