@@ -132,7 +132,7 @@ start_services() {
     echo "  Application:      http://localhost:8080 (via Traefik)"
     echo "  API:              http://localhost:8080/api (via Traefik)"
     echo "  Traefik Dashboard: http://localhost:8081"
-    echo "  Aspire Dashboard: http://localhost:18888"
+    echo "  Jaeger UI:        http://localhost:16686"
     echo "  PostgreSQL:       localhost:5432"
     echo ""
     echo "Mounted directories:"

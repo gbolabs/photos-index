@@ -13,7 +13,7 @@ data:
   RABBITMQ_USER: "photos"
   MINIO_ROOT_USER: "minioadmin"
   # In a pod, all containers share localhost
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:18889"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   API_BASE_URL: "http://localhost:5080"
   RABBITMQ_HOST: "localhost"
@@ -110,7 +110,7 @@ spec:
               key: RABBITMQ_PASSWORD
         # OpenTelemetry configuration for RabbitMQ
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://localhost:18889"
+          value: "http://localhost:4317"
         - name: OTEL_SERVICE_NAME
           value: "rabbitmq"
       volumeMounts:
@@ -141,16 +141,16 @@ spec:
         - name: minio-data
           mountPath: /data
 
-    # Aspire Dashboard for observability
-    - name: aspire-dashboard
-      image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+    # Jaeger for distributed tracing
+    - name: jaeger
+      image: jaegertracing/all-in-one:1.54
       ports:
-        - containerPort: 18888
-          hostPort: 18888
-        - containerPort: 18889
-          hostPort: 18889
+        - containerPort: 16686
+          hostPort: 16686
+        - containerPort: 4317
+          hostPort: 4317
       env:
-        - name: DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS
+        - name: COLLECTOR_OTLP_ENABLED
           value: "true"
 
     # API Service (accessed via Traefik at /api)

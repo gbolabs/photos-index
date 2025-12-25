@@ -37,7 +37,7 @@ services:
       # OpenTelemetry tracing
       - "--tracing=true"
       - "--tracing.otlp=true"
-      - "--tracing.otlp.grpc.endpoint=aspire-dashboard:18889"
+      - "--tracing.otlp.grpc.endpoint=jaeger:4317"
       - "--tracing.otlp.grpc.insecure=true"
       - "--tracing.serviceName=photos-index-traefik"
       - "--tracing.sampleRate=${TRAEFIK_TRACE_SAMPLE_RATE:-1.0}"
@@ -95,7 +95,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-photos}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-photos}
       # OpenTelemetry configuration
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       OTEL_SERVICE_NAME: rabbitmq
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -145,22 +145,16 @@ services:
       - "traefik.http.services.minio-thumbnails.loadbalancer.server.port=9000"
 
   # ===================================
-  # Aspire Dashboard (Observability)
+  # Jaeger (Distributed Tracing)
   # ===================================
-  aspire-dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
-    container_name: photos-index-aspire
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: photos-index-jaeger
     ports:
-      - "${ASPIRE_DASHBOARD_PORT:-18888}:18888"
-      - "${ASPIRE_OTLP_PORT:-4317}:18889"
+      - "${JAEGER_UI_PORT:-16686}:16686"
+      - "${JAEGER_OTLP_PORT:-4317}:4317"
     environment:
-      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:18888/ || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - COLLECTOR_OTLP_ENABLED=true
     networks:
       - photos-network
     restart: unless-stopped
@@ -181,13 +175,13 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      aspire-dashboard:
-        condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-photosindex};Username=${POSTGRES_USER:-photosuser};Password=${POSTGRES_PASSWORD:-photospass}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=photos-index-api
       - OTEL_RESOURCE_ATTRIBUTES=service.version=${API_VERSION:-1.0.0}
@@ -241,12 +235,12 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      aspire-dashboard:
-        condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - API_BASE_URL=http://api:8080
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=photos-index-indexing
       - OTEL_RESOURCE_ATTRIBUTES=service.version=${INDEXING_VERSION:-1.0.0}
@@ -273,13 +267,13 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-      aspire-dashboard:
-        condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-photosindex};Username=${POSTGRES_USER:-photosuser};Password=${POSTGRES_PASSWORD:-photospass}
       - API_BASE_URL=http://api:8080
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=photos-index-cleaner
       - OTEL_RESOURCE_ATTRIBUTES=service.version=${CLEANER_VERSION:-1.0.0}
@@ -307,11 +301,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      aspire-dashboard:
-        condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       - DOTNET_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=photos-index-metadata
       - OTEL_RESOURCE_ATTRIBUTES=service.version=${METADATA_VERSION:-1.0.0}
@@ -343,11 +337,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      aspire-dashboard:
-        condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       - DOTNET_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=photos-index-thumbnail
       - OTEL_RESOURCE_ATTRIBUTES=service.version=${THUMBNAIL_VERSION:-1.0.0}

@@ -108,6 +108,51 @@ if (!app.Environment.IsEnvironment("Testing"))
     }
 }
 
+// Ensure MinIO buckets exist
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    var minioClient = app.Services.GetRequiredService<IMinioClient>();
+    var imagesBucket = builder.Configuration["Minio:ImagesBucket"] ?? "images";
+    var thumbnailsBucket = builder.Configuration["Minio:ThumbnailsBucket"] ?? "thumbnails";
+
+    foreach (var bucket in new[] { imagesBucket, thumbnailsBucket })
+    {
+        try
+        {
+            var exists = await minioClient.BucketExistsAsync(new Minio.DataModel.Args.BucketExistsArgs().WithBucket(bucket));
+            if (!exists)
+            {
+                app.Logger.LogInformation("Creating MinIO bucket: {Bucket}", bucket);
+                await minioClient.MakeBucketAsync(new Minio.DataModel.Args.MakeBucketArgs().WithBucket(bucket));
+
+                // Make thumbnails bucket publicly readable for Traefik to serve
+                if (bucket == thumbnailsBucket)
+                {
+                    var policy = $$"""
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Principal": {"AWS": ["*"]},
+                            "Action": ["s3:GetObject"],
+                            "Resource": ["arn:aws:s3:::{{bucket}}/*"]
+                        }]
+                    }
+                    """;
+                    await minioClient.SetPolicyAsync(new Minio.DataModel.Args.SetPolicyArgs()
+                        .WithBucket(bucket)
+                        .WithPolicy(policy));
+                    app.Logger.LogInformation("Set public read policy on bucket: {Bucket}", bucket);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Failed to create/configure MinIO bucket: {Bucket}", bucket);
+        }
+    }
+}
+
 // Add TraceId header to all responses for telemetry correlation
 app.UseTraceId();
 
