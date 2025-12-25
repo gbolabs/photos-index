@@ -497,9 +497,8 @@ run_recover_mode() {
                 fi
             fi
 
-            # Start and attach to main container
-            podman start "$CONTAINER_NAME"
-            podman attach "$CONTAINER_NAME"
+            # Start and attach atomically (avoids race condition)
+            podman start -ai "$CONTAINER_NAME"
             ;;
         *)
             error "Container is in unexpected state: $state"
