@@ -23,6 +23,9 @@ CMD ["npm", "start", "--", "--host", "0.0.0.0", "--poll=2000"]
 FROM docker.io/library/node:24-alpine AS build
 WORKDIR /app
 
+# Increase Node.js memory limit for Angular build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Copy package files
 COPY src/Web/package*.json ./
 
