@@ -367,6 +367,7 @@ mc anonymous set download local/thumbnails
 | v0.3.5 | MetadataService fails to save DateTaken | DateTime parsed with `Kind=Unspecified`, PostgreSQL requires UTC | Use `AssumeUniversal \| AdjustToUniversal` |
 | v0.3.6 | Files get metadata OR thumbnail, not both | Services competed for same queue due to identical consumer names | Unique queue names per service |
 | v0.3.6+ | Thumbnails return 403/404 | Traefik strip-prefix + private bucket | Remove strip-prefix, set bucket policy |
+| v0.3.7 | Synology system folders indexed (@eaDir) | No exclusion for Synology metadata directories | Add `ExcludedDirectoryNames` option with @eaDir, @SynoResource, #recycle, @tmp |
 
 ## References
 
