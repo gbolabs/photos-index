@@ -45,7 +45,11 @@ builder.Services.AddMassTransit(x =>
             h.Password(rabbitMqPass);
         });
 
-        cfg.ConfigureEndpoints(context);
+        // Use unique queue name so metadata-service gets its own copy of FileDiscoveredMessage
+        cfg.ReceiveEndpoint("metadata-file-discovered", e =>
+        {
+            e.ConfigureConsumer<FileDiscoveredConsumer>(context);
+        });
     });
 });
 

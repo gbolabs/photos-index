@@ -45,7 +45,11 @@ builder.Services.AddMassTransit(x =>
             h.Password(rabbitMqPass);
         });
 
-        cfg.ConfigureEndpoints(context);
+        // Use unique queue name so thumbnail-service gets its own copy of FileDiscoveredMessage
+        cfg.ReceiveEndpoint("thumbnail-file-discovered", e =>
+        {
+            e.ConfigureConsumer<FileDiscoveredConsumer>(context);
+        });
     });
 });
 
