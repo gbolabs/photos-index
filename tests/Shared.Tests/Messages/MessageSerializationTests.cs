@@ -33,7 +33,8 @@ public class MessageSerializationTests
             FilePath = "/photos/test.jpg",
             FileHash = "abc123def456",
             FileSize = 1024000,
-            ObjectKey = "files/abc123def456"
+            MetadataObjectKey = "metadata/abc123def456",
+            ThumbnailObjectKey = "thumbnail/abc123def456"
         };
 
         // Act
@@ -48,7 +49,8 @@ public class MessageSerializationTests
         deserialized.FilePath.Should().Be("/photos/test.jpg");
         deserialized.FileHash.Should().Be("abc123def456");
         deserialized.FileSize.Should().Be(1024000);
-        deserialized.ObjectKey.Should().Be("files/abc123def456");
+        deserialized.MetadataObjectKey.Should().Be("metadata/abc123def456");
+        deserialized.ThumbnailObjectKey.Should().Be("thumbnail/abc123def456");
     }
 
     [Fact]
@@ -189,6 +191,7 @@ public class MessageSerializationTests
         deserialized.FilePath.Should().Be(string.Empty);
         deserialized.FileHash.Should().Be(string.Empty);
         deserialized.FileSize.Should().Be(0);
-        deserialized.ObjectKey.Should().Be(string.Empty);
+        deserialized.MetadataObjectKey.Should().Be(string.Empty);
+        deserialized.ThumbnailObjectKey.Should().Be(string.Empty);
     }
 }

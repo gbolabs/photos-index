@@ -35,10 +35,12 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
             message.IndexedFileId,
             message.CorrelationId);
 
+        var bucket = _configuration["Minio:ImagesBucket"] ?? "images";
+        var objectKey = message.MetadataObjectKey;
+
         try
         {
-            var bucket = _configuration["Minio:ImagesBucket"] ?? "images";
-            await using var imageStream = await _objectStorage.DownloadAsync(bucket, message.ObjectKey, ct);
+            await using var imageStream = await _objectStorage.DownloadAsync(bucket, objectKey, ct);
 
             using var image = await Image.LoadAsync(imageStream, ct);
 
@@ -66,6 +68,9 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
                 message.IndexedFileId,
                 result.Width,
                 result.Height);
+
+            // Delete our copy from MinIO after successful processing
+            await DeleteSourceFileAsync(bucket, objectKey, ct);
         }
         catch (Exception ex)
         {
@@ -80,6 +85,22 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
             };
 
             await _publishEndpoint.Publish(errorResult, ct);
+
+            // Delete our copy even on failure - file can't be reprocessed anyway
+            await DeleteSourceFileAsync(bucket, objectKey, ct);
+        }
+    }
+
+    private async Task DeleteSourceFileAsync(string bucket, string objectKey, CancellationToken ct)
+    {
+        try
+        {
+            await _objectStorage.DeleteAsync(bucket, objectKey, ct);
+            _logger.LogInformation("Deleted source file from MinIO: {Bucket}/{Key}", bucket, objectKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete source file {Key} - may already be deleted", objectKey);
         }
     }
 

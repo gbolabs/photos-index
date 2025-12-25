@@ -71,29 +71,39 @@ public class FileIngestService : IFileIngestService
 
             await _dbContext.SaveChangesAsync(ct);
 
-            string? objectKey = null;
-
             if (request.FileContent is not null)
             {
                 var bucket = _configuration["Minio:ImagesBucket"] ?? ImagesBucket;
-                objectKey = $"files/{request.FileHash}";
+                var metadataKey = $"metadata/{request.FileHash}";
+                var thumbnailKey = $"thumbnail/{request.FileHash}";
+                var contentType = request.ContentType ?? "application/octet-stream";
 
                 await _objectStorage.EnsureBucketExistsAsync(bucket, ct);
-                await _objectStorage.UploadAsync(
-                    bucket,
-                    objectKey,
-                    request.FileContent,
-                    request.ContentType ?? "application/octet-stream",
-                    ct);
+
+                // Upload two copies - one for each processing service
+                // Each service will delete its own copy after processing
+                using var metadataStream = new MemoryStream();
+                using var thumbnailStream = new MemoryStream();
+
+                request.FileContent.Position = 0;
+                await request.FileContent.CopyToAsync(metadataStream, ct);
+                request.FileContent.Position = 0;
+                await request.FileContent.CopyToAsync(thumbnailStream, ct);
+
+                metadataStream.Position = 0;
+                thumbnailStream.Position = 0;
+
+                await Task.WhenAll(
+                    _objectStorage.UploadAsync(bucket, metadataKey, metadataStream, contentType, ct),
+                    _objectStorage.UploadAsync(bucket, thumbnailKey, thumbnailStream, contentType, ct)
+                );
 
                 _logger.LogInformation(
-                    "Uploaded file {FilePath} to {Bucket}/{ObjectKey}",
+                    "Uploaded file {FilePath} to {Bucket} with keys {MetadataKey} and {ThumbnailKey}",
                     request.FilePath,
                     bucket,
-                    objectKey);
-
-                var scanDirectory = await _dbContext.ScanDirectories
-                    .FirstOrDefaultAsync(d => d.Id == request.ScanDirectoryId, ct);
+                    metadataKey,
+                    thumbnailKey);
 
                 var message = new FileDiscoveredMessage
                 {
@@ -103,7 +113,8 @@ public class FileIngestService : IFileIngestService
                     FilePath = request.FilePath,
                     FileHash = request.FileHash,
                     FileSize = request.FileSize,
-                    ObjectKey = objectKey
+                    MetadataObjectKey = metadataKey,
+                    ThumbnailObjectKey = thumbnailKey
                 };
 
                 await _publishEndpoint.Publish(message, ct);

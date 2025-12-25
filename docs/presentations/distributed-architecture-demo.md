@@ -268,6 +268,29 @@ See the **full request lifecycle** across all services in one view.
 
 ---
 
+# Key Concept #4: Resource Cleanup
+
+## Per-Service Object Keys
+
+Each service gets **its own copy** of the source file and deletes it after processing:
+
+```
+API uploads two copies:
+├── images/metadata/{hash}   → MetadataService reads, deletes ✅
+└── images/thumbnail/{hash}  → ThumbnailService reads, deletes ✅
+
+Result: Only thumbnails persist (huge storage savings!)
+```
+
+**Why not shared file + coordinated delete?**
+- Race conditions
+- Needs saga/state machine
+- Complex error handling
+
+**Per-service approach:** Simple, no coordination, fault-tolerant.
+
+---
+
 # Infrastructure as Code
 
 ## Docker Compose (excerpt)
@@ -320,6 +343,7 @@ on:
 | v0.3.5 | DateTime save fails | `Kind=Unspecified` vs PostgreSQL `timestamptz` |
 | v0.3.6 | Files get metadata OR thumbnail | Competing consumers (same queue name) |
 | v0.3.7 | Synology @eaDir indexed | Missing directory exclusion filter |
+| v0.3.8 | Images bucket fills up (TB!) | Source files never deleted after processing |
 
 **Observability made debugging easy** - Jaeger showed exactly where failures occurred.
 

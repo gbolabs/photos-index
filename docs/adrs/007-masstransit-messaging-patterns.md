@@ -398,6 +398,29 @@ sudo docker exec -it photos-index-rabbitmq rabbitmqctl purge_queue thumbnail-fil
 | v0.3.6 | Files get metadata OR thumbnail, not both | Services competed for same queue due to identical consumer names | Unique queue names per service |
 | v0.3.6+ | Thumbnails return 403/404 | Traefik strip-prefix + private bucket | Remove strip-prefix, set bucket policy |
 | v0.3.7 | Synology system folders indexed (@eaDir) | No exclusion for Synology metadata directories | Add `ExcludedDirectoryNames` option with @eaDir, @SynoResource, #recycle, @tmp |
+| v0.3.8 | Images bucket fills up (TB of data) | Source files never deleted after processing | Per-service object keys + cleanup after processing |
+
+## Per-Service Object Keys (v0.3.8)
+
+To avoid storage bloat, each processing service gets its own copy of the uploaded file and deletes it after processing:
+
+```
+API uploads two copies:
+├── images/metadata/{hash}   → MetadataService reads, then deletes
+└── images/thumbnail/{hash}  → ThumbnailService reads, then deletes
+
+Final result:
+└── thumbnails/thumbs/{hash}.jpg  (only thumbnails persist)
+```
+
+**Benefits:**
+- No coordination needed between services
+- Each service manages its own cleanup
+- No race conditions
+- Fault-tolerant (one failing doesn't affect the other)
+
+**Trade-off:**
+- 2x storage during processing (temporary, files deleted immediately after processing)
 
 ## References
 
