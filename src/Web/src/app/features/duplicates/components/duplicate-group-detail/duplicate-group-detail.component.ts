@@ -103,7 +103,7 @@ export class DuplicateGroupDetailComponent implements OnChanges {
   }
 
   getThumbnailUrl(file: IndexedFileDto): string {
-    return this.duplicateService.getThumbnailUrl(file.id);
+    return this.duplicateService.getThumbnailUrl(file.id, file.thumbnailPath);
   }
 
   getDownloadUrl(file: IndexedFileDto): string {

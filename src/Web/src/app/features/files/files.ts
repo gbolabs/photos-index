@@ -114,7 +114,7 @@ export class Files implements OnInit {
   }
 
   getThumbnailUrl(file: IndexedFileDto): string {
-    return this.fileService.getThumbnailUrl(file.id);
+    return this.fileService.getThumbnailUrl(file.id, file.thumbnailPath);
   }
 
   getFileName(path: string): string {

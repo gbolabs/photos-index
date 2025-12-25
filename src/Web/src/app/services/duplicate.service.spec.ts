@@ -164,10 +164,17 @@ describe('DuplicateService', () => {
     req.flush(mockResponse);
   });
 
-  it('should return correct thumbnail URL', () => {
+  it('should return correct thumbnail URL via API when no thumbnailPath', () => {
     const fileId = '123e4567-e89b-12d3-a456-426614174000';
     const url = service.getThumbnailUrl(fileId);
     expect(url).toBe(`http://localhost:5000/api/files/${fileId}/thumbnail`);
+  });
+
+  it('should return direct MinIO URL when thumbnailPath is provided', () => {
+    const fileId = '123e4567-e89b-12d3-a456-426614174000';
+    const thumbnailPath = 'thumbnails/abc123_thumb.jpg';
+    const url = service.getThumbnailUrl(fileId, thumbnailPath);
+    expect(url).toBe(`/thumbnails/${thumbnailPath}`);
   });
 
   it('should return correct download URL', () => {

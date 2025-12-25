@@ -112,8 +112,15 @@ export class DuplicateService {
 
   /**
    * Gets the thumbnail URL for a file.
+   * If the file has a thumbnailPath (stored in MinIO), returns direct MinIO URL via Traefik.
+   * Otherwise falls back to the API endpoint for backward compatibility.
    */
-  getThumbnailUrl(fileId: string): string {
+  getThumbnailUrl(fileId: string, thumbnailPath?: string | null): string {
+    if (thumbnailPath) {
+      // Direct access to MinIO via Traefik route
+      return `/thumbnails/${thumbnailPath}`;
+    }
+    // Fallback to API endpoint
     return `${environment.apiUrl}/api/files/${fileId}/thumbnail`;
   }
 
