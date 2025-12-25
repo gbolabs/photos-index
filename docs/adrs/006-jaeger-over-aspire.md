@@ -1,4 +1,4 @@
-# ADR 006: Jaeger for Distributed Tracing Over Aspire Dashboard
+# ADR 006: Grafana Observability Stack Over Aspire Dashboard
 
 ## Status
 
@@ -21,75 +21,164 @@ However, during production deployment on TrueNAS with the v0.3.0 distributed arc
 
 ## Decision
 
-Replace Aspire Dashboard with Jaeger (`jaegertracing/all-in-one`) as the distributed tracing backend.
+Replace Aspire Dashboard with a Grafana-based observability stack:
+
+- **Jaeger** (`jaegertracing/all-in-one:1.54`) - Distributed tracing with persistent storage
+- **Loki** (`grafana/loki:2.9.0`) - Log aggregation
+- **Promtail** (`grafana/promtail:2.9.0`) - Log collector from Docker containers
+- **Grafana** (`grafana/grafana:latest`) - Unified dashboard for logs and traces
 
 ## Rationale
 
-### Why Jaeger?
+### Why This Stack?
 
-1. **Battle-tested at scale**: Jaeger was designed by Uber for high-volume distributed tracing
-2. **Efficient ingestion**: OTLP collector handles high throughput without performance degradation
-3. **Lightweight**: Single container with minimal resource requirements
-4. **Native OTLP support**: Built-in OpenTelemetry Protocol support (gRPC on port 4317)
-5. **Good UI**: Service dependency graphs, trace comparison, search functionality
+1. **Battle-tested at scale**: Jaeger (Uber) and Loki (Grafana Labs) handle high-volume telemetry
+2. **Persistent storage**: All components use disk storage, not memory
+3. **Unified UI**: Grafana provides single pane of glass for logs and traces
+4. **Log-trace correlation**: Click from log line to related trace via TraceID
+5. **Native OTLP support**: Jaeger accepts OpenTelemetry Protocol on port 4317
+6. **Docker-native log collection**: Promtail auto-discovers containers
 
-### Trade-offs
+### Component Responsibilities
 
-| Aspect | Aspire Dashboard | Jaeger |
-|--------|-----------------|--------|
-| Logs | Integrated | Not included (use separate solution) |
-| Metrics | Integrated | Not included (use Prometheus) |
-| Traces | Yes | Yes (primary focus) |
-| .NET Integration | Excellent | Standard OTLP |
+| Component | Purpose | Storage |
+|-----------|---------|---------|
+| Jaeger | Distributed traces | Badger (disk) |
+| Loki | Log aggregation | Filesystem |
+| Promtail | Collect Docker logs | N/A (stateless) |
+| Grafana | Unified dashboards | SQLite |
+
+### Comparison with Aspire
+
+| Aspect | Aspire Dashboard | Grafana Stack |
+|--------|-----------------|---------------|
+| Logs | Integrated | Loki + Promtail |
+| Traces | Yes | Jaeger |
+| Metrics | Integrated | Prometheus (optional) |
+| Persistence | Memory only | Disk-based |
 | High-volume handling | Poor | Excellent |
-| Resource usage | High under load | Low |
-
-### What We Lose
-
-- **Unified log view**: Aspire showed logs alongside traces. With Jaeger, logs are only in container stdout/Docker logs.
-- **Metrics visualization**: Aspire displayed .NET metrics. Would need Prometheus + Grafana for metrics.
+| Resource usage | High under load | Moderate, stable |
+| Log-trace correlation | Yes | Yes (via TraceID) |
 
 ### What We Gain
 
-- **Stability**: Jaeger handles the telemetry load without issues
-- **Reliability**: Services no longer fail due to observability backend issues
-- **Performance**: Lower CPU and memory usage on the host
+- **Stability**: Stack handles telemetry load without issues
+- **Persistence**: Data survives container restarts
+- **Scalability**: Each component can scale independently
+- **Flexibility**: Add Prometheus for metrics later
+- **Industry standard**: Well-documented, large community
+
+### Trade-offs
+
+- **More containers**: 4 containers vs 1 for Aspire
+- **Configuration**: Requires Promtail and Grafana datasource setup
+- **Disk usage**: Persistent storage requires disk space management
 
 ## Consequences
 
-### Immediate Changes
+### Architecture
 
-1. Replace `mcr.microsoft.com/dotnet/aspire-dashboard:9.1` with `jaegertracing/all-in-one:1.54`
-2. Change OTLP endpoint from port `18889` to `4317`
-3. Update Jaeger UI port from `18888` to `16686`
-4. Remove health checks on tracing backend (use `service_started` instead of `service_healthy`)
+```
+┌─────────────┐     ┌─────────────┐
+│   Services  │────▶│   Jaeger    │──▶ Traces (Badger)
+│  (OTLP)     │     │  :4317      │
+└─────────────┘     └─────────────┘
+                           │
+┌─────────────┐     ┌──────▼──────┐
+│  Promtail   │────▶│    Loki     │──▶ Logs (Filesystem)
+│  (Docker)   │     │   :3100     │
+└─────────────┘     └─────────────┘
+                           │
+                    ┌──────▼──────┐
+                    │   Grafana   │──▶ Dashboards
+                    │   :3000     │
+                    └─────────────┘
+```
+
+### Ports
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| Jaeger | 4317 | OTLP gRPC ingestion |
+| Jaeger | 16686 | Jaeger UI (optional) |
+| Loki | 3100 | Log ingestion |
+| Grafana | 3000 | Unified dashboard |
 
 ### Configuration
 
 ```yaml
-# Docker Compose
+# Jaeger with persistent Badger storage
 jaeger:
   image: jaegertracing/all-in-one:1.54
-  ports:
-    - '16686:16686'  # UI
-    - '4317:4317'    # OTLP gRPC
   environment:
     COLLECTOR_OTLP_ENABLED: 'true'
+    SPAN_STORAGE_TYPE: badger
+    BADGER_EPHEMERAL: 'false'
+    BADGER_DIRECTORY_VALUE: /badger/data
+    BADGER_DIRECTORY_KEY: /badger/key
+  volumes:
+    - jaeger_data:/badger
 
-# Services
+# Loki with filesystem storage
+loki:
+  image: grafana/loki:2.9.0
+  volumes:
+    - loki_data:/loki
+
+# Promtail collecting Docker logs
+promtail:
+  image: grafana/promtail:2.9.0
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+
+# Grafana with pre-configured datasources
+grafana:
+  image: grafana/grafana:latest
+  volumes:
+    - grafana_data:/var/lib/grafana
+
+# Services send traces to Jaeger
 OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
 ```
 
+### Grafana Datasource Configuration
+
+Pre-provisioned datasources enable log-trace correlation:
+
+```yaml
+datasources:
+  - name: Jaeger
+    type: jaeger
+    url: http://jaeger:16686
+  - name: Loki
+    type: loki
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"traceId":"([a-f0-9]+)"'
+          datasourceUid: jaeger
+```
+
+### Storage Requirements
+
+Estimate based on retention and volume:
+- **Jaeger**: ~1GB per million traces
+- **Loki**: ~100MB per million log lines (compressed)
+- **Grafana**: <100MB for dashboards
+
+Configure retention policies to manage disk usage.
+
 ### Future Considerations
 
-If we need logs and metrics visualization in the future:
-
-1. **Logs**: Add Loki + Grafana or use Docker logging drivers
-2. **Metrics**: Add Prometheus + Grafana
-3. **Full stack**: Consider Grafana LGTM stack (Loki, Grafana, Tempo, Mimir)
+1. **Metrics**: Add Prometheus + node-exporter for system metrics
+2. **Alerting**: Configure Grafana alerts for error rates
+3. **Retention**: Add cleanup jobs for old traces/logs
+4. **Scaling**: Move to Grafana Cloud or dedicated clusters if needed
 
 ## References
 
 - [Jaeger Documentation](https://www.jaegertracing.io/docs/)
+- [Grafana Loki Documentation](https://grafana.com/docs/loki/latest/)
+- [Promtail Configuration](https://grafana.com/docs/loki/latest/clients/promtail/)
 - [OpenTelemetry OTLP Specification](https://opentelemetry.io/docs/specs/otlp/)
-- [Aspire Dashboard GitHub Issue on Performance](https://github.com/dotnet/aspire/issues)
