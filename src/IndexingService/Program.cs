@@ -23,7 +23,10 @@ builder.Services.Configure<IndexingOptions>(options =>
 {
     options.GenerateThumbnails = builder.Configuration.GetValue<bool?>("GENERATE_THUMBNAILS")
         ?? builder.Configuration.GetValue<bool?>("GenerateThumbnails")
-        ?? false; // Disabled by default for large collections
+        ?? false; // Disabled by default for distributed processing
+    options.ExtractMetadata = builder.Configuration.GetValue<bool?>("EXTRACT_METADATA")
+        ?? builder.Configuration.GetValue<bool?>("ExtractMetadata")
+        ?? false; // Disabled by default for distributed processing
     options.BatchSize = builder.Configuration.GetValue<int?>("BATCH_SIZE")
         ?? builder.Configuration.GetValue<int?>("BatchSize")
         ?? 100;

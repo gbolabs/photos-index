@@ -252,6 +252,11 @@ spec:
             configMapKeyRef:
               name: photos-index-config
               key: INDEXING_INTERVAL_MINUTES
+        # Disable local processing - handled by distributed services (MetadataService, ThumbnailService)
+        - name: GENERATE_THUMBNAILS
+          value: "false"
+        - name: EXTRACT_METADATA
+          value: "false"
       volumeMounts:
         - name: photos
           mountPath: /photos
