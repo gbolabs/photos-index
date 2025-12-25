@@ -427,7 +427,7 @@ spec:
   volumes:
     - name: traefik-config
       hostPath:
-        path: ./traefik
+        path: /tmp/traefik-config
         type: Directory
     - name: postgres-data
       persistentVolumeClaim:

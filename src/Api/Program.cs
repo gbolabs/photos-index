@@ -80,11 +80,32 @@ var buildInfoService = app.Services.GetRequiredService<IBuildInfoService>();
 buildInfoService.LogStartupInfo(app.Logger);
 
 // Apply pending database migrations at startup (skip in Testing environment)
+// Retry with exponential backoff to handle container startup race conditions
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<PhotosDbContext>();
-    db.Database.Migrate();
+
+    var maxRetries = 10;
+    var delay = TimeSpan.FromSeconds(2);
+
+    for (var attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
+        {
+            app.Logger.LogInformation("Attempting database migration (attempt {Attempt}/{MaxRetries})", attempt, maxRetries);
+            db.Database.Migrate();
+            app.Logger.LogInformation("Database migration completed successfully");
+            break;
+        }
+        catch (Exception ex) when (attempt < maxRetries)
+        {
+            app.Logger.LogWarning(ex, "Database connection failed (attempt {Attempt}/{MaxRetries}). Retrying in {Delay}s...",
+                attempt, maxRetries, delay.TotalSeconds);
+            Thread.Sleep(delay);
+            delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 1.5, 30)); // Exponential backoff, max 30s
+        }
+    }
 }
 
 // Add TraceId header to all responses for telemetry correlation

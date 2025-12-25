@@ -71,6 +71,20 @@ build_images() {
         -f "$PROJECT_ROOT/deploy/docker/web/Dockerfile" \
         "$PROJECT_ROOT"
 
+    podman build -t localhost/photos-index-metadata-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
+        -f "$PROJECT_ROOT/deploy/docker/metadata-service/Dockerfile" \
+        "$PROJECT_ROOT"
+
+    podman build -t localhost/photos-index-thumbnail-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
+        -f "$PROJECT_ROOT/deploy/docker/thumbnail-service/Dockerfile" \
+        "$PROJECT_ROOT"
+
     echo ""
     echo "All images built successfully"
     podman images | grep photos-index
@@ -85,7 +99,7 @@ pull_images() {
     echo "Note: This requires access to the GitHub Container Registry"
     echo ""
 
-    SERVICES=("api" "web" "indexing-service" "cleaner-service")
+    SERVICES=("api" "web" "indexing-service" "cleaner-service" "metadata-service" "thumbnail-service")
 
     for service in "${SERVICES[@]}"; do
         echo "Pulling $service..."
@@ -107,8 +121,10 @@ start_services() {
     mkdir -p "$HOME_PICTURES_PATH"
 
     # Generate manifest with paths substituted
+    TRAEFIK_CONFIG_PATH="$SCRIPT_DIR/traefik"
     sed -e "s|path: /tmp/photos|path: $PHOTOS_PATH|g" \
         -e "s|path: /tmp/home-pictures|path: $HOME_PICTURES_PATH|g" \
+        -e "s|path: /tmp/traefik-config|path: $TRAEFIK_CONFIG_PATH|g" \
         "$MANIFEST" | podman kube play -
 
     echo ""
