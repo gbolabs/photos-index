@@ -175,9 +175,7 @@ services:
       - "traefik.http.routers.thumbnails.entrypoints=web"
       - "traefik.http.routers.thumbnails.priority=120"
       - "traefik.http.routers.thumbnails.service=minio-thumbnails"
-      - "traefik.http.routers.thumbnails.middlewares=thumbnails-strip-prefix"
-      # Middleware to strip /thumbnails prefix
-      - "traefik.http.middlewares.thumbnails-strip-prefix.stripprefix.prefixes=/thumbnails"
+      # No strip prefix - MinIO path is /thumbnails/thumbs/{hash}.jpg = bucket/key
       # Service configuration for thumbnails
       - "traefik.http.services.minio-thumbnails.loadbalancer.server.port=9000"
 
