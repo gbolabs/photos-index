@@ -32,6 +32,12 @@ jobs:
           - name: cleaner-service
             dockerfile: deploy/docker/cleaner-service/Dockerfile
             image: cleaner-service
+          - name: metadata-service
+            dockerfile: deploy/docker/metadata-service/Dockerfile
+            image: metadata-service
+          - name: thumbnail-service
+            dockerfile: deploy/docker/thumbnail-service/Dockerfile
+            image: thumbnail-service
 
     steps:
       - name: Checkout code
@@ -135,6 +141,8 @@ jobs:
             docker pull ghcr.io/${{ github.repository }}/web:${{ steps.version.outputs.version }}
             docker pull ghcr.io/${{ github.repository }}/indexing-service:${{ steps.version.outputs.version }}
             docker pull ghcr.io/${{ github.repository }}/cleaner-service:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}/metadata-service:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}/thumbnail-service:${{ steps.version.outputs.version }}
             ```
 
             ## Deployment
