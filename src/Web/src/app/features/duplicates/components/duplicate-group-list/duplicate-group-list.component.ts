@@ -113,7 +113,8 @@ export class DuplicateGroupListComponent implements OnInit {
   getThumbnailUrl(group: DuplicateGroupDto, index: number = 0): string {
     // Get thumbnail URL for a specific file in the group
     if (group.files && group.files.length > index) {
-      return this.duplicateService.getThumbnailUrl(group.files[index].id);
+      const file = group.files[index];
+      return this.duplicateService.getThumbnailUrl(file.id, file.thumbnailPath);
     }
     return 'assets/placeholder.svg';
   }

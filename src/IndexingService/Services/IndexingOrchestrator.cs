@@ -34,8 +34,8 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? new IndexingOptions();
 
-        _logger.LogInformation("IndexingOrchestrator configured: GenerateThumbnails={GenerateThumbnails}, BatchSize={BatchSize}, MaxParallelism={MaxParallelism}",
-            _options.GenerateThumbnails, _options.BatchSize, _options.MaxParallelism);
+        _logger.LogInformation("IndexingOrchestrator configured: ExtractMetadata={ExtractMetadata}, GenerateThumbnails={GenerateThumbnails}, BatchSize={BatchSize}, MaxParallelism={MaxParallelism}",
+            _options.ExtractMetadata, _options.GenerateThumbnails, _options.BatchSize, _options.MaxParallelism);
     }
 
     public async Task<IReadOnlyList<IndexingJob>> RunIndexingCycleAsync(CancellationToken cancellationToken)
@@ -208,7 +208,10 @@ public class IndexingOrchestrator : IIndexingOrchestrator
 
                 try
                 {
-                    var metadata = await _metadataExtractor.ExtractAsync(scannedFile.FullPath, ct);
+                    // Extract metadata locally only if enabled (disabled for distributed processing)
+                    var metadata = _options.ExtractMetadata
+                        ? await _metadataExtractor.ExtractAsync(scannedFile.FullPath, ct)
+                        : new ImageMetadata(); // Empty metadata - will be extracted by MetadataService
 
                     byte[]? thumbnail = null;
                     if (_options.GenerateThumbnails)

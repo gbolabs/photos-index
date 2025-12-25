@@ -1,5 +1,11 @@
 http:
   routers:
+    thumbnails-router:
+      rule: "PathPrefix(`/thumbnails`)"
+      service: minio-thumbnails-service
+      priority: 120
+      middlewares:
+        - thumbnails-strip-prefix
     api-swagger-router:
       rule: "PathPrefix(`/api/swagger`)"
       service: api-service
@@ -12,7 +18,16 @@ http:
       rule: "PathPrefix(`/`)"
       service: web-service
       priority: 1
+  middlewares:
+    thumbnails-strip-prefix:
+      stripPrefix:
+        prefixes:
+          - "/thumbnails"
   services:
+    minio-thumbnails-service:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:9000/thumbnails"
     api-service:
       loadBalancer:
         servers:

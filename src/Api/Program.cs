@@ -1,8 +1,12 @@
+using Api.Consumers;
 using Api.Middleware;
 using Api.Services;
 using Database;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Minio;
 using Shared.Extensions;
+using Shared.Storage;
 
 // Application entry point
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +23,47 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<PhotosDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Configure MinIO
+var minioEndpoint = builder.Configuration["Minio:Endpoint"] ?? "localhost:9000";
+var minioAccessKey = builder.Configuration["Minio:AccessKey"] ?? "minioadmin";
+var minioSecretKey = builder.Configuration["Minio:SecretKey"] ?? "minioadmin";
+var minioUseSsl = builder.Configuration.GetValue("Minio:UseSsl", false);
+
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var client = new MinioClient()
+        .WithEndpoint(minioEndpoint)
+        .WithCredentials(minioAccessKey, minioSecretKey);
+
+    if (minioUseSsl)
+        client = client.WithSSL();
+
+    return client.Build();
+});
+builder.Services.AddSingleton<IObjectStorage, MinioObjectStorage>();
+
+// Configure MassTransit with RabbitMQ
+var rabbitMqHost = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+var rabbitMqUser = builder.Configuration["RabbitMQ:Username"] ?? "guest";
+var rabbitMqPass = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<MetadataExtractedConsumer>();
+    x.AddConsumer<ThumbnailGeneratedConsumer>();
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(rabbitMqHost, "/", h =>
+        {
+            h.Username(rabbitMqUser);
+            h.Password(rabbitMqPass);
+        });
+
+        cfg.ConfigureEndpoints(context);
+    });
+});
+
 // Register application services
 builder.Services.AddScoped<IScanDirectoryService, ScanDirectoryService>();
 builder.Services.AddScoped<IIndexedFileService, IndexedFileService>();
@@ -26,6 +71,7 @@ builder.Services.AddScoped<IDuplicateService, DuplicateService>();
 builder.Services.AddScoped<IOriginalSelectionService, OriginalSelectionService>();
 builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
+builder.Services.AddScoped<IFileIngestService, FileIngestService>();
 
 var app = builder.Build();
 
@@ -34,11 +80,32 @@ var buildInfoService = app.Services.GetRequiredService<IBuildInfoService>();
 buildInfoService.LogStartupInfo(app.Logger);
 
 // Apply pending database migrations at startup (skip in Testing environment)
+// Retry with exponential backoff to handle container startup race conditions
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<PhotosDbContext>();
-    db.Database.Migrate();
+
+    var maxRetries = 10;
+    var delay = TimeSpan.FromSeconds(2);
+
+    for (var attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
+        {
+            app.Logger.LogInformation("Attempting database migration (attempt {Attempt}/{MaxRetries})", attempt, maxRetries);
+            db.Database.Migrate();
+            app.Logger.LogInformation("Database migration completed successfully");
+            break;
+        }
+        catch (Exception ex) when (attempt < maxRetries)
+        {
+            app.Logger.LogWarning(ex, "Database connection failed (attempt {Attempt}/{MaxRetries}). Retrying in {Delay}s...",
+                attempt, maxRetries, delay.TotalSeconds);
+            Thread.Sleep(delay);
+            delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 1.5, 30)); // Exponential backoff, max 30s
+        }
+    }
 }
 
 // Add TraceId header to all responses for telemetry correlation

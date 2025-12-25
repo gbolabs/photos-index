@@ -151,11 +151,19 @@ describe('IndexedFileService', () => {
     req.flush(mockStats);
   });
 
-  it('should generate correct thumbnail URL', () => {
+  it('should generate correct thumbnail URL via API when no thumbnailPath', () => {
     const fileId = '123e4567-e89b-12d3-a456-426614174000';
     const url = service.getThumbnailUrl(fileId);
 
     expect(url).toBe(`${apiUrl}/${fileId}/thumbnail`);
+  });
+
+  it('should generate direct MinIO URL when thumbnailPath is provided', () => {
+    const fileId = '123e4567-e89b-12d3-a456-426614174000';
+    const thumbnailPath = 'thumbnails/abc123_thumb.jpg';
+    const url = service.getThumbnailUrl(fileId, thumbnailPath);
+
+    expect(url).toBe(`/thumbnails/${thumbnailPath}`);
   });
 
   it('should download file as blob', () => {

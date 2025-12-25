@@ -13,10 +13,11 @@ PHOTOS_PATH="${PHOTOS_PATH:-$HOME/Pictures}"
 HOME_PICTURES_PATH="${HOME_PICTURES_PATH:-$HOME/Pictures}"
 
 usage() {
-    echo "Usage: $0 {build|start|stop|restart|clean|logs|status|psql}"
+    echo "Usage: $0 {build|pull|start|stop|restart|clean|logs|status|psql}"
     echo ""
     echo "Commands:"
-    echo "  build   - Build all container images"
+    echo "  build   - Build all container images locally"
+    echo "  pull    - Pull pre-built images from GHCR (faster, requires less memory)"
     echo "  start   - Start all services with podman kube play"
     echo "  stop    - Stop all services (preserves data)"
     echo "  restart - Stop and start services (preserves data)"
@@ -28,6 +29,7 @@ usage() {
     echo "Environment variables:"
     echo "  PHOTOS_PATH        - Path to photos directory (default: ~/Pictures)"
     echo "  HOME_PICTURES_PATH - Path to home pictures (default: ~/Pictures)"
+    echo "  IMAGE_TAG          - Tag to pull from GHCR (default: main)"
 }
 
 build_images() {
@@ -69,8 +71,45 @@ build_images() {
         -f "$PROJECT_ROOT/deploy/docker/web/Dockerfile" \
         "$PROJECT_ROOT"
 
+    podman build -t localhost/photos-index-metadata-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
+        -f "$PROJECT_ROOT/deploy/docker/metadata-service/Dockerfile" \
+        "$PROJECT_ROOT"
+
+    podman build -t localhost/photos-index-thumbnail-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
+        -f "$PROJECT_ROOT/deploy/docker/thumbnail-service/Dockerfile" \
+        "$PROJECT_ROOT"
+
     echo ""
     echo "All images built successfully"
+    podman images | grep photos-index
+}
+
+pull_images() {
+    # Allow overriding the image tag (useful for testing specific versions)
+    IMAGE_TAG="${IMAGE_TAG:-main}"
+    REGISTRY="ghcr.io/gbolabs/photos-index"
+
+    echo "Pulling pre-built images from GHCR (tag: $IMAGE_TAG)..."
+    echo "Note: This requires access to the GitHub Container Registry"
+    echo ""
+
+    SERVICES=("api" "web" "indexing-service" "cleaner-service" "metadata-service" "thumbnail-service")
+
+    for service in "${SERVICES[@]}"; do
+        echo "Pulling $service..."
+        podman pull "$REGISTRY/$service:$IMAGE_TAG"
+        # Tag as localhost for use with kube manifest
+        podman tag "$REGISTRY/$service:$IMAGE_TAG" "localhost/photos-index-$service:latest"
+    done
+
+    echo ""
+    echo "All images pulled and tagged successfully"
     podman images | grep photos-index
 }
 
@@ -82,8 +121,10 @@ start_services() {
     mkdir -p "$HOME_PICTURES_PATH"
 
     # Generate manifest with paths substituted
+    TRAEFIK_CONFIG_PATH="$SCRIPT_DIR/traefik"
     sed -e "s|path: /tmp/photos|path: $PHOTOS_PATH|g" \
         -e "s|path: /tmp/home-pictures|path: $HOME_PICTURES_PATH|g" \
+        -e "s|path: /tmp/traefik-config|path: $TRAEFIK_CONFIG_PATH|g" \
         "$MANIFEST" | podman kube play -
 
     echo ""
@@ -164,6 +205,9 @@ run_psql() {
 case "${1:-}" in
     build)
         build_images
+        ;;
+    pull)
+        pull_images
         ;;
     start)
         start_services

@@ -10,10 +10,15 @@ data:
   ASPNETCORE_ENVIRONMENT: "Development"
   POSTGRES_USER: "photosuser"
   POSTGRES_DB: "photosindex"
+  RABBITMQ_USER: "photos"
+  MINIO_ROOT_USER: "minioadmin"
   # In a pod, all containers share localhost
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:18889"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   API_BASE_URL: "http://localhost:5080"
+  RABBITMQ_HOST: "localhost"
+  RABBITMQ_PORT: "5672"
+  MINIO_ENDPOINT: "localhost:9000"
   INDEXING_INTERVAL_MINUTES: "5"
   CLEANER_ENABLED: "false"
 ---
@@ -23,6 +28,8 @@ metadata:
   name: photos-index-secrets
 stringData:
   POSTGRES_PASSWORD: "photospass"
+  RABBITMQ_PASSWORD: "photos"
+  MINIO_ROOT_PASSWORD: "minioadmin"
 ---
 apiVersion: v1
 kind: Pod
@@ -75,6 +82,65 @@ spec:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
 
+    # RabbitMQ Message Broker
+    - name: rabbitmq
+      image: docker.io/library/rabbitmq:4-management-alpine
+      command:
+        - /bin/sh
+        - -c
+        - |
+          # Enable OpenTelemetry plugin before starting
+          echo '[rabbitmq_management,rabbitmq_prometheus,rabbitmq_opentelemetry].' > /etc/rabbitmq/enabled_plugins
+          exec docker-entrypoint.sh rabbitmq-server
+      ports:
+        - containerPort: 5672
+          hostPort: 5672
+        - containerPort: 15672
+          hostPort: 15672
+      env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_USER
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: RABBITMQ_PASSWORD
+        # OpenTelemetry configuration for RabbitMQ
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://localhost:18889"
+        - name: OTEL_SERVICE_NAME
+          value: "rabbitmq"
+      volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+
+    # MinIO Object Storage
+    - name: minio
+      image: docker.io/minio/minio:latest
+      command: ["minio", "server", "/data", "--console-address", ":9001"]
+      ports:
+        - containerPort: 9000
+          hostPort: 9000
+        - containerPort: 9001
+          hostPort: 9001
+      env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ROOT_USER
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: MINIO_ROOT_PASSWORD
+      volumeMounts:
+        - name: minio-data
+          mountPath: /data
+
     # Aspire Dashboard for observability
     - name: aspire-dashboard
       image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
@@ -115,6 +181,42 @@ spec:
               key: OTEL_EXPORTER_OTLP_PROTOCOL
         - name: OTEL_SERVICE_NAME
           value: "photos-index-api"
+        - name: RabbitMQ__Host
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_HOST
+        - name: RabbitMQ__Username
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_USER
+        - name: RabbitMQ__Password
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: RABBITMQ_PASSWORD
+        - name: Minio__Endpoint
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ENDPOINT
+        - name: Minio__AccessKey
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ROOT_USER
+        - name: Minio__SecretKey
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: MINIO_ROOT_PASSWORD
+        - name: Minio__UseSsl
+          value: "false"
+        - name: Minio__ImagesBucket
+          value: "images"
+        - name: Minio__ThumbnailsBucket
+          value: "thumbnails"
 
     # Web UI (accessed via Traefik at /)
     - name: web
@@ -162,6 +264,11 @@ spec:
             configMapKeyRef:
               name: photos-index-config
               key: INDEXING_INTERVAL_MINUTES
+        # Disable local processing - handled by distributed services (MetadataService, ThumbnailService)
+        - name: GENERATE_THUMBNAILS
+          value: "false"
+        - name: EXTRACT_METADATA
+          value: "false"
       volumeMounts:
         - name: photos
           mountPath: /photos
@@ -215,14 +322,132 @@ spec:
         - name: cleaner-logs
           mountPath: /app/logs
 
+    # Metadata Service (EXIF extraction)
+    - name: metadata-service
+      image: localhost/photos-index-metadata-service:latest
+      env:
+        - name: DOTNET_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_PROTOCOL
+        - name: OTEL_SERVICE_NAME
+          value: "photos-index-metadata"
+        - name: RabbitMQ__Host
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_HOST
+        - name: RabbitMQ__Username
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_USER
+        - name: RabbitMQ__Password
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: RABBITMQ_PASSWORD
+        - name: Minio__Endpoint
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ENDPOINT
+        - name: Minio__AccessKey
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ROOT_USER
+        - name: Minio__SecretKey
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: MINIO_ROOT_PASSWORD
+        - name: Minio__UseSsl
+          value: "false"
+        - name: Minio__ImagesBucket
+          value: "images"
+
+    # Thumbnail Service (Image resizing)
+    - name: thumbnail-service
+      image: localhost/photos-index-thumbnail-service:latest
+      env:
+        - name: DOTNET_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: OTEL_EXPORTER_OTLP_PROTOCOL
+        - name: OTEL_SERVICE_NAME
+          value: "photos-index-thumbnail"
+        - name: RabbitMQ__Host
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_HOST
+        - name: RabbitMQ__Username
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: RABBITMQ_USER
+        - name: RabbitMQ__Password
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: RABBITMQ_PASSWORD
+        - name: Minio__Endpoint
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ENDPOINT
+        - name: Minio__AccessKey
+          valueFrom:
+            configMapKeyRef:
+              name: photos-index-config
+              key: MINIO_ROOT_USER
+        - name: Minio__SecretKey
+          valueFrom:
+            secretKeyRef:
+              name: photos-index-secrets
+              key: MINIO_ROOT_PASSWORD
+        - name: Minio__UseSsl
+          value: "false"
+        - name: Minio__ImagesBucket
+          value: "images"
+        - name: Minio__ThumbnailsBucket
+          value: "thumbnails"
+
   volumes:
     - name: traefik-config
       hostPath:
-        path: ./traefik
+        path: /tmp/traefik-config
         type: Directory
     - name: postgres-data
       persistentVolumeClaim:
         claimName: postgres-pvc
+    - name: rabbitmq-data
+      emptyDir: {}
+    - name: minio-data
+      emptyDir: {}
     - name: photos
       hostPath:
         path: /tmp/photos

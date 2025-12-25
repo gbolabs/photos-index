@@ -156,6 +156,63 @@ public class PhotosApiClient : IPhotosApiClient
     }
 
     /// <inheritdoc />
+    public async Task<FileIngestResult> IngestFileWithContentAsync(
+        FileIngestRequest request,
+        Stream fileContent,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("IngestFileWithContent");
+        activity?.SetTag("directory.id", request.ScanDirectoryId);
+        activity?.SetTag("file.path", request.FilePath);
+
+        try
+        {
+            _logger.LogDebug("Ingesting file {FilePath} with content", request.FilePath);
+
+            using var formData = new MultipartFormDataContent();
+            formData.Add(new StringContent(request.ScanDirectoryId.ToString()), "scanDirectoryId");
+            formData.Add(new StringContent(request.FilePath), "filePath");
+            formData.Add(new StringContent(request.FileName), "fileName");
+            formData.Add(new StringContent(request.FileHash), "fileHash");
+            formData.Add(new StringContent(request.FileSize.ToString()), "fileSize");
+            formData.Add(new StringContent(request.ModifiedAt.ToString("O")), "modifiedAt");
+
+            var fileStreamContent = new StreamContent(fileContent);
+            fileStreamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+            formData.Add(fileStreamContent, "file", request.FileName);
+
+            var response = await _httpClient.PostAsync("api/files/ingest", formData, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<FileIngestResult>(_jsonOptions, cancellationToken)
+                ?? throw new InvalidOperationException("API returned null response");
+
+            _logger.LogInformation(
+                "File {FilePath} ingested successfully, FileId: {FileId}",
+                request.FilePath,
+                result.IndexedFileId);
+
+            activity?.SetTag("result.success", result.Success);
+            activity?.SetTag("result.file_id", result.IndexedFileId);
+
+            return result;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error while ingesting file {FilePath}", request.FilePath);
+            activity?.SetTag("error", true);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while ingesting file {FilePath}", request.FilePath);
+            activity?.SetTag("error", true);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task UpdateLastScannedAsync(Guid directoryId, CancellationToken cancellationToken)
     {
         using var activity = ActivitySource.StartActivity("UpdateLastScanned");
