@@ -169,6 +169,23 @@ Estimate based on retention and volume:
 
 Configure retention policies to manage disk usage.
 
+### Volume Permissions
+
+The observability containers run as non-root users. When using host path mounts (e.g., on TrueNAS), set ownership before first run:
+
+```bash
+# Jaeger runs as user 10001
+sudo chown -R 10001:10001 /path/to/jaeger-data
+
+# Loki runs as user 10001
+sudo chown -R 10001:10001 /path/to/loki-data
+
+# Grafana runs as user 472
+sudo chown -R 472:472 /path/to/grafana-data
+```
+
+Named Docker volumes (default in compose) handle permissions automatically.
+
 ### Future Considerations
 
 1. **Metrics**: Add Prometheus + node-exporter for system metrics

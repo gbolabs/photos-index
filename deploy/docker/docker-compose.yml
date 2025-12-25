@@ -5,6 +5,22 @@
 #   Production (ghcr.io):      docker compose up -d
 #
 # Set IMAGE_VERSION in .env to use specific release (default: latest)
+#
+# IMPORTANT: Volume Permissions for Observability Stack
+# =====================================================
+# The observability containers run as non-root users and need write access
+# to their data directories. Before first run, set ownership:
+#
+#   # Jaeger (user 10001)
+#   sudo chown -R 10001:10001 /path/to/jaeger-data
+#
+#   # Loki (user 10001)
+#   sudo chown -R 10001:10001 /path/to/loki-data
+#
+#   # Grafana (user 472)
+#   sudo chown -R 472:472 /path/to/grafana-data
+#
+# Or use named Docker volumes (default) which handle permissions automatically.
 
 services:
   # ===================================

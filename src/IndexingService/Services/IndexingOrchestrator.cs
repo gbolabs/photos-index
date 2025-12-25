@@ -16,8 +16,23 @@ public class IndexingOrchestrator : IIndexingOrchestrator
     private readonly IMetadataExtractor _metadataExtractor;
     private readonly ILogger<IndexingOrchestrator> _logger;
     private readonly IndexingOptions _options;
+    private readonly bool _isDistributedMode;
 
     private static readonly ActivitySource ActivitySource = new("PhotosIndex.IndexingService.Orchestrator");
+
+    // Content type mapping for image files
+    private static readonly Dictionary<string, string> ContentTypeMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { ".jpg", "image/jpeg" },
+        { ".jpeg", "image/jpeg" },
+        { ".png", "image/png" },
+        { ".gif", "image/gif" },
+        { ".heic", "image/heic" },
+        { ".webp", "image/webp" },
+        { ".bmp", "image/bmp" },
+        { ".tiff", "image/tiff" },
+        { ".tif", "image/tiff" }
+    };
 
     public IndexingOrchestrator(
         IPhotosApiClient apiClient,
@@ -34,8 +49,11 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? new IndexingOptions();
 
-        _logger.LogInformation("IndexingOrchestrator configured: ExtractMetadata={ExtractMetadata}, GenerateThumbnails={GenerateThumbnails}, BatchSize={BatchSize}, MaxParallelism={MaxParallelism}",
-            _options.ExtractMetadata, _options.GenerateThumbnails, _options.BatchSize, _options.MaxParallelism);
+        // Distributed mode: both local processing disabled, rely on remote services
+        _isDistributedMode = !_options.ExtractMetadata && !_options.GenerateThumbnails;
+
+        _logger.LogInformation("IndexingOrchestrator configured: ExtractMetadata={ExtractMetadata}, GenerateThumbnails={GenerateThumbnails}, BatchSize={BatchSize}, MaxParallelism={MaxParallelism}, DistributedMode={DistributedMode}",
+            _options.ExtractMetadata, _options.GenerateThumbnails, _options.BatchSize, _options.MaxParallelism, _isDistributedMode);
     }
 
     public async Task<IReadOnlyList<IndexingJob>> RunIndexingCycleAsync(CancellationToken cancellationToken)
@@ -180,7 +198,6 @@ public class IndexingOrchestrator : IIndexingOrchestrator
     private async Task<(int processed, int ingested, int failed)> ProcessAndIngestBatchAsync(
         Guid directoryId, List<ScannedFile> batch, CancellationToken cancellationToken)
     {
-        var processedFiles = new ConcurrentBag<ProcessedFile>();
         var filePaths = batch.Select(f => f.FullPath).ToList();
 
         // Compute hashes for batch (already parallel)
@@ -190,10 +207,98 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             hashResults[hashResult.FilePath] = hashResult;
         }
 
-        // Extract metadata in parallel (major performance improvement)
         var filesToProcess = batch
             .Where(f => hashResults.TryGetValue(f.FullPath, out var hr) && hr.Success)
             .ToList();
+
+        // In distributed mode, upload file content for each file
+        if (_isDistributedMode)
+        {
+            return await ProcessAndIngestDistributedAsync(directoryId, filesToProcess, hashResults, cancellationToken);
+        }
+
+        // Local processing mode: extract metadata/thumbnails locally
+        return await ProcessAndIngestLocalAsync(directoryId, filesToProcess, hashResults, cancellationToken);
+    }
+
+    private async Task<(int processed, int ingested, int failed)> ProcessAndIngestDistributedAsync(
+        Guid directoryId,
+        List<ScannedFile> filesToProcess,
+        ConcurrentDictionary<string, HashResult> hashResults,
+        CancellationToken cancellationToken)
+    {
+        var ingested = 0;
+        var failed = 0;
+
+        _logger.LogInformation("Distributed mode: uploading {Count} files with content for remote processing", filesToProcess.Count);
+
+        // Process files sequentially to avoid overwhelming the network with large uploads
+        // Use semaphore for controlled parallelism
+        using var semaphore = new SemaphoreSlim(_options.MaxParallelism);
+        var tasks = filesToProcess.Select(async scannedFile =>
+        {
+            await semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                var hashResult = hashResults[scannedFile.FullPath];
+                var extension = Path.GetExtension(scannedFile.FullPath);
+                var contentType = ContentTypeMap.TryGetValue(extension, out var ct) ? ct : "application/octet-stream";
+
+                var request = new FileIngestRequest
+                {
+                    ScanDirectoryId = directoryId,
+                    FilePath = scannedFile.FullPath,
+                    FileName = scannedFile.FileName,
+                    FileHash = hashResult.Hash,
+                    FileSize = scannedFile.FileSizeBytes,
+                    ModifiedAt = scannedFile.LastModifiedUtc
+                };
+
+                await using var fileStream = new FileStream(
+                    scannedFile.FullPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 81920,
+                    useAsync: true);
+
+                var result = await _apiClient.IngestFileWithContentAsync(request, fileStream, contentType, cancellationToken);
+
+                if (result.Success)
+                {
+                    Interlocked.Increment(ref ingested);
+                    _logger.LogDebug("Uploaded file {Path} for distributed processing", scannedFile.FullPath);
+                }
+                else
+                {
+                    Interlocked.Increment(ref failed);
+                    _logger.LogWarning("Failed to upload file {Path}: {Error}", scannedFile.FullPath, result.ErrorMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref failed);
+                _logger.LogError(ex, "Error uploading file {Path}", scannedFile.FullPath);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        _logger.LogInformation("Distributed upload completed: {Ingested} succeeded, {Failed} failed", ingested, failed);
+        return (filesToProcess.Count, ingested, failed);
+    }
+
+    private async Task<(int processed, int ingested, int failed)> ProcessAndIngestLocalAsync(
+        Guid directoryId,
+        List<ScannedFile> filesToProcess,
+        ConcurrentDictionary<string, HashResult> hashResults,
+        CancellationToken cancellationToken)
+    {
+        var processedFiles = new ConcurrentBag<ProcessedFile>();
 
         await Parallel.ForEachAsync(
             filesToProcess,
@@ -241,7 +346,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             });
 
         if (processedFiles.Count == 0)
-            return (0, 0, batch.Count);
+            return (0, 0, filesToProcess.Count);
 
         // Ingest to API
         var request = new BatchIngestFilesRequest
