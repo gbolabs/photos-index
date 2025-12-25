@@ -43,28 +43,43 @@ build_images() {
     echo "Build info: commit=$BUILD_COMMIT_HASH, branch=$BUILD_BRANCH, time=$BUILD_TIME"
     echo ""
 
-    podman build -t localhost/photos-index-api:latest \
+    # Use --no-cache to ensure fresh builds without reusing cached layers
+    podman build --no-cache -t localhost/photos-index-api:latest \
         --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
         --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
         --build-arg BUILD_TIME="$BUILD_TIME" \
         -f "$PROJECT_ROOT/deploy/docker/api/Dockerfile" \
         "$PROJECT_ROOT"
 
-    podman build -t localhost/photos-index-indexing-service:latest \
+    podman build --no-cache -t localhost/photos-index-indexing-service:latest \
         --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
         --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
         --build-arg BUILD_TIME="$BUILD_TIME" \
         -f "$PROJECT_ROOT/deploy/docker/indexing-service/Dockerfile" \
         "$PROJECT_ROOT"
 
-    podman build -t localhost/photos-index-cleaner-service:latest \
+    podman build --no-cache -t localhost/photos-index-cleaner-service:latest \
         --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
         --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
         --build-arg BUILD_TIME="$BUILD_TIME" \
         -f "$PROJECT_ROOT/deploy/docker/cleaner-service/Dockerfile" \
         "$PROJECT_ROOT"
 
-    podman build -t localhost/photos-index-web:latest \
+    podman build --no-cache -t localhost/photos-index-metadata-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
+        -f "$PROJECT_ROOT/deploy/docker/metadata-service/Dockerfile" \
+        "$PROJECT_ROOT"
+
+    podman build --no-cache -t localhost/photos-index-thumbnail-service:latest \
+        --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
+        --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
+        -f "$PROJECT_ROOT/deploy/docker/thumbnail-service/Dockerfile" \
+        "$PROJECT_ROOT"
+
+    podman build --no-cache -t localhost/photos-index-web:latest \
         --build-arg BUILD_COMMIT_HASH="$BUILD_COMMIT_HASH" \
         --build-arg BUILD_BRANCH="$BUILD_BRANCH" \
         --build-arg BUILD_TIME="$BUILD_TIME" \
@@ -107,8 +122,10 @@ start_services() {
     mkdir -p "$HOME_PICTURES_PATH"
 
     # Generate manifest with paths substituted
+    # Note: ./traefik must be converted to absolute path for podman kube play
     sed -e "s|path: /tmp/photos|path: $PHOTOS_PATH|g" \
         -e "s|path: /tmp/home-pictures|path: $HOME_PICTURES_PATH|g" \
+        -e "s|path: ./traefik|path: $SCRIPT_DIR/traefik|g" \
         "$MANIFEST" | podman kube play -
 
     echo ""
