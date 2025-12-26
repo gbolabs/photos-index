@@ -1,8 +1,13 @@
+using HeyRed.ImageSharp.Heif;
 using MassTransit;
 using Minio;
 using Shared.Extensions;
 using Shared.Storage;
+using SixLabors.ImageSharp;
 using ThumbnailService;
+
+// Register HEIF/HEIC decoder with ImageSharp
+Configuration.Default.Configure(new HeifConfigurationModule());
 
 var builder = Host.CreateApplicationBuilder(args);
 
