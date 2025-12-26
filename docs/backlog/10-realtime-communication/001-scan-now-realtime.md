@@ -1,7 +1,7 @@
 # 001: Real-time Scan Communication
 
-**Status**: 🔧 Partially Complete (SignalR infrastructure in place)
-**PR**: See `feature/reindex-signalr` branch
+**Status**: ✅ Complete
+**PR**: [#TBD](https://github.com/gbolabs/photos-index/pull/TBD)
 **Priority**: P2 (Enhancement)
 **Agent**: A2 (Indexing Service) + A3 (Web UI)
 **Branch**: `feature/realtime-scan`
