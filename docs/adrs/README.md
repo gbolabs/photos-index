@@ -41,6 +41,7 @@ An ADR is a short document that captures an important architectural decision alo
 | [005](./005-claude-api-traffic-logging.md) | Claude API Traffic Logging via Proxy Container | Proposed | 2025-12-24 |
 | [006](./006-jaeger-over-aspire.md) | Grafana Observability Stack Over Aspire Dashboard | Accepted | 2025-12-25 |
 | [007](./007-masstransit-messaging-patterns.md) | MassTransit Messaging Patterns for Distributed Processing | Accepted | 2025-12-25 |
+| [008](./008-signalr-indexer-communication.md) | SignalR for API-Indexer Bidirectional Communication | Accepted | 2025-12-26 |
 
 ## References
 
