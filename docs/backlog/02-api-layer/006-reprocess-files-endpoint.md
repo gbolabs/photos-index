@@ -1,6 +1,7 @@
 # Re-process Files Feature
 
-**Status**: 🔲 Not Started
+**Status**: ✅ Complete
+**PR**: [#TBD](https://github.com/gbolabs/photos-index/pull/TBD)
 **Priority**: High
 **Track**: API + Web UI
 
