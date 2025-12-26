@@ -34,7 +34,7 @@ public class ReprocessService : IReprocessService
         if (file is null)
             return ReprocessResult.NotFound(fileId);
 
-        if (!IndexerHub.GetConnectedIndexers().Any())
+        if (IndexerHub.GetConnectedIndexerCount() == 0)
             return ReprocessResult.NoIndexerConnected();
 
         // Reset processing state
@@ -59,7 +59,7 @@ public class ReprocessService : IReprocessService
         if (files.Count == 0)
             return ReprocessResult.NotFound(Guid.Empty);
 
-        if (!IndexerHub.GetConnectedIndexers().Any())
+        if (IndexerHub.GetConnectedIndexerCount() == 0)
             return ReprocessResult.NoIndexerConnected();
 
         // Reset processing state
@@ -101,7 +101,7 @@ public class ReprocessService : IReprocessService
         if (files.Count == 0)
             return ReprocessResult.Queued(0);
 
-        if (!IndexerHub.GetConnectedIndexers().Any())
+        if (IndexerHub.GetConnectedIndexerCount() == 0)
             return ReprocessResult.NoIndexerConnected();
 
         // Reset processing state

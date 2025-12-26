@@ -23,9 +23,26 @@ export interface ReprocessProgress {
   error?: string;
 }
 
-export interface IndexerConnection {
+export type IndexerState = 'Idle' | 'Scanning' | 'Processing' | 'Reprocessing' | 'Error' | 'Disconnected';
+
+export interface IndexerStatus {
   indexerId: string;
   hostname: string;
+  version?: string;
+  commitHash?: string;
+  environment?: string;
+  state: IndexerState;
+  currentDirectory?: string;
+  currentActivity?: string;
+  filesProcessed: number;
+  filesTotal: number;
+  errorCount: number;
+  lastScanStarted?: string;
+  lastScanCompleted?: string;
+  connectedAt: string;
+  lastHeartbeat: string;
+  uptime: string;
+  lastError?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,7 +51,7 @@ export class ReprocessService {
   private hubConnection?: HubConnection;
 
   private progressSubject = new BehaviorSubject<Map<string, ReprocessProgress>>(new Map());
-  private indexersSubject = new BehaviorSubject<IndexerConnection[]>([]);
+  private indexersSubject = new BehaviorSubject<IndexerStatus[]>([]);
   private connectedSubject = new BehaviorSubject<boolean>(false);
 
   progress$ = this.progressSubject.asObservable();
@@ -66,13 +83,38 @@ export class ReprocessService {
     });
 
     this.hubConnection.on('IndexerConnected', (indexerId: string, hostname: string) => {
-      const indexers = [...this.indexersSubject.value, { indexerId, hostname }];
-      this.indexersSubject.next(indexers);
+      // Add a placeholder status for the newly connected indexer
+      const existing = this.indexersSubject.value.find(i => i.indexerId === indexerId);
+      if (!existing) {
+        const newIndexer: IndexerStatus = {
+          indexerId,
+          hostname,
+          state: 'Idle',
+          filesProcessed: 0,
+          filesTotal: 0,
+          errorCount: 0,
+          connectedAt: new Date().toISOString(),
+          lastHeartbeat: new Date().toISOString(),
+          uptime: '00:00:00'
+        };
+        this.indexersSubject.next([...this.indexersSubject.value, newIndexer]);
+      }
     });
 
     this.hubConnection.on('IndexerDisconnected', (indexerId: string) => {
       const indexers = this.indexersSubject.value.filter(i => i.indexerId !== indexerId);
       this.indexersSubject.next(indexers);
+    });
+
+    this.hubConnection.on('IndexerStatusUpdated', (status: IndexerStatus) => {
+      const indexers = this.indexersSubject.value;
+      const idx = indexers.findIndex(i => i.indexerId === status.indexerId);
+      if (idx >= 0) {
+        indexers[idx] = status;
+        this.indexersSubject.next([...indexers]);
+      } else {
+        this.indexersSubject.next([...indexers, status]);
+      }
     });
 
     this.hubConnection.onreconnected(() => this.connectedSubject.next(true));
@@ -96,8 +138,12 @@ export class ReprocessService {
     return this.http.get<ReprocessStats>('/api/reprocess/stats');
   }
 
-  getConnectedIndexers(): Observable<IndexerConnection[]> {
-    return this.http.get<IndexerConnection[]>('/api/indexers');
+  getConnectedIndexers(): Observable<IndexerStatus[]> {
+    return this.http.get<IndexerStatus[]>('/api/indexers');
+  }
+
+  refreshIndexers(): Observable<void> {
+    return this.http.post<void>('/api/indexers/refresh', {});
   }
 
   reprocessFile(fileId: string): Observable<ReprocessResult> {

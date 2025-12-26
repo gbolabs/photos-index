@@ -52,6 +52,9 @@ builder.Services.AddHttpClient<IPhotosApiClient, PhotosApiClient>(client =>
     client.Timeout = TimeSpan.FromMinutes(5);
 });
 
+// Add indexer status tracking
+builder.Services.AddSingleton<IIndexerStatusService, IndexerStatusService>();
+
 // Add SignalR client for receiving reprocess commands from API
 builder.Services.AddSingleton<ISignalRClientService, SignalRClientService>();
 builder.Services.AddHostedService<SignalRHostedService>();

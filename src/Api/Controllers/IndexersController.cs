@@ -1,5 +1,7 @@
 using Api.Hubs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Shared.Dtos;
 
 namespace Api.Controllers;
 
@@ -10,13 +12,20 @@ namespace Api.Controllers;
 [Route("api/[controller]")]
 public class IndexersController : ControllerBase
 {
+    private readonly IHubContext<IndexerHub> _hubContext;
+
+    public IndexersController(IHubContext<IndexerHub> hubContext)
+    {
+        _hubContext = hubContext;
+    }
+
     /// <summary>
-    /// Get list of currently connected indexers.
+    /// Get list of currently connected indexers with their status.
     /// </summary>
     [HttpGet]
-    public ActionResult<IEnumerable<IndexerConnection>> GetConnectedIndexers()
+    public ActionResult<IEnumerable<IndexerStatusDto>> GetConnectedIndexers()
     {
-        return Ok(IndexerHub.GetConnectedIndexers());
+        return Ok(IndexerHub.GetConnectedIndexerStatuses());
     }
 
     /// <summary>
@@ -25,6 +34,16 @@ public class IndexersController : ControllerBase
     [HttpGet("count")]
     public ActionResult<int> GetConnectedIndexersCount()
     {
-        return Ok(IndexerHub.GetConnectedIndexers().Count);
+        return Ok(IndexerHub.GetConnectedIndexerCount());
+    }
+
+    /// <summary>
+    /// Request all connected indexers to report their status.
+    /// </summary>
+    [HttpPost("refresh")]
+    public async Task<ActionResult> RefreshStatuses()
+    {
+        await _hubContext.Clients.All.SendAsync("RequestStatus");
+        return Ok();
     }
 }

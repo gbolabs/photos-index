@@ -67,7 +67,7 @@ public class ReprocessController : ControllerBase
             Failed = await db.IndexedFiles.CountAsync(f => f.LastError != null, ct),
             HeicUnprocessed = await db.IndexedFiles.CountAsync(f =>
                 f.FileName.ToLower().EndsWith(".heic") && f.MetadataProcessedAt == null, ct),
-            ConnectedIndexers = IndexerHub.GetConnectedIndexers().Count
+            ConnectedIndexers = IndexerHub.GetConnectedIndexerCount()
         };
         return Ok(stats);
     }

@@ -2,6 +2,7 @@ using IndexingService.ApiClient;
 using IndexingService.Models;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Options;
+using Shared.Dtos;
 
 namespace IndexingService.Services;
 
@@ -16,17 +17,21 @@ public class SignalRClientService : ISignalRClientService
 {
     private readonly HubConnection _hubConnection;
     private readonly IPhotosApiClient _apiClient;
+    private readonly IIndexerStatusService _statusService;
     private readonly ILogger<SignalRClientService> _logger;
     private readonly string _hostname;
+    private Timer? _heartbeatTimer;
 
     public bool IsConnected => _hubConnection.State == HubConnectionState.Connected;
 
     public SignalRClientService(
         IPhotosApiClient apiClient,
+        IIndexerStatusService statusService,
         IOptions<IndexingOptions> options,
         ILogger<SignalRClientService> logger)
     {
         _apiClient = apiClient;
+        _statusService = statusService;
         _logger = logger;
         _hostname = Environment.MachineName;
 
@@ -48,6 +53,7 @@ public class SignalRClientService : ISignalRClientService
         // Register command handlers
         _hubConnection.On<Guid, string>("ReprocessFile", HandleReprocessFileAsync);
         _hubConnection.On<IEnumerable<ReprocessRequest>>("ReprocessFiles", HandleReprocessFilesAsync);
+        _hubConnection.On("RequestStatus", HandleStatusRequestAsync);
 
         _hubConnection.Reconnecting += error =>
         {
@@ -76,6 +82,14 @@ public class SignalRClientService : ISignalRClientService
             {
                 await _hubConnection.StartAsync(ct);
                 _logger.LogInformation("SignalR connected to API hub from {Hostname}", _hostname);
+
+                // Start heartbeat timer to send status every 30 seconds
+                _heartbeatTimer = new Timer(
+                    async _ => await SendStatusAsync(),
+                    null,
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(30));
+
                 return;
             }
             catch (Exception ex)
@@ -88,15 +102,45 @@ public class SignalRClientService : ISignalRClientService
 
     public async Task StopAsync(CancellationToken ct)
     {
+        if (_heartbeatTimer != null)
+        {
+            await _heartbeatTimer.DisposeAsync();
+            _heartbeatTimer = null;
+        }
+
         if (_hubConnection.State != HubConnectionState.Disconnected)
         {
             await _hubConnection.StopAsync(ct);
         }
     }
 
+    private async Task SendStatusAsync()
+    {
+        if (_hubConnection.State != HubConnectionState.Connected)
+            return;
+
+        try
+        {
+            var status = _statusService.GetStatus();
+            await _hubConnection.InvokeAsync("ReportStatus", status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send status to hub");
+        }
+    }
+
+    private async Task HandleStatusRequestAsync()
+    {
+        _logger.LogDebug("Received status request from hub");
+        await SendStatusAsync();
+    }
+
     private async Task HandleReprocessFileAsync(Guid fileId, string filePath)
     {
         _logger.LogInformation("Received reprocess command: {FileId} -> {Path}", fileId, filePath);
+        _statusService.SetState(IndexerState.Reprocessing);
+        _statusService.SetActivity($"Reprocessing: {Path.GetFileName(filePath)}");
 
         try
         {
@@ -105,6 +149,7 @@ public class SignalRClientService : ISignalRClientService
             if (!File.Exists(filePath))
             {
                 _logger.LogWarning("File not found for reprocess: {Path}", filePath);
+                _statusService.RecordError($"File not found: {filePath}");
                 await ReportCompleteAsync(fileId, false, "File not found on disk");
                 return;
             }
@@ -141,22 +186,34 @@ public class SignalRClientService : ISignalRClientService
                 GetContentType(filePath),
                 CancellationToken.None);
 
+            _statusService.IncrementFilesProcessed();
             await ReportCompleteAsync(fileId, true, null);
             _logger.LogInformation("Reprocess complete: {FileId}", fileId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Reprocess failed: {FileId}", fileId);
+            _statusService.RecordError(ex.Message);
             await ReportCompleteAsync(fileId, false, ex.Message);
+        }
+        finally
+        {
+            _statusService.SetState(IndexerState.Idle);
+            _statusService.SetActivity(null);
         }
     }
 
     private async Task HandleReprocessFilesAsync(IEnumerable<ReprocessRequest> files)
     {
-        foreach (var file in files)
+        var fileList = files.ToList();
+        _statusService.SetProgress(0, fileList.Count);
+
+        foreach (var file in fileList)
         {
             await HandleReprocessFileAsync(file.FileId, file.FilePath);
         }
+
+        _statusService.SetProgress(0, 0);
     }
 
     private async Task ReportProgressAsync(Guid fileId, string status)

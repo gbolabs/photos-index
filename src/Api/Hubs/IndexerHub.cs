@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Shared.Dtos;
 
 namespace Api.Hubs;
 
@@ -20,7 +21,7 @@ public interface IIndexerClient
 public class IndexerHub : Hub
 {
     private readonly ILogger<IndexerHub> _logger;
-    private static readonly Dictionary<string, IndexerConnection> _connectedIndexers = new();
+    private static readonly Dictionary<string, IndexerConnectionInfo> _connectedIndexers = new();
     private static readonly object _lock = new();
 
     public IndexerHub(ILogger<IndexerHub> logger)
@@ -40,7 +41,10 @@ public class IndexerHub : Hub
         {
             lock (_lock)
             {
-                _connectedIndexers[Context.ConnectionId] = new IndexerConnection(indexerId, hostname);
+                _connectedIndexers[Context.ConnectionId] = new IndexerConnectionInfo(
+                    indexerId,
+                    hostname,
+                    DateTime.UtcNow);
             }
 
             _logger.LogInformation("Indexer connected: {IndexerId} from {Hostname}", indexerId, hostname);
@@ -54,7 +58,7 @@ public class IndexerHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        IndexerConnection? connection = null;
+        IndexerConnectionInfo? connection = null;
 
         lock (_lock)
         {
@@ -98,14 +102,61 @@ public class IndexerHub : Hub
         _logger.LogDebug("Client {ConnectionId} joined UI group", Context.ConnectionId);
     }
 
-    public static IReadOnlyCollection<IndexerConnection> GetConnectedIndexers()
+    /// <summary>
+    /// Called by Indexer to report its current status
+    /// </summary>
+    public async Task ReportStatus(IndexerStatusDto status)
     {
         lock (_lock)
         {
-            return _connectedIndexers.Values.ToList();
+            if (_connectedIndexers.TryGetValue(Context.ConnectionId, out var connection))
+            {
+                _connectedIndexers[Context.ConnectionId] = connection with { LastStatus = status };
+            }
+        }
+
+        // Notify UI clients of status update
+        await Clients.Group("ui").SendAsync("IndexerStatusUpdated", status);
+    }
+
+    /// <summary>
+    /// Request status from all connected indexers
+    /// </summary>
+    public async Task RequestAllStatuses()
+    {
+        await Clients.All.SendAsync("RequestStatus");
+    }
+
+    public static IReadOnlyCollection<IndexerStatusDto> GetConnectedIndexerStatuses()
+    {
+        lock (_lock)
+        {
+            return _connectedIndexers.Values
+                .Select(c => c.LastStatus ?? new IndexerStatusDto
+                {
+                    IndexerId = c.IndexerId,
+                    Hostname = c.Hostname,
+                    State = IndexerState.Idle,
+                    ConnectedAt = c.ConnectedAt,
+                    LastHeartbeat = c.ConnectedAt
+                })
+                .ToList();
+        }
+    }
+
+    public static int GetConnectedIndexerCount()
+    {
+        lock (_lock)
+        {
+            return _connectedIndexers.Count;
         }
     }
 }
 
-public record IndexerConnection(string IndexerId, string Hostname);
+public record IndexerConnectionInfo(
+    string IndexerId,
+    string Hostname,
+    DateTime ConnectedAt,
+    IndexerStatusDto? LastStatus = null);
+
 public record ReprocessFileRequest(Guid FileId, string FilePath);

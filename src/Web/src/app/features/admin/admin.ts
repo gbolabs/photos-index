@@ -7,7 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ReprocessService, ReprocessStats, IndexerConnection } from '../../services/reprocess.service';
+import { ReprocessService, ReprocessStats, IndexerStatus, IndexerState } from '../../services/reprocess.service';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -30,7 +30,7 @@ export class Admin implements OnInit, OnDestroy {
   private snackBar = inject(MatSnackBar);
   private destroyRef = inject(DestroyRef);
 
-  indexers = signal<IndexerConnection[]>([]);
+  indexers = signal<IndexerStatus[]>([]);
   stats = signal<ReprocessStats | null>(null);
   processing = signal(false);
   queuedCount = signal(0);
@@ -39,6 +39,7 @@ export class Admin implements OnInit, OnDestroy {
   async ngOnInit() {
     await this.reprocessService.connect();
     this.loadStats();
+    this.loadIndexers();
 
     this.reprocessService.indexers$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -62,6 +63,16 @@ export class Admin implements OnInit, OnDestroy {
     }
   }
 
+  async loadIndexers() {
+    try {
+      const indexers = await firstValueFrom(this.reprocessService.getConnectedIndexers());
+      this.indexers.set(indexers);
+      this.hasIndexer.set(indexers.length > 0);
+    } catch (error) {
+      console.error('Failed to load indexers:', error);
+    }
+  }
+
   async reprocess(filter: 'MissingMetadata' | 'MissingThumbnail' | 'Failed' | 'Heic') {
     this.processing.set(true);
     try {
@@ -80,6 +91,44 @@ export class Admin implements OnInit, OnDestroy {
       this.snackBar.open('Failed to start reprocessing', 'OK', { duration: 5000 });
       this.processing.set(false);
     }
+  }
+
+  getStateIcon(state: IndexerState): string {
+    switch (state) {
+      case 'Idle': return 'check_circle';
+      case 'Scanning': return 'radar';
+      case 'Processing': return 'sync';
+      case 'Reprocessing': return 'refresh';
+      case 'Error': return 'error';
+      case 'Disconnected': return 'cloud_off';
+      default: return 'help';
+    }
+  }
+
+  formatUptime(uptime: string): string {
+    // Parse TimeSpan format (e.g., "01:23:45" or "1.02:03:04")
+    if (!uptime) return '0m';
+
+    const parts = uptime.split(':');
+    if (parts.length < 3) return uptime;
+
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  }
+
+  formatDate(dateStr: string): string {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    return date.toLocaleString();
   }
 
   getFilterLabel(filter: string): string {

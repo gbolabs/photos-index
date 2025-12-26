@@ -1,4 +1,72 @@
 <div class="admin-container">
+  <!-- Indexers Card -->
+  <mat-card class="indexers-card">
+    <mat-card-header>
+      <mat-card-title>Connected Indexers</mat-card-title>
+      <mat-card-subtitle>Real-time status of indexer services</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (indexers().length === 0) {
+        <p class="warning">
+          <mat-icon>warning</mat-icon>
+          No indexer connected. Start the indexer service to enable reprocessing.
+        </p>
+      } @else {
+        <div class="indexer-list">
+          @for (indexer of indexers(); track indexer.indexerId) {
+            <div class="indexer-card" [class.active]="indexer.state !== 'Idle'">
+              <div class="indexer-header">
+                <mat-icon class="status-icon" [class]="'state-' + indexer.state.toLowerCase()">
+                  {{ getStateIcon(indexer.state) }}
+                </mat-icon>
+                <div class="indexer-info">
+                  <span class="hostname">{{ indexer.hostname }}</span>
+                  <span class="version">v{{ indexer.version || '?' }} ({{ indexer.commitHash || 'dev' }})</span>
+                </div>
+                <mat-chip [class]="'state-chip state-' + indexer.state.toLowerCase()">
+                  {{ indexer.state }}
+                </mat-chip>
+              </div>
+
+              @if (indexer.currentActivity) {
+                <div class="activity">
+                  <mat-icon>sync</mat-icon>
+                  {{ indexer.currentActivity }}
+                </div>
+              }
+
+              @if (indexer.filesTotal > 0) {
+                <div class="progress-info">
+                  <mat-progress-bar mode="determinate" [value]="(indexer.filesProcessed / indexer.filesTotal) * 100"></mat-progress-bar>
+                  <span class="progress-text">{{ indexer.filesProcessed }} / {{ indexer.filesTotal }}</span>
+                </div>
+              }
+
+              <div class="indexer-details">
+                <span><mat-icon>schedule</mat-icon> Uptime: {{ formatUptime(indexer.uptime) }}</span>
+                @if (indexer.errorCount > 0) {
+                  <span class="error-count"><mat-icon>error</mat-icon> {{ indexer.errorCount }} errors</span>
+                }
+                @if (indexer.lastScanCompleted) {
+                  <span><mat-icon>check_circle</mat-icon> Last scan: {{ formatDate(indexer.lastScanCompleted) }}</span>
+                }
+              </div>
+
+              @if (indexer.lastError) {
+                <div class="last-error">
+                  <mat-icon>error_outline</mat-icon>
+                  {{ indexer.lastError }}
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Reprocess Card -->
   <mat-card>
     <mat-card-header>
       <mat-card-title>Reprocess Files</mat-card-title>
@@ -6,23 +74,6 @@
     </mat-card-header>
 
     <mat-card-content>
-      <!-- Indexer Status -->
-      <section class="indexer-status">
-        <h3>Connected Indexers</h3>
-        <div class="indexers">
-          @for (indexer of indexers(); track indexer.indexerId) {
-            <mat-chip color="primary" highlighted>
-              <mat-icon>dns</mat-icon>
-              {{ indexer.hostname }}
-            </mat-chip>
-          } @empty {
-            <p class="warning">
-              <mat-icon>warning</mat-icon>
-              No indexer connected. Start the indexer service to enable reprocessing.
-            </p>
-          }
-        </div>
-      </section>
 
       <!-- Stats -->
       @if (stats(); as statsData) {
