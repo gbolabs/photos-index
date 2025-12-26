@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Shared.Dtos;
 
 /// <summary>
@@ -24,6 +26,7 @@ public record IndexerStatusDto
     public string? LastError { get; init; }
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IndexerState
 {
     Idle,
