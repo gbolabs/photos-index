@@ -27,16 +27,22 @@ services:
   # Traefik Reverse Proxy
   # ===================================
   traefik:
-    image: traefik:v3.2
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/traefik:${IMAGE_VERSION:-latest}
+    build:
+      context: ../traefik
+      dockerfile: Dockerfile
     container_name: photos-index-traefik
     command:
       # API and Dashboard
       - "--api.dashboard=true"
       - "--api.insecure=${TRAEFIK_DASHBOARD_INSECURE:-true}"
-      # Docker provider
+      # Docker provider (for auxiliary services like RabbitMQ, Grafana, etc.)
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=photos-network"
+      # File provider (for main app routing - API, Web, Hubs)
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
       # Entrypoints
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
@@ -64,6 +70,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
+      # Dynamic config is bundled in the image (see deploy/traefik/Dockerfile)
     networks:
       - photos-network
     restart: unless-stopped
@@ -341,28 +348,8 @@ services:
       timeout: 10s
       retries: 3
     labels:
-      - "traefik.enable=true"
-      # Swagger router - handles /api/swagger/* requests
-      - "traefik.http.routers.api-swagger.rule=PathPrefix(`/api/swagger`)"
-      - "traefik.http.routers.api-swagger.entrypoints=web"
-      - "traefik.http.routers.api-swagger.priority=110"
-      - "traefik.http.routers.api-swagger.service=api"
-      # SignalR hubs router - handles /hubs/* requests (WebSocket)
-      - "traefik.http.routers.api-hubs.rule=PathPrefix(`/hubs`)"
-      - "traefik.http.routers.api-hubs.entrypoints=web"
-      - "traefik.http.routers.api-hubs.priority=105"
-      - "traefik.http.routers.api-hubs.service=api"
-      # API router - handles /api/* requests
-      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.api.entrypoints=web"
-      - "traefik.http.routers.api.priority=100"
-      # Service configuration
-      - "traefik.http.services.api.loadbalancer.server.port=8080"
-      # HTTPS router (when SSL enabled)
-      # - "traefik.http.routers.api-secure.rule=PathPrefix(`/api`)"
-      # - "traefik.http.routers.api-secure.entrypoints=websecure"
-      # - "traefik.http.routers.api-secure.tls.certresolver=letsencrypt"
-      # - "traefik.http.routers.api-secure.service=api"
+      # API routing is defined in deploy/traefik/dynamic-compose.yml
+      - "traefik.enable=false"
 
   indexing-service:
     image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/indexing-service:${IMAGE_VERSION:-latest}
@@ -520,18 +507,8 @@ services:
       - photos-network
     restart: unless-stopped
     labels:
-      - "traefik.enable=true"
-      # Web router - handles all requests except /api/*
-      - "traefik.http.routers.web.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.web.entrypoints=web"
-      - "traefik.http.routers.web.priority=1"
-      # Service configuration
-      - "traefik.http.services.web.loadbalancer.server.port=80"
-      # HTTPS router (when SSL enabled)
-      # - "traefik.http.routers.web-secure.rule=PathPrefix(`/`)"
-      # - "traefik.http.routers.web-secure.entrypoints=websecure"
-      # - "traefik.http.routers.web-secure.tls.certresolver=letsencrypt"
-      # - "traefik.http.routers.web-secure.priority=1"
+      # Web routing is defined in deploy/traefik/dynamic-compose.yml
+      - "traefik.enable=false"
 
 configs:
   loki_config:

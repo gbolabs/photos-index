@@ -1,5 +1,5 @@
-# Traefik Dynamic Configuration for Podman/Kubernetes
-# Services use localhost since all containers run in the same pod
+# Traefik Dynamic Configuration for Docker Compose
+# Services use Docker network DNS names (container names)
 
 http:
   routers:
@@ -55,15 +55,14 @@ http:
     minio-thumbnails:
       loadBalancer:
         servers:
-          - url: "http://localhost:9000/thumbnails"
+          - url: "http://minio:9000/thumbnails"
 
     api:
       loadBalancer:
         servers:
-          - url: "http://localhost:5080"
+          - url: "http://api:8080"
 
     web:
       loadBalancer:
         servers:
-          # nginx in web container listens on port 80, mapped to 8090 in pod
-          - url: "http://localhost:8090"
+          - url: "http://web:80"
