@@ -46,4 +46,23 @@ public class IndexersController : ControllerBase
         await _hubContext.Clients.All.SendAsync("RequestStatus");
         return Ok();
     }
+
+    /// <summary>
+    /// Trigger an immediate scan on all connected indexers.
+    /// </summary>
+    /// <param name="directoryId">Optional directory ID to scan only that directory.</param>
+    [HttpPost("scan")]
+    public async Task<ActionResult<ScanTriggerResult>> TriggerScan([FromQuery] Guid? directoryId = null)
+    {
+        var connectedCount = IndexerHub.GetConnectedIndexerCount();
+        if (connectedCount == 0)
+        {
+            return BadRequest(new ScanTriggerResult(false, "No indexers connected"));
+        }
+
+        await _hubContext.Clients.All.SendAsync("StartScan", directoryId);
+        return Ok(new ScanTriggerResult(true, $"Scan triggered on {connectedCount} indexer(s)"));
+    }
 }
+
+public record ScanTriggerResult(bool Success, string Message);

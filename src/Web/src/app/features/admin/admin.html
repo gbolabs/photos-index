@@ -2,8 +2,18 @@
   <!-- Indexers Card -->
   <mat-card class="indexers-card">
     <mat-card-header>
-      <mat-card-title>Connected Indexers</mat-card-title>
-      <mat-card-subtitle>Real-time status of indexer services</mat-card-subtitle>
+      <div class="header-content">
+        <div>
+          <mat-card-title>Connected Indexers</mat-card-title>
+          <mat-card-subtitle>Real-time status of indexer services</mat-card-subtitle>
+        </div>
+        <button mat-raised-button color="primary"
+                [disabled]="!hasIndexer()"
+                (click)="scanNow()">
+          <mat-icon>play_arrow</mat-icon>
+          Scan Now
+        </button>
+      </div>
     </mat-card-header>
 
     <mat-card-content>

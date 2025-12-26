@@ -18,6 +18,7 @@ public class SignalRClientService : ISignalRClientService
     private readonly HubConnection _hubConnection;
     private readonly IPhotosApiClient _apiClient;
     private readonly IIndexerStatusService _statusService;
+    private readonly IScanTriggerService _scanTrigger;
     private readonly ILogger<SignalRClientService> _logger;
     private readonly string _hostname;
     private Timer? _heartbeatTimer;
@@ -27,11 +28,13 @@ public class SignalRClientService : ISignalRClientService
     public SignalRClientService(
         IPhotosApiClient apiClient,
         IIndexerStatusService statusService,
+        IScanTriggerService scanTrigger,
         IOptions<IndexingOptions> options,
         ILogger<SignalRClientService> logger)
     {
         _apiClient = apiClient;
         _statusService = statusService;
+        _scanTrigger = scanTrigger;
         _logger = logger;
         _hostname = Environment.MachineName;
 
@@ -54,6 +57,7 @@ public class SignalRClientService : ISignalRClientService
         _hubConnection.On<Guid, string>("ReprocessFile", HandleReprocessFileAsync);
         _hubConnection.On<IEnumerable<ReprocessRequest>>("ReprocessFiles", HandleReprocessFilesAsync);
         _hubConnection.On("RequestStatus", HandleStatusRequestAsync);
+        _hubConnection.On<Guid?>("StartScan", HandleStartScanAsync);
 
         _hubConnection.Reconnecting += error =>
         {
@@ -134,6 +138,14 @@ public class SignalRClientService : ISignalRClientService
     {
         _logger.LogDebug("Received status request from hub");
         await SendStatusAsync();
+    }
+
+    private Task HandleStartScanAsync(Guid? directoryId)
+    {
+        _logger.LogInformation("Received StartScan command from hub: DirectoryId={DirectoryId}",
+            directoryId?.ToString() ?? "all");
+        _scanTrigger.TriggerScan(directoryId);
+        return Task.CompletedTask;
     }
 
     private async Task HandleReprocessFileAsync(Guid fileId, string filePath)

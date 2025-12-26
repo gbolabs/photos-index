@@ -127,6 +127,32 @@ public class IndexerHub : Hub
         await Clients.All.SendAsync("RequestStatus");
     }
 
+    /// <summary>
+    /// Trigger a scan on all connected indexers or a specific one
+    /// </summary>
+    public async Task TriggerScan(Guid? directoryId = null)
+    {
+        _logger.LogInformation("Triggering scan: DirectoryId={DirectoryId}", directoryId?.ToString() ?? "all");
+        await Clients.All.SendAsync("StartScan", directoryId);
+        await Clients.Group("ui").SendAsync("ScanTriggered", directoryId);
+    }
+
+    /// <summary>
+    /// Called by Indexer to report scan progress
+    /// </summary>
+    public async Task ReportScanProgress(string directoryPath, int filesProcessed, int filesTotal)
+    {
+        await Clients.Group("ui").SendAsync("ScanProgress", directoryPath, filesProcessed, filesTotal);
+    }
+
+    /// <summary>
+    /// Called by Indexer to report scan completion
+    /// </summary>
+    public async Task ReportScanComplete(string directoryPath, int filesScanned, int filesIngested, int filesFailed)
+    {
+        await Clients.Group("ui").SendAsync("ScanComplete", directoryPath, filesScanned, filesIngested, filesFailed);
+    }
+
     public static IReadOnlyCollection<IndexerStatusDto> GetConnectedIndexerStatuses()
     {
         lock (_lock)

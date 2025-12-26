@@ -93,6 +93,20 @@ export class Admin implements OnInit, OnDestroy {
     }
   }
 
+  async scanNow() {
+    try {
+      const result = await firstValueFrom(this.reprocessService.triggerScan());
+      if (result.success) {
+        this.snackBar.open(result.message, 'OK', { duration: 5000 });
+      } else {
+        this.snackBar.open(`Error: ${result.message}`, 'OK', { duration: 5000 });
+      }
+    } catch (error) {
+      console.error('Scan trigger error:', error);
+      this.snackBar.open('Failed to trigger scan', 'OK', { duration: 5000 });
+    }
+  }
+
   getStateIcon(state: IndexerState): string {
     switch (state) {
       case 'Idle': return 'check_circle';

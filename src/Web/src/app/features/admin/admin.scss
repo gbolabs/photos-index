@@ -7,6 +7,14 @@
   gap: 16px;
 }
 
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  gap: 16px;
+}
+
 section {
   margin-bottom: 24px;
 }

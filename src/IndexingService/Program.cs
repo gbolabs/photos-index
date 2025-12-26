@@ -55,6 +55,9 @@ builder.Services.AddHttpClient<IPhotosApiClient, PhotosApiClient>(client =>
 // Add indexer status tracking
 builder.Services.AddSingleton<IIndexerStatusService, IndexerStatusService>();
 
+// Add scan trigger service for manual scans
+builder.Services.AddSingleton<IScanTriggerService, ScanTriggerService>();
+
 // Add SignalR client for receiving reprocess commands from API
 builder.Services.AddSingleton<ISignalRClientService, SignalRClientService>();
 builder.Services.AddHostedService<SignalRHostedService>();

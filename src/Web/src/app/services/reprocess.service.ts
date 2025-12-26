@@ -23,6 +23,11 @@ export interface ReprocessProgress {
   error?: string;
 }
 
+export interface ScanTriggerResult {
+  success: boolean;
+  message: string;
+}
+
 export type IndexerState = 'Idle' | 'Scanning' | 'Processing' | 'Reprocessing' | 'Error' | 'Disconnected';
 
 export interface IndexerStatus {
@@ -144,6 +149,11 @@ export class ReprocessService {
 
   refreshIndexers(): Observable<void> {
     return this.http.post<void>('/api/indexers/refresh', {});
+  }
+
+  triggerScan(directoryId?: string): Observable<ScanTriggerResult> {
+    const params = directoryId ? `?directoryId=${directoryId}` : '';
+    return this.http.post<ScanTriggerResult>(`/api/indexers/scan${params}`, {});
   }
 
   reprocessFile(fileId: string): Observable<ReprocessResult> {
