@@ -347,6 +347,11 @@ services:
       - "traefik.http.routers.api-swagger.entrypoints=web"
       - "traefik.http.routers.api-swagger.priority=110"
       - "traefik.http.routers.api-swagger.service=api"
+      # SignalR hubs router - handles /hubs/* requests (WebSocket)
+      - "traefik.http.routers.api-hubs.rule=PathPrefix(`/hubs`)"
+      - "traefik.http.routers.api-hubs.entrypoints=web"
+      - "traefik.http.routers.api-hubs.priority=105"
+      - "traefik.http.routers.api-hubs.service=api"
       # API router - handles /api/* requests
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
       - "traefik.http.routers.api.entrypoints=web"

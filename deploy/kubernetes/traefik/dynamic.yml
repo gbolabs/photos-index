@@ -10,6 +10,10 @@ http:
       rule: "PathPrefix(`/api/swagger`)"
       service: api-service
       priority: 110
+    hubs-router:
+      rule: "PathPrefix(`/hubs`)"
+      service: api-service
+      priority: 105
     api-router:
       rule: "PathPrefix(`/api`)"
       service: api-service
