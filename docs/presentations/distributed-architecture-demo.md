@@ -2,39 +2,51 @@
 marp: true
 theme: default
 paginate: true
-backgroundColor: #1a1a2e
-color: #eee
+backgroundColor: #ffffff
+color: #000000
 style: |
   section {
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 24px;
   }
-  h1, h2 {
-    color: #00d4ff;
+  h1 {
+    color: #000000;
+    font-size: 1.8em;
+  }
+  h2 {
+    color: #333333;
+    font-size: 1.3em;
   }
   code {
-    background: #2d2d44;
-    color: #7dd3fc;
+    background: #f5f5f5;
+    color: #333;
+    font-size: 0.75em;
+  }
+  pre {
+    font-size: 0.7em;
   }
   table {
-    font-size: 0.8em;
+    font-size: 0.7em;
   }
-  .columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+  strong {
+    color: #000;
+  }
+  .small {
+    font-size: 0.8em;
   }
 ---
 
 # Distributed Photo Processing
+
 ## From Monolith to Message-Driven Microservices
 
-**A practical journey with .NET 10, RabbitMQ, and OpenTelemetry**
+.NET 10, RabbitMQ, OpenTelemetry
 
 ---
 
 # The Starting Point
 
-## Traditional Architecture (Sound familiar?)
+## Traditional Architecture
 
 ```
 ┌─────────────────────────────────────┐
@@ -47,10 +59,9 @@ style: |
 ```
 
 **Problems:**
-- CPU-bound tasks (image processing) block API
+- CPU-bound tasks block API
 - No horizontal scaling
 - Single point of failure
-- Hard to observe what's happening
 
 ---
 
@@ -59,12 +70,11 @@ style: |
 ## Photo Indexing at Scale
 
 - **72,000+ photos** to process
-- **Extract EXIF metadata** (CPU intensive)
-- **Generate thumbnails** (CPU intensive)
-- **Compute SHA256 hashes** (I/O intensive)
-- **Store in PostgreSQL + Object Storage**
+- Extract EXIF metadata (CPU intensive)
+- Generate thumbnails (CPU intensive)
+- Compute SHA256 hashes (I/O intensive)
 
-**Constraint:** Run on home NAS hardware (Synology + TrueNAS)
+**Constraint:** Run on home NAS hardware
 
 ---
 
@@ -82,28 +92,26 @@ style: |
                    ┌─────────────┐
                    │  RabbitMQ   │
                    └──────┬──────┘
-                          │ Fan-out
-            ┌─────────────┴─────────────┐
-            ▼                           ▼
-   ┌─────────────────┐       ┌─────────────────┐
-   │ MetadataService │       │ThumbnailService │
-   └─────────────────┘       └─────────────────┘
+         ┌────────────────┴────────────────┐
+         ▼                                 ▼
+┌─────────────────┐             ┌─────────────────┐
+│ MetadataService │             │ThumbnailService │
+└─────────────────┘             └─────────────────┘
 ```
 
 ---
 
 # Technology Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Frontend** | Angular 21 | SPA with Material Design |
-| **API** | .NET 10 / ASP.NET Core | REST API, EF Core |
-| **Messaging** | RabbitMQ + MassTransit | Async message broker |
-| **Storage** | MinIO | S3-compatible object storage |
-| **Database** | PostgreSQL | Relational data |
-| **Observability** | Jaeger + OpenTelemetry | Distributed tracing |
-| **Proxy** | Traefik | Reverse proxy, routing |
-| **Container** | Docker Compose | Orchestration |
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Angular 21 |
+| **API** | .NET 10 / ASP.NET Core |
+| **Messaging** | RabbitMQ + MassTransit |
+| **Storage** | MinIO (S3-compatible) |
+| **Database** | PostgreSQL |
+| **Observability** | Jaeger + OpenTelemetry |
+| **Proxy** | Traefik |
 
 ---
 
@@ -117,29 +125,20 @@ await _publishEndpoint.Publish(new FileDiscoveredMessage
 {
     CorrelationId = Guid.NewGuid(),
     IndexedFileId = fileId,
-    ObjectKey = $"files/{hash}",
     FileHash = hash
 });
 ```
 
-**Benefits:**
-- Sender doesn't wait for processing
-- Retries handled automatically
-- Dead letter queues for failures
+**Benefits:** Async, automatic retries, dead letter queues
 
 ---
 
 # Key Concept #2: Fan-Out Pattern
 
-## One Message → Multiple Consumers
+## One Message, Multiple Consumers
 
 ```
 FileDiscoveredMessage
-        │
-        ▼
-   ┌─────────┐
-   │Exchange │ (fanout)
-   └────┬────┘
         │
    ┌────┴────┐
    ▼         ▼
@@ -170,24 +169,24 @@ cfg.ReceiveEndpoint("thumbnail-file-discovered", e =>
 });
 ```
 
-**Critical:** Each service needs a **unique queue name** to receive all messages.
+**Critical:** Unique queue name per service type.
 
 ---
 
 # Gotcha: Competing Consumers
 
-## What happens with same queue name?
+## Same queue name = round-robin
 
 ```
-                    → Instance1
-Publisher → Queue  → Instance2  (round-robin)
-                    → Instance3
+Publisher → Queue → Instance1
+                  → Instance2  (round-robin)
+                  → Instance3
 ```
 
-**Bug we hit:** Both services used queue name `FileDiscovered`
-→ Each file got **metadata OR thumbnail**, never both!
+**Bug:** Both services used `FileDiscovered` queue
+Each file got metadata **OR** thumbnail, never both!
 
-**Fix:** Explicit unique queue names per service type.
+**Fix:** Explicit unique queue names.
 
 ---
 
@@ -197,19 +196,14 @@ Publisher → Queue  → Instance2  (round-robin)
 
 ```
 Trace: abc123
-├── POST /api/files/ingest (Indexer → API)
+├── POST /api/files/ingest
 │   ├── PostgreSQL INSERT
 │   ├── MinIO PUT
 │   └── FileDiscoveredMessage send
-├── FileDiscovered receive (MetadataService)
-│   ├── MinIO GET
+├── FileDiscovered (MetadataService)
 │   └── MetadataExtractedMessage send
-├── FileDiscovered receive (ThumbnailService)
-│   ├── MinIO GET
-│   ├── MinIO PUT (thumbnail)
-│   └── ThumbnailGeneratedMessage send
-└── MetadataExtracted receive (API)
-    └── PostgreSQL UPDATE
+└── FileDiscovered (ThumbnailService)
+    └── ThumbnailGeneratedMessage send
 ```
 
 ---
@@ -217,54 +211,57 @@ Trace: abc123
 # Tracing: One Line of Code
 
 ```csharp
-// Program.cs - that's it!
 builder.AddPhotosIndexTelemetry("photos-index-api");
 ```
 
-**Under the hood:**
-- OpenTelemetry SDK
-- OTLP exporter to Jaeger
-- Auto-instrumentation for:
-  - ASP.NET Core
-  - EF Core / PostgreSQL
-  - HTTP clients
-  - MassTransit (propagates trace context through messages!)
+**Auto-instrumentation:**
+- ASP.NET Core
+- EF Core / PostgreSQL
+- HTTP clients
+- MassTransit (propagates trace context!)
 
 ---
 
 # Real-World Results
 
-## Resource Distribution During 72K Photo Scan
+## Resource Distribution
 
 | Resource | Synology (Indexer) | TrueNAS (Services) |
 |----------|-------------------|-------------------|
-| **CPU** | **3%** | 40-60% |
+| **CPU** | 3% | 40-60% |
 | **Memory** | 22% | 33% |
 | **Role** | Scan, hash, upload | Process, store |
-
-**Synology:** Light work (file I/O)
-**TrueNAS:** Heavy work (ImageSharp, PostgreSQL)
 
 Perfect workload distribution!
 
 ---
 
-# Trace Visualization
+# Performance on Home Hardware
 
-## 32 Spans, 5 Services, 82ms
+## 100+ files/minute on NAS boxes
 
-```
-┌──────────────────────────────────────────────────┐
-│ photos-index-traefik     ████                    │
-│ photos-index-indexer     ██████████              │
-│ photos-index-api         ████████████████        │
-│ photos-index-metadata        ████████████        │
-│ photos-index-thumbnail       ████████████        │
-└──────────────────────────────────────────────────┘
-                    Time →
-```
+| Hardware | Specs | Role |
+|----------|-------|------|
+| **Synology DS920+** | Intel J4125, 4GB RAM | Indexer |
+| **TrueNAS Mini** | Intel Xeon, 32GB RAM | Services |
+| **Network** | 1Gbps LAN | File transfer |
 
-See the **full request lifecycle** across all services in one view.
+**72,000 photos in ~12 hours** - overnight batch processing!
+
+---
+
+# What Happens Per File
+
+## Full pipeline in ~500ms
+
+1. **Indexer**: Scan, SHA256 hash, HTTP upload
+2. **API**: Store metadata, 2x MinIO upload, publish message
+3. **RabbitMQ**: Fan-out to 2 queues
+4. **MetadataService**: Download, EXIF extract, delete
+5. **ThumbnailService**: Download, resize, upload, delete
+6. **API**: Receive results, update PostgreSQL
+
+All traced end-to-end in Jaeger!
 
 ---
 
@@ -272,142 +269,108 @@ See the **full request lifecycle** across all services in one view.
 
 ## Per-Service Object Keys
 
-Each service gets **its own copy** of the source file and deletes it after processing:
-
 ```
 API uploads two copies:
-├── images/metadata/{hash}   → MetadataService reads, deletes ✅
-└── images/thumbnail/{hash}  → ThumbnailService reads, deletes ✅
+├── images/metadata/{hash}   → MetadataService deletes
+└── images/thumbnail/{hash}  → ThumbnailService deletes
 
-Result: Only thumbnails persist (huge storage savings!)
+Result: Only thumbnails persist!
 ```
 
-**Why not shared file + coordinated delete?**
-- Race conditions
-- Needs saga/state machine
-- Complex error handling
-
-**Per-service approach:** Simple, no coordination, fault-tolerant.
+**No coordination needed** - each service manages its own cleanup.
 
 ---
 
-# Infrastructure as Code
+# Future: Fan-Out Extensibility
 
-## Docker Compose (excerpt)
+## Add consumers without changing publisher
 
-```yaml
-services:
-  api:
-    image: ghcr.io/gbolabs/photos-index/api:0.3.7
-    environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
-      RabbitMQ__Host: rabbitmq
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-
-  metadata-service:
-    image: ghcr.io/gbolabs/photos-index/metadata-service:0.3.7
-    # Same RabbitMQ, different queue
 ```
+FileDiscoveredMessage
+        │
+   ┌────┴────┬────────┬────────┬────────┐
+   ▼         ▼        ▼        ▼        ▼
+Metadata  Thumbnail  Vector   Face     AI
+Service   Service    Embed    Detect   Tag
+(today)   (today)    (CLIP)   (YOLO)   (LLM)
+```
+
+**Zero code changes to API** - just deploy new consumers!
 
 ---
 
-# CI/CD: Tag → Release
+# Future Consumer Ideas
 
-```bash
-git tag v0.3.7
-git push origin v0.3.7
-```
+| Service | Technology | Purpose |
+|---------|------------|---------|
+| **VectorService** | CLIP embeddings | Semantic search |
+| **FaceService** | YOLO / InsightFace | Face detection |
+| **AITagService** | LLM (Ollama) | Auto-tagging |
+| **GeoService** | Reverse geocoding | Location names |
+| **DuplicateService** | pHash | Visual similarity |
 
-**GitHub Actions automatically:**
-1. Builds all container images (parallel)
-2. Pushes to GitHub Container Registry
-3. Creates GitHub Release
-
-```yaml
-# .github/workflows/release.yml
-on:
-  push:
-    tags: ['v*']
-```
+Each runs independently, scales independently.
 
 ---
 
 # Lessons Learned
 
-## What We Got Wrong (and Fixed)
-
 | Version | Bug | Root Cause |
 |---------|-----|------------|
-| v0.3.5 | DateTime save fails | `Kind=Unspecified` vs PostgreSQL `timestamptz` |
-| v0.3.6 | Files get metadata OR thumbnail | Competing consumers (same queue name) |
-| v0.3.7 | Synology @eaDir indexed | Missing directory exclusion filter |
-| v0.3.8 | Images bucket fills up (TB!) | Source files never deleted after processing |
+| v0.3.5 | DateTime save fails | Kind=Unspecified |
+| v0.3.6 | Metadata OR thumbnail | Competing consumers |
+| v0.3.7 | @eaDir indexed | Missing exclusion |
+| v0.3.8 | Images bucket fills up | No cleanup |
 
-**Observability made debugging easy** - Jaeger showed exactly where failures occurred.
+**Observability made debugging easy.**
 
 ---
 
 # Architecture Benefits
 
-## vs Traditional IIS Deployment
-
 | Aspect | Monolith | Distributed |
 |--------|----------|-------------|
-| **Scaling** | Vertical only | Horizontal per service |
-| **Failures** | Full outage | Partial degradation |
-| **Debugging** | Log files | Distributed traces |
-| **Deployment** | Full redeploy | Per-service updates |
-| **Resource usage** | Single machine | Spread across nodes |
+| Scaling | Vertical only | Horizontal |
+| Failures | Full outage | Partial |
+| Debugging | Log files | Traces |
+| Deployment | Full redeploy | Per-service |
 
 ---
 
 # When NOT to Use This
 
-## Complexity has a cost
-
 - **Small apps** - Monolith is fine
-- **Tight deadlines** - More moving parts = more risk
-- **Team unfamiliar** - Learning curve is real
-- **Simple CRUD** - Overkill for basic operations
+- **Tight deadlines** - More risk
+- **Team unfamiliar** - Learning curve
 
 **Use when:**
 - CPU-bound background processing
 - Need independent scaling
-- Multiple teams/services
 - Observability is critical
 
 ---
 
 # Getting Started
 
-## Minimal Message-Driven Setup
+1. `dotnet add package MassTransit.RabbitMQ`
 
-1. **Add MassTransit + RabbitMQ**
-   ```bash
-   dotnet add package MassTransit.RabbitMQ
-   ```
-
-2. **Create a message**
+2. Create a message:
    ```csharp
    public record OrderCreated { public Guid OrderId { get; init; } }
    ```
 
-3. **Publish from API, consume in worker**
+3. Publish from API, consume in worker
 
-4. **Add OpenTelemetry** for visibility
+4. Add OpenTelemetry for visibility
 
 ---
 
 # Demo Time!
 
-## Live System
-
 - **Jaeger UI:** Distributed traces
-- **RabbitMQ Management:** Queue stats
+- **RabbitMQ:** Queue stats
 - **Grafana:** Logs aggregation
-- **Web App:** Photo browser with thumbnails
+- **Web App:** Photo browser
 
 All running on two NAS boxes at home!
 
@@ -420,17 +383,13 @@ All running on two NAS boxes at home!
 - **Jaeger:** jaegertracing.io
 - **This Project:** github.com/gbolabs/photos-index
 
-## Questions?
-
 ---
 
-# Thank You!
+# Key Takeaways
 
-## Key Takeaways
-
-1. **Message-driven** decouples CPU-bound work from API
-2. **Fan-out pattern** enables parallel processing
-3. **Distributed tracing** is essential for debugging
+1. **Message-driven** decouples CPU-bound work
+2. **Fan-out** enables parallel processing
+3. **Distributed tracing** is essential
 4. **Start simple**, add complexity when needed
 
 **"Make it work, make it right, make it fast"**
