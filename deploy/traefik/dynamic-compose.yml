@@ -10,8 +10,6 @@ http:
       entryPoints:
         - web
       priority: 120
-      middlewares:
-        - thumbnails-strip-prefix
 
     # API Swagger UI
     api-swagger-router:
@@ -45,17 +43,11 @@ http:
         - web
       priority: 1
 
-  middlewares:
-    thumbnails-strip-prefix:
-      stripPrefix:
-        prefixes:
-          - "/thumbnails"
-
   services:
     minio-thumbnails:
       loadBalancer:
         servers:
-          - url: "http://minio:9000/thumbnails"
+          - url: "http://minio:9000"
 
     api:
       loadBalancer:
