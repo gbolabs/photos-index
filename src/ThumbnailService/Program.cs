@@ -1,4 +1,5 @@
-using HeyRed.ImageSharp.Heif;
+using HeyRed.ImageSharp.Heif.Formats.Avif;
+using HeyRed.ImageSharp.Heif.Formats.Heif;
 using MassTransit;
 using Minio;
 using Shared.Extensions;
@@ -6,8 +7,9 @@ using Shared.Storage;
 using SixLabors.ImageSharp;
 using ThumbnailService;
 
-// Register HEIF/HEIC decoder with ImageSharp
+// Register HEIC/HEIF and AVIF decoders for Apple photos
 Configuration.Default.Configure(new HeifConfigurationModule());
+Configuration.Default.Configure(new AvifConfigurationModule());
 
 var builder = Host.CreateApplicationBuilder(args);
 
