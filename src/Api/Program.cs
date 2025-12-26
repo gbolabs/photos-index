@@ -1,4 +1,5 @@
 using Api.Consumers;
+using Api.Hubs;
 using Api.Middleware;
 using Api.Services;
 using Database;
@@ -18,6 +19,9 @@ builder.AddPhotosIndexTelemetry("photos-index-api");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add SignalR for real-time communication with indexers
+builder.Services.AddSignalR();
 
 // Add DbContext - connection string will be configured in appsettings.json
 builder.Services.AddDbContext<PhotosDbContext>(options =>
@@ -72,6 +76,7 @@ builder.Services.AddScoped<IOriginalSelectionService, OriginalSelectionService>(
 builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 builder.Services.AddScoped<IFileIngestService, FileIngestService>();
+builder.Services.AddScoped<IReprocessService, ReprocessService>();
 
 var app = builder.Build();
 
@@ -171,6 +176,9 @@ app.UseHttpsRedirection();
 
 // Map controllers
 app.MapControllers();
+
+// Map SignalR hub for indexer communication
+app.MapHub<IndexerHub>("/hubs/indexer");
 
 // Health check endpoint with version info
 app.MapGet("/health", (IBuildInfoService buildInfo) =>

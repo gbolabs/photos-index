@@ -1,0 +1,96 @@
+<div class="admin-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Reprocess Files</mat-card-title>
+      <mat-card-subtitle>Re-trigger processing for failed or missing files</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <!-- Indexer Status -->
+      <section class="indexer-status">
+        <h3>Connected Indexers</h3>
+        <div class="indexers">
+          @for (indexer of indexers(); track indexer.indexerId) {
+            <mat-chip color="primary" highlighted>
+              <mat-icon>dns</mat-icon>
+              {{ indexer.hostname }}
+            </mat-chip>
+          } @empty {
+            <p class="warning">
+              <mat-icon>warning</mat-icon>
+              No indexer connected. Start the indexer service to enable reprocessing.
+            </p>
+          }
+        </div>
+      </section>
+
+      <!-- Stats -->
+      @if (stats(); as statsData) {
+        <section class="stats">
+          <h3>Files Needing Reprocessing</h3>
+          <div class="stat-grid">
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.missingMetadata }}</span>
+              <span class="stat-label">Missing Metadata</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.missingThumbnail }}</span>
+              <span class="stat-label">Missing Thumbnail</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.heicUnprocessed }}</span>
+              <span class="stat-label">HEIC Unprocessed</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.failed }}</span>
+              <span class="stat-label">Failed</span>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- Actions -->
+      <section class="actions">
+        <h3>Bulk Actions</h3>
+        <div class="action-buttons">
+          <button mat-raised-button
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('MissingMetadata')">
+            Reprocess Missing Metadata
+          </button>
+          <button mat-raised-button
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('MissingThumbnail')">
+            Reprocess Missing Thumbnails
+          </button>
+          <button mat-raised-button color="accent"
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('Heic')">
+            Reprocess HEIC Files
+          </button>
+          <button mat-raised-button color="warn"
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('Failed')">
+            Retry Failed Files
+          </button>
+        </div>
+      </section>
+
+      <!-- Progress -->
+      @if (processing()) {
+        <section class="progress">
+          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          <p>Processing {{ queuedCount() }} files...</p>
+        </section>
+      }
+
+      <!-- Refresh button -->
+      <section class="refresh">
+        <button mat-button (click)="loadStats()">
+          <mat-icon>refresh</mat-icon>
+          Refresh Stats
+        </button>
+      </section>
+    </mat-card-content>
+  </mat-card>
+</div>

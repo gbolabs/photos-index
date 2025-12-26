@@ -36,6 +36,9 @@ public class ThumbnailGeneratedConsumer : IConsumer<ThumbnailGeneratedMessage>
             return;
         }
 
+        // Always set the processing timestamp
+        file.ThumbnailProcessedAt = DateTime.UtcNow;
+
         if (!message.Success)
         {
             file.LastError = message.ErrorMessage;

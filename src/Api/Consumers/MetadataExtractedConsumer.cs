@@ -36,6 +36,9 @@ public class MetadataExtractedConsumer : IConsumer<MetadataExtractedMessage>
             return;
         }
 
+        // Always set the processing timestamp
+        file.MetadataProcessedAt = DateTime.UtcNow;
+
         if (!message.Success)
         {
             file.LastError = message.ErrorMessage;
