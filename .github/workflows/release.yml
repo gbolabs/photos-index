@@ -44,10 +44,6 @@ jobs:
             dockerfile: deploy/docker/thumbnail-service/Dockerfile
             context: .
             image: thumbnail-service
-          - name: traefik
-            dockerfile: deploy/traefik/Dockerfile
-            context: deploy/traefik
-            image: traefik
 
     steps:
       - name: Checkout code
@@ -147,7 +143,6 @@ jobs:
             Pull images from GitHub Container Registry:
 
             ```bash
-            docker pull ghcr.io/${{ github.repository }}/traefik:${{ steps.version.outputs.version }}
             docker pull ghcr.io/${{ github.repository }}/api:${{ steps.version.outputs.version }}
             docker pull ghcr.io/${{ github.repository }}/web:${{ steps.version.outputs.version }}
             docker pull ghcr.io/${{ github.repository }}/indexing-service:${{ steps.version.outputs.version }}
