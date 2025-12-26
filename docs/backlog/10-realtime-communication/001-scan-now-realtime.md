@@ -1,7 +1,7 @@
 # 001: Real-time Scan Communication
 
 **Status**: ✅ Complete
-**PR**: [#TBD](https://github.com/gbolabs/photos-index/pull/TBD)
+**PR**: [#110](https://github.com/gbolabs/photos-index/pull/110)
 **Priority**: P2 (Enhancement)
 **Agent**: A2 (Indexing Service) + A3 (Web UI)
 **Branch**: `feature/realtime-scan`
