@@ -23,6 +23,18 @@ builder.Services.AddSwaggerGen();
 // Add SignalR for real-time communication with indexers
 builder.Services.AddSignalR();
 
+// Add CORS for SignalR from web UI
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true) // Allow any origin in development
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Required for SignalR
+    });
+});
+
 // Add DbContext - connection string will be configured in appsettings.json
 builder.Services.AddDbContext<PhotosDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -160,6 +172,9 @@ if (!app.Environment.IsEnvironment("Testing"))
 
 // Add TraceId header to all responses for telemetry correlation
 app.UseTraceId();
+
+// Enable CORS for SignalR WebSocket connections
+app.UseCors();
 
 // Enable Swagger in all environments for API documentation
 app.UseSwagger(c =>
