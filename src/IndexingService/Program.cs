@@ -18,9 +18,15 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.AddPhotosIndexTelemetry("photos-index-indexer");
 
+// Configure API base URL
+var apiBaseUrl = builder.Configuration.GetValue<string>("API_BASE_URL")
+    ?? builder.Configuration.GetValue<string>("ApiBaseUrl")
+    ?? "http://localhost:5000";
+
 // Configure indexing options
 builder.Services.Configure<IndexingOptions>(options =>
 {
+    options.ApiBaseUrl = apiBaseUrl;
     options.GenerateThumbnails = builder.Configuration.GetValue<bool?>("GENERATE_THUMBNAILS")
         ?? builder.Configuration.GetValue<bool?>("GenerateThumbnails")
         ?? false; // Disabled by default for distributed processing
@@ -40,14 +46,21 @@ builder.Services.AddSingleton<IHashComputer, HashComputer>();
 builder.Services.AddSingleton<IMetadataExtractor, MetadataExtractor>();
 builder.Services.AddScoped<IIndexingOrchestrator, IndexingOrchestrator>();
 
-var apiBaseUrl = builder.Configuration.GetValue<string>("API_BASE_URL")
-    ?? builder.Configuration.GetValue<string>("ApiBaseUrl")
-    ?? "http://localhost:5000";
 builder.Services.AddHttpClient<IPhotosApiClient, PhotosApiClient>(client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
     client.Timeout = TimeSpan.FromMinutes(5);
 });
+
+// Add indexer status tracking
+builder.Services.AddSingleton<IIndexerStatusService, IndexerStatusService>();
+
+// Add scan trigger service for manual scans
+builder.Services.AddSingleton<IScanTriggerService, ScanTriggerService>();
+
+// Add SignalR client for receiving reprocess commands from API
+builder.Services.AddSingleton<ISignalRClientService, SignalRClientService>();
+builder.Services.AddHostedService<SignalRHostedService>();
 
 builder.Services.AddHostedService<Worker>();
 

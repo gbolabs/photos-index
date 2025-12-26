@@ -1,0 +1,157 @@
+<div class="admin-container">
+  <!-- Indexers Card -->
+  <mat-card class="indexers-card">
+    <mat-card-header>
+      <div class="header-content">
+        <div>
+          <mat-card-title>Connected Indexers</mat-card-title>
+          <mat-card-subtitle>Real-time status of indexer services</mat-card-subtitle>
+        </div>
+        <button mat-raised-button color="primary"
+                [disabled]="!hasIndexer()"
+                (click)="scanNow()">
+          <mat-icon>play_arrow</mat-icon>
+          Scan Now
+        </button>
+      </div>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (indexers().length === 0) {
+        <p class="warning">
+          <mat-icon>warning</mat-icon>
+          No indexer connected. Start the indexer service to enable reprocessing.
+        </p>
+      } @else {
+        <div class="indexer-list">
+          @for (indexer of indexers(); track indexer.indexerId) {
+            <div class="indexer-card" [class.active]="indexer.state !== 'Idle'">
+              <div class="indexer-header">
+                <mat-icon class="status-icon" [class]="'state-' + indexer.state.toLowerCase()">
+                  {{ getStateIcon(indexer.state) }}
+                </mat-icon>
+                <div class="indexer-info">
+                  <span class="hostname">{{ indexer.hostname }}</span>
+                  <span class="version">v{{ indexer.version || '?' }} ({{ indexer.commitHash || 'dev' }})</span>
+                </div>
+                <mat-chip [class]="'state-chip state-' + indexer.state.toLowerCase()">
+                  {{ indexer.state }}
+                </mat-chip>
+              </div>
+
+              @if (indexer.currentActivity) {
+                <div class="activity">
+                  <mat-icon>sync</mat-icon>
+                  {{ indexer.currentActivity }}
+                </div>
+              }
+
+              @if (indexer.filesTotal > 0) {
+                <div class="progress-info">
+                  <mat-progress-bar mode="determinate" [value]="(indexer.filesProcessed / indexer.filesTotal) * 100"></mat-progress-bar>
+                  <span class="progress-text">{{ indexer.filesProcessed }} / {{ indexer.filesTotal }}</span>
+                </div>
+              }
+
+              <div class="indexer-details">
+                <span><mat-icon>schedule</mat-icon> Uptime: {{ formatUptime(indexer.uptime) }}</span>
+                @if (indexer.errorCount > 0) {
+                  <span class="error-count"><mat-icon>error</mat-icon> {{ indexer.errorCount }} errors</span>
+                }
+                @if (indexer.lastScanCompleted) {
+                  <span><mat-icon>check_circle</mat-icon> Last scan: {{ formatDate(indexer.lastScanCompleted) }}</span>
+                }
+              </div>
+
+              @if (indexer.lastError) {
+                <div class="last-error">
+                  <mat-icon>error_outline</mat-icon>
+                  {{ indexer.lastError }}
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Reprocess Card -->
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Reprocess Files</mat-card-title>
+      <mat-card-subtitle>Re-trigger processing for failed or missing files</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+
+      <!-- Stats -->
+      @if (stats(); as statsData) {
+        <section class="stats">
+          <h3>Files Needing Reprocessing</h3>
+          <div class="stat-grid">
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.missingMetadata }}</span>
+              <span class="stat-label">Missing Metadata</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.missingThumbnail }}</span>
+              <span class="stat-label">Missing Thumbnail</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.heicUnprocessed }}</span>
+              <span class="stat-label">HEIC Unprocessed</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ statsData.failed }}</span>
+              <span class="stat-label">Failed</span>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- Actions -->
+      <section class="actions">
+        <h3>Bulk Actions</h3>
+        <div class="action-buttons">
+          <button mat-raised-button
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('MissingMetadata')">
+            Reprocess Missing Metadata
+          </button>
+          <button mat-raised-button
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('MissingThumbnail')">
+            Reprocess Missing Thumbnails
+          </button>
+          <button mat-raised-button color="accent"
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('Heic')">
+            Reprocess HEIC Files
+          </button>
+          <button mat-raised-button color="warn"
+                  [disabled]="!hasIndexer() || processing()"
+                  (click)="reprocess('Failed')">
+            Retry Failed Files
+          </button>
+        </div>
+      </section>
+
+      <!-- Progress -->
+      @if (processing()) {
+        <section class="progress">
+          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          <p>Processing {{ queuedCount() }} files...</p>
+        </section>
+      }
+
+      <!-- Refresh button -->
+      <section class="refresh">
+        <button mat-button (click)="loadStats()">
+          <mat-icon>refresh</mat-icon>
+          Refresh Stats
+        </button>
+      </section>
+    </mat-card-content>
+  </mat-card>
+</div>

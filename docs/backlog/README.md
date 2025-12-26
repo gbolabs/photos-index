@@ -48,6 +48,8 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `12-003` Selection Algorithm | ✅ Complete | [#74](https://github.com/gbolabs/photos-index/pull/74) | A1/A4 |
 | `12-004` Bulk Override by Pattern | 🔲 Not Started | - | A1/A4 |
 | `12-005` Cleanup History View | 🔲 Not Started | - | A1/A3/A4 |
+| `02-006` Reprocess Files Endpoint | ✅ Complete | [#110](https://github.com/gbolabs/photos-index/pull/110) | A1/A2/A4 |
+| `10-001` Real-time Scan Communication | ✅ Complete | [#110](https://github.com/gbolabs/photos-index/pull/110) | A2/A4 |
 
 **Infrastructure & Developer Experience:**
 | Task | Status | PR |

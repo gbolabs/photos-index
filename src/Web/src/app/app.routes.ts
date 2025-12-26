@@ -25,5 +25,9 @@ export const routes: Routes = [
     path: 'settings',
     loadComponent: () => import('./features/settings/settings').then(m => m.Settings)
   },
+  {
+    path: 'admin',
+    loadComponent: () => import('./features/admin/admin').then(m => m.Admin)
+  },
   { path: '**', redirectTo: '' }
 ];

@@ -69,6 +69,8 @@ services:
 
   # Traefik without OTEL tracing
   traefik:
+    ports:
+      - "80:80"
     command:
       - "--api.dashboard=true"
       - "--api.insecure=true"

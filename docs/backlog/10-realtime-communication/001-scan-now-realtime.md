@@ -1,9 +1,13 @@
 # 001: Real-time Scan Communication
 
+**Status**: ✅ Complete
+**PR**: [#110](https://github.com/gbolabs/photos-index/pull/110)
 **Priority**: P2 (Enhancement)
 **Agent**: A2 (Indexing Service) + A3 (Web UI)
 **Branch**: `feature/realtime-scan`
 **Estimated Complexity**: High
+
+> **Note**: SignalR infrastructure between API and Indexer was implemented as part of the Re-process Files feature. The "Scan Now" button and live scan progress features are still pending.
 
 ## Overview
 

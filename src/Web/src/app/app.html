@@ -28,6 +28,10 @@
         <mat-icon matListItemIcon>settings</mat-icon>
         <span matListItemTitle>Settings</span>
       </a>
+      <a mat-list-item routerLink="/admin" routerLinkActive="active-link" (click)="isMobile && drawer.close()">
+        <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+        <span matListItemTitle>Admin</span>
+      </a>
     </mat-nav-list>
   </mat-drawer>
 

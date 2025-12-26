@@ -351,6 +351,11 @@ services:
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
       - "traefik.http.routers.api.entrypoints=web"
       - "traefik.http.routers.api.priority=100"
+      # SignalR WebSocket hubs
+      - "traefik.http.routers.api-hubs.rule=PathPrefix(`/hubs`)"
+      - "traefik.http.routers.api-hubs.entrypoints=web"
+      - "traefik.http.routers.api-hubs.priority=105"
+      - "traefik.http.routers.api-hubs.service=api"
       # Service configuration
       - "traefik.http.services.api.loadbalancer.server.port=8080"
       # HTTPS router (when SSL enabled)

@@ -11,6 +11,7 @@ entryPoints:
 providers:
   file:
     filename: /etc/traefik/dynamic.yml
+    watch: true
 log:
   level: INFO
 # OpenTelemetry tracing
