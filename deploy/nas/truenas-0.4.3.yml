@@ -260,7 +260,7 @@ services:
   # ============================================================================
   api:
     container_name: photos-index-api
-    image: ghcr.io/gbolabs/photos-index/api:0.4.2
+    image: ghcr.io/gbolabs/photos-index/api:0.4.3
     depends_on:
       jaeger:
         condition: service_started
@@ -325,7 +325,7 @@ services:
   # ============================================================================
   metadata-service:
     container_name: photos-index-metadata
-    image: ghcr.io/gbolabs/photos-index/metadata-service:0.4.2
+    image: ghcr.io/gbolabs/photos-index/metadata-service:0.4.3
     labels:
       - com.centurylinklabs.watchtower.enable=true
     depends_on:
@@ -355,7 +355,7 @@ services:
   # ============================================================================
   thumbnail-service:
     container_name: photos-index-thumbnail
-    image: ghcr.io/gbolabs/photos-index/thumbnail-service:0.4.2
+    image: ghcr.io/gbolabs/photos-index/thumbnail-service:0.4.3
     labels:
       - com.centurylinklabs.watchtower.enable=true
     depends_on:
@@ -386,7 +386,7 @@ services:
   # ============================================================================
   web:
     container_name: photos-index-web
-    image: ghcr.io/gbolabs/photos-index/web:0.4.2
+    image: ghcr.io/gbolabs/photos-index/web:0.4.3
     depends_on:
       - api
     labels:

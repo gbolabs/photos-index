@@ -1,4 +1,4 @@
-# Photos Index v0.4.2 - Synology NAS (Indexer Only)
+# Photos Index v0.4.3 - Synology NAS (Indexer Only)
 #
 # This runs ONLY the indexer on Synology. All other services run on TrueNAS.
 # The indexer connects to TrueNAS API via SignalR for bidirectional communication.
@@ -9,7 +9,7 @@
 # - Excluded directories (@eaDir, #recycle, etc.) are built into the indexer
 #
 # Usage:
-#   docker compose -f synology-0.4.2.yml up -d
+#   docker compose -f synology-0.4.3.yml up -d
 
 name: photos-index-indexer
 
@@ -19,7 +19,7 @@ services:
   # ============================================================================
   indexer:
     container_name: photos-index-indexer
-    image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.2
+    image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.3
     labels:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
