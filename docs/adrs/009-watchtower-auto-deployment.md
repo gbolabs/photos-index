@@ -41,7 +41,7 @@ Add to each NAS compose file:
 ```yaml
 watchtower:
   image: containrrr/watchtower
-  container_name: watchtower
+  container_name: photos-index-watchtower
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
   environment:
@@ -49,6 +49,11 @@ watchtower:
     WATCHTOWER_CLEANUP: "true"           # Remove old images
     WATCHTOWER_INCLUDE_STOPPED: "true"   # Update stopped containers too
     WATCHTOWER_LABEL_ENABLE: "true"      # Only update labeled containers
+    WATCHTOWER_HTTP_API_METRICS: "true"  # Enable Prometheus metrics
+    WATCHTOWER_HTTP_API_TOKEN: "photos-index-metrics"
+    TZ: Europe/Zurich
+  ports:
+    - "8055:8080"
   restart: unless-stopped
 ```
 
@@ -67,6 +72,64 @@ Using `WATCHTOWER_LABEL_ENABLE: "true"` ensures only explicitly labeled containe
 - Infrastructure containers (Traefik, PostgreSQL)
 - Third-party services with their own update cycles
 
+### Monitoring with Prometheus
+
+Watchtower exposes Prometheus metrics at `/v1/metrics`. TrueNAS runs a Prometheus instance that scrapes both NAS devices:
+
+```yaml
+# Prometheus config on TrueNAS
+scrape_configs:
+  - job_name: 'watchtower-truenas'
+    metrics_path: /v1/metrics
+    bearer_token: 'photos-index-metrics'
+    static_configs:
+      - targets: ['watchtower:8080']
+        labels:
+          instance: 'truenas'
+  - job_name: 'watchtower-synology'
+    metrics_path: /v1/metrics
+    bearer_token: 'photos-index-metrics'
+    static_configs:
+      - targets: ['192.168.114.30:8055']
+        labels:
+          instance: 'synology'
+```
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       TrueNAS                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
+│  │Prometheus│──│ Grafana  │  │Watchtower│                  │
+│  └─────┬────┘  └──────────┘  └──────────┘                  │
+│        │              scrape local ↑                        │
+└────────┼────────────────────────────────────────────────────┘
+         │ scrape remote
+         ↓
+┌─────────────────────────────────────────────────────────────┐
+│                       Synology                              │
+│                    ┌──────────┐                             │
+│                    │Watchtower│ :8055                       │
+│                    └──────────┘                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Useful Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `watchtower_containers_scanned` | Total containers scanned |
+| `watchtower_containers_updated` | Containers updated in last run |
+| `watchtower_scan_skipped` | Scans skipped (e.g., already running) |
+
+#### Access Points
+
+| Service | URL |
+|---------|-----|
+| Prometheus UI | `https://tn.isago.ch:8053/prometheus` |
+| Grafana | `https://tn.isago.ch:8053/grafana` |
+
 ## Consequences
 
 ### Positive
@@ -77,6 +140,7 @@ Using `WATCHTOWER_LABEL_ENABLE: "true"` ensures only explicitly labeled containe
 - **Automatic cleanup**: Old images removed to save disk space
 - **Graceful restarts**: Containers recreated with same configuration
 - **Private registry support**: Works with GHCR authentication
+- **Observable**: Prometheus metrics for monitoring update status across all NAS devices
 
 ### Negative
 
