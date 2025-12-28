@@ -4,7 +4,7 @@
 #   Development (local build): docker compose up -d --build
 #   Production (ghcr.io):      docker compose up -d
 #
-# Set IMAGE_VERSION in .env to use specific release (default: latest)
+# Set IMAGE_VERSION in .env to use specific release (default: 0 for Watchtower auto-updates)
 #
 # IMPORTANT: Volume Permissions for Observability Stack
 # =====================================================
@@ -76,6 +76,38 @@ services:
       - "traefik.http.routers.traefik-dashboard.service=api@internal"
       - "traefik.http.routers.traefik-dashboard.middlewares=traefik-strip-prefix"
       - "traefik.http.middlewares.traefik-strip-prefix.stripprefix.prefixes=/traefik"
+
+  # ===================================
+  # Watchtower (Auto-Update)
+  # ===================================
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: photos-index-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300}
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_INCLUDE_RESTARTING=false
+      - WATCHTOWER_HTTP_API_UPDATE=true
+      - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_API_TOKEN:-watchtower-token}
+      - WATCHTOWER_HTTP_API_METRICS=true
+    ports:
+      - "${WATCHTOWER_PORT:-8082}:8080"
+    networks:
+      - photos-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.watchtower.rule=PathPrefix(`/watchtower`)"
+      - "traefik.http.routers.watchtower.entrypoints=web"
+      - "traefik.http.routers.watchtower.priority=110"
+      - "traefik.http.routers.watchtower.middlewares=watchtower-strip-prefix"
+      - "traefik.http.middlewares.watchtower-strip-prefix.stripprefix.prefixes=/watchtower"
+      - "traefik.http.services.watchtower.loadbalancer.server.port=8080"
 
   # ===================================
   # PostgreSQL Database
@@ -302,7 +334,7 @@ services:
   # API Service
   # ===================================
   api:
-    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/api:${IMAGE_VERSION:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/api:${IMAGE_VERSION:-0}
     build:
       context: ../../
       dockerfile: deploy/docker/api/Dockerfile
@@ -369,9 +401,11 @@ services:
       # - "traefik.http.routers.api-secure.entrypoints=websecure"
       # - "traefik.http.routers.api-secure.tls.certresolver=letsencrypt"
       # - "traefik.http.routers.api-secure.service=api"
+      # Watchtower auto-update
+      - "com.centurylinklabs.watchtower.enable=true"
 
   indexing-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/indexing-service:${IMAGE_VERSION:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/indexing-service:${IMAGE_VERSION:-0}
     build:
       context: ../../
       dockerfile: deploy/docker/indexing-service/Dockerfile
@@ -399,9 +433,11 @@ services:
     networks:
       - photos-network
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   cleaner-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/cleaner-service:${IMAGE_VERSION:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/cleaner-service:${IMAGE_VERSION:-0}
     build:
       context: ../../
       dockerfile: deploy/docker/cleaner-service/Dockerfile
@@ -430,12 +466,14 @@ services:
     networks:
       - photos-network
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   # ===================================
   # Metadata Service (EXIF extraction)
   # ===================================
   metadata-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/metadata-service:${IMAGE_VERSION:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/metadata-service:${IMAGE_VERSION:-0}
     build:
       context: ../../
       dockerfile: deploy/docker/metadata-service/Dockerfile
@@ -466,12 +504,14 @@ services:
     networks:
       - photos-network
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   # ===================================
   # Thumbnail Service (Image resizing)
   # ===================================
   thumbnail-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/thumbnail-service:${IMAGE_VERSION:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/thumbnail-service:${IMAGE_VERSION:-0}
     build:
       context: ../../
       dockerfile: deploy/docker/thumbnail-service/Dockerfile
@@ -503,12 +543,14 @@ services:
     networks:
       - photos-network
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   # ===================================
   # Web Interface (Angular + nginx)
   # ===================================
   web:
-    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/web:${IMAGE_VERSION:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/web:${IMAGE_VERSION:-0}
     build:
       context: ../../
       dockerfile: deploy/docker/web/Dockerfile
@@ -538,6 +580,8 @@ services:
       # - "traefik.http.routers.web-secure.entrypoints=websecure"
       # - "traefik.http.routers.web-secure.tls.certresolver=letsencrypt"
       # - "traefik.http.routers.web-secure.priority=1"
+      # Watchtower auto-update
+      - "com.centurylinklabs.watchtower.enable=true"
 
 configs:
   loki_config:
@@ -700,6 +744,7 @@ configs:
               .rabbitmq .card-icon { background: linear-gradient(135deg, #ff6600, #ff8533); }
               .minio .card-icon { background: linear-gradient(135deg, #c72c48, #e91e63); }
               .traefik .card-icon { background: linear-gradient(135deg, #37abc8, #2196f3); }
+              .watchtower .card-icon { background: linear-gradient(135deg, #4caf50, #8bc34a); }
               .app .card-icon { background: linear-gradient(135deg, #7b2cbf, #9c27b0); }
               .section-title {
                   font-size: 0.9rem;
@@ -773,6 +818,14 @@ configs:
                       </div>
                       <div class="card-desc">Reverse proxy dashboard. View routes, services, and middleware.</div>
                       <div class="card-port">:8080</div>
+                  </a>
+                  <a href="/watchtower/v1/update" class="card watchtower">
+                      <div class="card-header">
+                          <div class="card-icon">🗼</div>
+                          <div class="card-title">Watchtower</div>
+                      </div>
+                      <div class="card-desc">Auto-update service. Monitors and updates container images automatically.</div>
+                      <div class="card-port">:8082</div>
                   </a>
               </div>
 
