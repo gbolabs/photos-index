@@ -19,7 +19,7 @@ services:
   # ============================================================================
   indexer:
     container_name: photos-index-indexer
-    image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.3
+    image: ghcr.io/gbolabs/photos-index/indexing-service:0
     labels:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
