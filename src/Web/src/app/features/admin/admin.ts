@@ -76,7 +76,7 @@ export class Admin implements OnInit, OnDestroy {
   async reprocess(filter: 'MissingMetadata' | 'MissingThumbnail' | 'Failed' | 'Heic') {
     this.processing.set(true);
     try {
-      const result = await firstValueFrom(this.reprocessService.reprocessByFilter(filter, 500));
+      const result = await firstValueFrom(this.reprocessService.reprocessByFilter(filter));
       if (result.success) {
         this.queuedCount.set(result.queuedCount);
         this.snackBar.open(`Queued ${result.queuedCount} files for reprocessing`, 'OK', { duration: 5000 });

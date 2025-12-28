@@ -93,10 +93,12 @@ public class ReprocessService : IReprocessService
             _ => throw new ArgumentException($"Unknown filter: {filter}")
         };
 
-        var files = await query
-            .OrderBy(f => f.IndexedAt)
-            .Take(limit ?? 1000)
-            .ToListAsync(ct);
+        // No limit by default - process all matching files
+        // The operation is async (via SignalR), so no blocking concerns
+        var filesQuery = query.OrderBy(f => f.IndexedAt);
+        var files = limit.HasValue
+            ? await filesQuery.Take(limit.Value).ToListAsync(ct)
+            : await filesQuery.ToListAsync(ct);
 
         if (files.Count == 0)
             return ReprocessResult.Queued(0);
