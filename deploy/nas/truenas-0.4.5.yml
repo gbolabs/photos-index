@@ -1,4 +1,4 @@
-# Photos Index v0.4.0 - TrueNAS (Full Stack)
+# Photos Index v0.4.5 - TrueNAS (Full Stack)
 #
 # This runs the full stack on TrueNAS:
 # - API (with SignalR hub for Indexer communication)
@@ -205,7 +205,7 @@ configs:
       <body>
           <div class="container">
               <h1>Photos Index</h1>
-              <p class="version">v0.4.1 - Distributed Processing</p>
+              <p class="version">v0.4.5 - Distributed Processing</p>
               <p class="subtitle">Observability Portal</p>
               <div class="section-title"><span class="status"></span>Observability</div>
               <div class="grid">
@@ -282,6 +282,7 @@ services:
       Minio__ImagesBucket: images
       Minio__SecretKey: minioadmin
       Minio__ThumbnailsBucket: thumbnails
+      Minio__PreviewsBucket: previews
       Minio__UseSsl: 'false'
       # RabbitMQ
       RabbitMQ__Host: rabbitmq
@@ -472,7 +473,7 @@ services:
   # ============================================================================
   minio:
     container_name: photos-index-minio
-    image: minio/minio:0
+    image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_PASSWORD: minioadmin
@@ -512,6 +513,18 @@ services:
       - traefik.http.routers.thumbnails-secure.priority=120
       - traefik.http.routers.thumbnails-secure.service=minio-thumbnails
       - traefik.http.routers.thumbnails-secure.tls=true
+      # Previews (full-size images) - HTTP
+      - traefik.http.routers.previews.rule=PathPrefix(`/previews`)
+      - traefik.http.routers.previews.entrypoints=web
+      - traefik.http.routers.previews.priority=120
+      - traefik.http.routers.previews.service=minio-previews
+      - traefik.http.services.minio-previews.loadbalancer.server.port=9000
+      # Previews (full-size images) - HTTPS
+      - traefik.http.routers.previews-secure.rule=PathPrefix(`/previews`)
+      - traefik.http.routers.previews-secure.entrypoints=websecure
+      - traefik.http.routers.previews-secure.priority=120
+      - traefik.http.routers.previews-secure.service=minio-previews
+      - traefik.http.routers.previews-secure.tls=true
     ports:
       - '9000:9000'
       - '9001:9001'
@@ -601,7 +614,7 @@ services:
   # ============================================================================
   grafana:
     container_name: photos-index-grafana
-    image: grafana/grafana:0
+    image: grafana/grafana:latest
     configs:
       - source: grafana_datasources
         target: /etc/grafana/provisioning/datasources/datasources.yaml
@@ -719,7 +732,7 @@ services:
   # ============================================================================
   prometheus:
     container_name: photos-index-prometheus
-    image: prom/prometheus:0
+    image: prom/prometheus:latest
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
