@@ -1,25 +1,241 @@
-# Photos Index - TrueNAS SCALE Custom App
+# Photos Index - TrueNAS SCALE Docker Compose
+#
+# Version: v0.4.0+ (distributed processing with SignalR)
 #
 # Deploy via: Apps > Discover Apps > Custom App > Install via YAML
+# Or: docker compose up -d
 #
 # Before deploying:
-# 1. Create datasets for PostgreSQL and thumbnails
+# 1. Create datasets for persistent data
 # 2. Set permissions:
-#    sudo chown 70:70 /mnt/<pool>/dbs/photos-index     # PostgreSQL (uid 70)
-#    sudo chown 1000:1000 /mnt/<pool>/apps/photos-index # Thumbnails (uid 1000)
-# 3. Update volume paths below to match your datasets
-# 4. Change the database password!
+#    sudo chown -R 70:70 /mnt/<pool>/dbs/photos-index      # PostgreSQL (uid 70)
+#    sudo chown -R 1000:1000 /mnt/<pool>/apps/photos-index # App data
+#    sudo chown -R 472:472 /mnt/<pool>/apps/photos-index/grafana # Grafana
+#    sudo chown -R 10001:10001 /mnt/<pool>/apps/photos-index/jaeger # Jaeger
+#    sudo chown -R 10001:10001 /mnt/<pool>/apps/photos-index/loki # Loki
 #
-# Access points:
-# - Web UI:  http://truenas:8050
-# - API:     http://truenas:8050/api/
-# - Aspire:  http://truenas:8052
-# - Traefik: http://truenas:8054
-# - OTLP:    http://truenas:8053 (for Synology indexer)
+# 3. Update volume paths below to match your datasets
+# 4. Change passwords!
+#
+# Access points (default ports):
+# - Web UI:     http://truenas:8050
+# - API:        http://truenas:8050/api/
+# - SignalR:    http://truenas:8050/hubs/indexer (WebSocket)
+# - Swagger:    http://truenas:8050/api/swagger
+# - Traefik:    http://truenas:8050/traefik/
+# - Jaeger:     http://truenas:8050/jaeger/
+# - Grafana:    http://truenas:8050/grafana/
+# - RabbitMQ:   http://truenas:8050/rabbitmq/ (or :5672 for AMQP)
+# - MinIO:      http://truenas:8050/minio/ (or :9000/:9001 direct)
+# - Obs Portal: http://truenas:8050/obs/
 
 name: photos-index
 
+configs:
+  grafana_datasources:
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Jaeger
+          type: jaeger
+          uid: jaeger
+          access: proxy
+          url: http://jaeger:16686
+          isDefault: false
+        - name: Loki
+          type: loki
+          uid: loki
+          access: proxy
+          url: http://loki:3100
+          isDefault: true
+          jsonData:
+            derivedFields:
+              - name: TraceID
+                matcherRegex: '"traceId":"([a-f0-9]+)"'
+                url: '${__value.raw}'
+                datasourceUid: jaeger
+
+  loki_config:
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+        grpc_listen_port: 9096
+      common:
+        instance_addr: 127.0.0.1
+        path_prefix: /loki
+        storage:
+          filesystem:
+            chunks_directory: /loki/chunks
+            rules_directory: /loki/rules
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+      query_range:
+        results_cache:
+          cache:
+            embedded_cache:
+              enabled: true
+              max_size_mb: 100
+      limits_config:
+        volume_enabled: true
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+
+  promtail_config:
+    content: |
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 5s
+              filters:
+                - name: name
+                  values: ["photos-index-.*"]
+          relabel_configs:
+            - source_labels: ['__meta_docker_container_name']
+              regex: '/(.*)'
+              target_label: 'container'
+            - source_labels: ['__meta_docker_container_log_stream']
+              target_label: 'stream'
+
+  obs_html:
+    content: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Photos Index - Observability Portal</title>
+          <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                  min-height: 100vh;
+                  color: #fff;
+                  padding: 2rem;
+              }
+              .container { max-width: 1200px; margin: 0 auto; }
+              h1 {
+                  text-align: center;
+                  margin-bottom: 0.5rem;
+                  font-size: 2.5rem;
+                  background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+                  -webkit-background-clip: text;
+                  -webkit-text-fill-color: transparent;
+              }
+              .subtitle { text-align: center; color: #888; margin-bottom: 3rem; }
+              .version { text-align: center; color: #4caf50; margin-bottom: 1rem; font-size: 0.9rem; }
+              .grid {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                  gap: 1.5rem;
+              }
+              .card {
+                  background: rgba(255,255,255,0.05);
+                  border: 1px solid rgba(255,255,255,0.1);
+                  border-radius: 16px;
+                  padding: 1.5rem;
+                  transition: transform 0.2s, box-shadow 0.2s;
+                  text-decoration: none;
+                  color: inherit;
+                  display: block;
+              }
+              .card:hover {
+                  transform: translateY(-4px);
+                  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+                  border-color: rgba(255,255,255,0.2);
+              }
+              .card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+              .card-icon {
+                  width: 48px; height: 48px; border-radius: 12px;
+                  display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+              }
+              .card-title { font-size: 1.25rem; font-weight: 600; }
+              .card-desc { color: #aaa; font-size: 0.9rem; line-height: 1.5; }
+              .grafana .card-icon { background: linear-gradient(135deg, #f46800, #f9b233); }
+              .jaeger .card-icon { background: linear-gradient(135deg, #00bcd4, #0097a7); }
+              .rabbitmq .card-icon { background: linear-gradient(135deg, #ff6600, #ff8533); }
+              .minio .card-icon { background: linear-gradient(135deg, #c72c48, #e91e63); }
+              .traefik .card-icon { background: linear-gradient(135deg, #37abc8, #2196f3); }
+              .app .card-icon { background: linear-gradient(135deg, #7b2cbf, #9c27b0); }
+              .section-title {
+                  font-size: 0.9rem; text-transform: uppercase;
+                  letter-spacing: 2px; color: #666; margin: 2rem 0 1rem;
+              }
+              .status {
+                  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+                  background: #4caf50; margin-right: 0.5rem; animation: pulse 2s infinite;
+              }
+              @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h1>Photos Index</h1>
+              <p class="version">v0.4.0 - SignalR + Distributed Processing</p>
+              <p class="subtitle">Observability Portal</p>
+              <div class="section-title"><span class="status"></span>Observability</div>
+              <div class="grid">
+                  <a href="/grafana/" class="card grafana">
+                      <div class="card-header"><div class="card-icon">📊</div><div class="card-title">Grafana</div></div>
+                      <div class="card-desc">Unified dashboard for logs and traces.</div>
+                  </a>
+                  <a href="/jaeger/" class="card jaeger">
+                      <div class="card-header"><div class="card-icon">🔍</div><div class="card-title">Jaeger</div></div>
+                      <div class="card-desc">Distributed tracing. View request flows.</div>
+                  </a>
+              </div>
+              <div class="section-title"><span class="status"></span>Infrastructure</div>
+              <div class="grid">
+                  <a href="/rabbitmq/" class="card rabbitmq">
+                      <div class="card-header"><div class="card-icon">🐰</div><div class="card-title">RabbitMQ</div></div>
+                      <div class="card-desc">Message broker management.</div>
+                  </a>
+                  <a href="/minio/" class="card minio">
+                      <div class="card-header"><div class="card-icon">🪣</div><div class="card-title">MinIO</div></div>
+                      <div class="card-desc">Object storage console.</div>
+                  </a>
+                  <a href="/traefik/" class="card traefik">
+                      <div class="card-header"><div class="card-icon">🔀</div><div class="card-title">Traefik</div></div>
+                      <div class="card-desc">Reverse proxy dashboard.</div>
+                  </a>
+              </div>
+              <div class="section-title"><span class="status"></span>Application</div>
+              <div class="grid">
+                  <a href="/" class="card app">
+                      <div class="card-header"><div class="card-icon">📷</div><div class="card-title">Photos Index</div></div>
+                      <div class="card-desc">Main application.</div>
+                  </a>
+                  <a href="/api/swagger" class="card app">
+                      <div class="card-header"><div class="card-icon">📚</div><div class="card-title">API Docs</div></div>
+                      <div class="card-desc">Swagger documentation.</div>
+                  </a>
+              </div>
+          </div>
+      </body>
+      </html>
+
 services:
+  # ===================================
+  # Traefik Reverse Proxy
+  # ===================================
   traefik:
     image: traefik:v3.2
     container_name: photos-index-traefik
@@ -29,56 +245,270 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--tracing=true"
+      - "--tracing.otlp=true"
+      - "--tracing.otlp.grpc.endpoint=jaeger:4317"
+      - "--tracing.otlp.grpc.insecure=true"
+      - "--tracing.serviceName=photos-index-traefik"
     ports:
-      - "8050:80"
-      - "8054:8080"
+      - "${TRAEFIK_HTTP_PORT:-8050}:80"
+      - "${TRAEFIK_DASHBOARD_PORT:-8054}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-dashboard.rule=PathPrefix(`/traefik`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=web"
+      - "traefik.http.routers.traefik-dashboard.priority=110"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-strip-prefix"
+      - "traefik.http.middlewares.traefik-strip-prefix.stripprefix.prefixes=/traefik"
 
+  # ===================================
+  # PostgreSQL Database
+  # ===================================
   postgres:
     image: postgres:16-alpine
     container_name: photos-index-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: photosindex
-      POSTGRES_USER: photosindex
-      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: ${POSTGRES_DB:-photosindex}
+      POSTGRES_USER: ${POSTGRES_USER:-photosindex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
-      # UPDATE THIS PATH - PostgreSQL data (chown 70:70)
-      - /mnt/hdr1/dbs/photos-index:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_PATH:-/mnt/hdr1/dbs/photos-index}:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U photosindex -d photosindex"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-photosindex} -d ${POSTGRES_DB:-photosindex}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ===================================
+  # RabbitMQ Message Broker
+  # ===================================
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: photos-index-rabbitmq
+    restart: unless-stopped
+    command: >
+      /bin/sh -c "echo '[rabbitmq_management,rabbitmq_prometheus,rabbitmq_opentelemetry].' > /etc/rabbitmq/enabled_plugins && exec docker-entrypoint.sh rabbitmq-server"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-photos}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-photos}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: rabbitmq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rabbitmq.rule=PathPrefix(`/rabbitmq`)"
+      - "traefik.http.routers.rabbitmq.entrypoints=web"
+      - "traefik.http.routers.rabbitmq.priority=110"
+      - "traefik.http.routers.rabbitmq.middlewares=rabbitmq-strip-prefix"
+      - "traefik.http.middlewares.rabbitmq-strip-prefix.stripprefix.prefixes=/rabbitmq"
+      - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
+
+  # ===================================
+  # MinIO Object Storage
+  # ===================================
+  minio:
+    image: minio/minio:latest
+    container_name: photos-index-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-http://localhost:8050/minio/}
+    volumes:
+      - ${MINIO_DATA_PATH:-/mnt/hdr1/apps/photos-index/minio}:/data
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=true"
+      # MinIO Console
+      - "traefik.http.routers.minio-console.rule=PathPrefix(`/minio`)"
+      - "traefik.http.routers.minio-console.entrypoints=web"
+      - "traefik.http.routers.minio-console.priority=110"
+      - "traefik.http.routers.minio-console.service=minio-console"
+      - "traefik.http.routers.minio-console.middlewares=minio-strip-prefix"
+      - "traefik.http.middlewares.minio-strip-prefix.stripprefix.prefixes=/minio"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+      # Thumbnails direct access
+      - "traefik.http.routers.thumbnails.rule=PathPrefix(`/thumbnails`)"
+      - "traefik.http.routers.thumbnails.entrypoints=web"
+      - "traefik.http.routers.thumbnails.priority=120"
+      - "traefik.http.routers.thumbnails.service=minio-thumbnails"
+      - "traefik.http.services.minio-thumbnails.loadbalancer.server.port=9000"
+
+  # ===================================
+  # Jaeger (Distributed Tracing)
+  # ===================================
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: photos-index-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: "false"
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+      QUERY_BASE_PATH: /jaeger
+    volumes:
+      - ${JAEGER_DATA_PATH:-/mnt/hdr1/apps/photos-index/jaeger}:/badger
+    ports:
+      - "${JAEGER_OTLP_PORT:-4317}:4317"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jaeger.rule=PathPrefix(`/jaeger`)"
+      - "traefik.http.routers.jaeger.entrypoints=web"
+      - "traefik.http.routers.jaeger.priority=110"
+      - "traefik.http.services.jaeger.loadbalancer.server.port=16686"
+
+  # ===================================
+  # Loki (Log Aggregation)
+  # ===================================
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: photos-index-loki
+    restart: unless-stopped
+    command: "-config.file=/etc/loki/config.yaml"
+    configs:
+      - source: loki_config
+        target: /etc/loki/config.yaml
+    volumes:
+      - ${LOKI_DATA_PATH:-/mnt/hdr1/apps/photos-index/loki}:/loki
+
+  # ===================================
+  # Promtail (Log Collector)
+  # ===================================
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: photos-index-promtail
+    restart: unless-stopped
+    command: "-config.file=/etc/promtail/config.yml -config.expand-env=true"
+    configs:
+      - source: promtail_config
+        target: /etc/promtail/config.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+
+  # ===================================
+  # Grafana (Unified Dashboard)
+  # ===================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: photos-index-grafana
+    restart: unless-stopped
+    environment:
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    configs:
+      - source: grafana_datasources
+        target: /etc/grafana/provisioning/datasources/datasources.yaml
+    volumes:
+      - ${GRAFANA_DATA_PATH:-/mnt/hdr1/apps/photos-index/grafana}:/var/lib/grafana
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=PathPrefix(`/grafana`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.routers.grafana.priority=110"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  # ===================================
+  # Observability Portal
+  # ===================================
+  obs-portal:
+    image: nginx:alpine
+    container_name: photos-index-obs-portal
+    restart: unless-stopped
+    configs:
+      - source: obs_html
+        target: /usr/share/nginx/html/index.html
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.obs.rule=PathPrefix(`/obs`)"
+      - "traefik.http.routers.obs.entrypoints=web"
+      - "traefik.http.routers.obs.priority=110"
+      - "traefik.http.routers.obs.middlewares=obs-strip-prefix"
+      - "traefik.http.middlewares.obs-strip-prefix.stripprefix.prefixes=/obs"
+      - "traefik.http.services.obs.loadbalancer.server.port=80"
+
+  # ===================================
+  # API Service
+  # ===================================
   api:
-    image: ghcr.io/gbolabs/photos-index/api:${IMAGE_VERSION:-0.0.1}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/api:${IMAGE_VERSION:-latest}
     container_name: photos-index-api
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       ASPNETCORE_URLS: "http://+:8080"
-      ASPNETCORE_ENVIRONMENT: "Development"
-      ASPNETCORE_HTTPS_PORTS: ""
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=photosindex;Username=photosindex;Password=changeme"
-      ThumbnailDirectory: /data/thumbnails
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire:18889"
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-photosindex};Username=${POSTGRES_USER:-photosindex};Password=${POSTGRES_PASSWORD:-changeme}"
+      # RabbitMQ
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-photos}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-photos}
+      # MinIO
+      Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER:-minioadmin}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      Minio__UseSsl: "false"
+      Minio__ImagesBucket: images
+      Minio__ThumbnailsBucket: thumbnails
+      # Telemetry
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: photos-index-api
-    volumes:
-      # UPDATE THIS PATH - Thumbnails (chown 1000:1000)
-      - /mnt/hdr1/apps/photos-index:/data/thumbnails
+      # SignalR
+      SignalR__EnableDetailedErrors: "true"
     labels:
       - "traefik.enable=true"
+      # API routes
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
       - "traefik.http.routers.api.entrypoints=web"
       - "traefik.http.routers.api.priority=100"
       - "traefik.http.services.api.loadbalancer.server.port=8080"
+      # SignalR WebSocket hubs
+      - "traefik.http.routers.signalr.rule=PathPrefix(`/hubs`)"
+      - "traefik.http.routers.signalr.entrypoints=web"
+      - "traefik.http.routers.signalr.priority=110"
+      - "traefik.http.routers.signalr.service=api"
 
+  # ===================================
+  # Web Interface
+  # ===================================
   web:
-    image: ghcr.io/gbolabs/photos-index/web:${IMAGE_VERSION:-0.0.1}
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/web:${IMAGE_VERSION:-latest}
     container_name: photos-index-web
     restart: unless-stopped
     depends_on:
@@ -90,14 +520,63 @@ services:
       - "traefik.http.routers.web.priority=1"
       - "traefik.http.services.web.loadbalancer.server.port=80"
 
-  aspire:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
-    container_name: photos-index-aspire
+  # ===================================
+  # Metadata Service (EXIF extraction)
+  # ===================================
+  metadata-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/metadata-service:${IMAGE_VERSION:-latest}
+    container_name: photos-index-metadata
     restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
-      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
-    ports:
-      # Aspire UI - direct access (doesn't work behind reverse proxy)
-      - "8052:18888"
-      # OTLP receiver - for Synology indexer telemetry
-      - "8053:18889"
+      DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-photos}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-photos}
+      Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER:-minioadmin}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      Minio__UseSsl: "false"
+      Minio__ImagesBucket: images
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: photos-index-metadata
+
+  # ===================================
+  # Thumbnail Service (Image resizing)
+  # ===================================
+  thumbnail-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/gbolabs/photos-index}/thumbnail-service:${IMAGE_VERSION:-latest}
+    container_name: photos-index-thumbnail
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    environment:
+      DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-photos}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-photos}
+      Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER:-minioadmin}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      Minio__UseSsl: "false"
+      Minio__ImagesBucket: images
+      Minio__ThumbnailsBucket: thumbnails
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: photos-index-thumbnail
+
+volumes:
+  rabbitmq_data:
+    driver: local
