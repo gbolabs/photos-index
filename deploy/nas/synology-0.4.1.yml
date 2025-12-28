@@ -21,7 +21,7 @@ services:
       - "tn.isago.ch:192.168.114.31"
     environment:
       # API connection (TrueNAS) - use HTTPS with valid certificate on port 8053
-      Indexing__ApiBaseUrl: https://tn.isago.ch:8053
+      API_BASE_URL: https://tn.isago.ch:8053
 
       # Scan directories (must match volume mounts below)
       Indexing__ScanDirectories__0__Path: /nas/public
@@ -32,8 +32,8 @@ services:
       Indexing__ScanDirectories__2__Name: Photos Collection
 
       # Distributed mode - don't process locally, send to TrueNAS
-      Indexing__ExtractMetadata: "false"
-      Indexing__GenerateThumbnails: "false"
+      EXTRACT_METADATA: "false"
+      GENERATE_THUMBNAILS: "false"
 
       # Exclude Synology system directories
       Indexing__ExcludedDirectoryNames__0: "@eaDir"
