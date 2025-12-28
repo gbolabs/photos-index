@@ -3,6 +3,7 @@ using IndexingService.Models;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Options;
 using Shared.Dtos;
+using Shared.Storage;
 
 namespace IndexingService.Services;
 
@@ -19,6 +20,8 @@ public class SignalRClientService : ISignalRClientService
     private readonly IPhotosApiClient _apiClient;
     private readonly IIndexerStatusService _statusService;
     private readonly IScanTriggerService _scanTrigger;
+    private readonly IObjectStorage _objectStorage;
+    private readonly IndexingOptions _options;
     private readonly ILogger<SignalRClientService> _logger;
     private readonly string _hostname;
     private Timer? _heartbeatTimer;
@@ -29,16 +32,19 @@ public class SignalRClientService : ISignalRClientService
         IPhotosApiClient apiClient,
         IIndexerStatusService statusService,
         IScanTriggerService scanTrigger,
+        IObjectStorage objectStorage,
         IOptions<IndexingOptions> options,
         ILogger<SignalRClientService> logger)
     {
         _apiClient = apiClient;
         _statusService = statusService;
         _scanTrigger = scanTrigger;
+        _objectStorage = objectStorage;
+        _options = options.Value;
         _logger = logger;
         _hostname = Environment.MachineName;
 
-        var baseUrl = options.Value.ApiBaseUrl.TrimEnd('/');
+        var baseUrl = _options.ApiBaseUrl.TrimEnd('/');
         var hubUrl = $"{baseUrl}/hubs/indexer?indexerId={_hostname}&hostname={_hostname}";
 
         _hubConnection = new HubConnectionBuilder()
@@ -58,6 +64,7 @@ public class SignalRClientService : ISignalRClientService
         _hubConnection.On<IEnumerable<ReprocessRequest>>("ReprocessFiles", HandleReprocessFilesAsync);
         _hubConnection.On("RequestStatus", HandleStatusRequestAsync);
         _hubConnection.On<Guid?>("StartScan", HandleStartScanAsync);
+        _hubConnection.On<Guid, string>("RequestPreview", HandleRequestPreviewAsync);
 
         _hubConnection.Reconnecting += error =>
         {
@@ -226,6 +233,76 @@ public class SignalRClientService : ISignalRClientService
         }
 
         _statusService.SetProgress(0, 0);
+    }
+
+    private async Task HandleRequestPreviewAsync(Guid fileId, string filePath)
+    {
+        _logger.LogInformation("Received preview request: {FileId} -> {Path}", fileId, filePath);
+
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("File not found for preview: {Path}", filePath);
+                await ReportPreviewFailedAsync(fileId, "File not found on disk");
+                return;
+            }
+
+            var fileInfo = new FileInfo(filePath);
+            var contentType = GetContentType(filePath);
+
+            // Generate a unique key for the preview
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            var previewKey = $"preview-{fileId}{extension}";
+
+            _logger.LogDebug("Uploading preview to MinIO: {Key}", previewKey);
+
+            // Ensure bucket exists
+            await _objectStorage.EnsureBucketExistsAsync(_options.PreviewsBucket);
+
+            // Upload the file to MinIO previews bucket
+            await using var stream = File.OpenRead(filePath);
+            await _objectStorage.UploadAsync(
+                _options.PreviewsBucket,
+                previewKey,
+                stream,
+                contentType);
+
+            // Generate the URL path for the preview (accessed via Traefik routing)
+            var previewUrl = $"/previews/{previewKey}";
+
+            _logger.LogInformation("Preview uploaded successfully: {FileId} -> {Url}", fileId, previewUrl);
+            await ReportPreviewReadyAsync(fileId, previewUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate preview for {FileId}", fileId);
+            await ReportPreviewFailedAsync(fileId, ex.Message);
+        }
+    }
+
+    private async Task ReportPreviewReadyAsync(Guid fileId, string previewUrl)
+    {
+        try
+        {
+            await _hubConnection.InvokeAsync("ReportPreviewReady", fileId, previewUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to report preview ready for {FileId}", fileId);
+        }
+    }
+
+    private async Task ReportPreviewFailedAsync(Guid fileId, string error)
+    {
+        try
+        {
+            await _hubConnection.InvokeAsync("ReportPreviewFailed", fileId, error);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to report preview failure for {FileId}", fileId);
+        }
     }
 
     private async Task ReportProgressAsync(Guid fileId, string status)

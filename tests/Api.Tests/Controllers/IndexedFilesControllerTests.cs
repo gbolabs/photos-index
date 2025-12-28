@@ -1,7 +1,9 @@
 using Api.Controllers;
+using Api.Hubs;
 using Api.Services;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Shared.Dtos;
@@ -15,6 +17,7 @@ public class IndexedFilesControllerTests
 {
     private readonly Mock<IIndexedFileService> _mockService;
     private readonly Mock<IFileIngestService> _mockIngestService;
+    private readonly Mock<IHubContext<IndexerHub>> _mockHubContext;
     private readonly Mock<ILogger<IndexedFilesController>> _mockLogger;
     private readonly IndexedFilesController _controller;
 
@@ -22,8 +25,9 @@ public class IndexedFilesControllerTests
     {
         _mockService = new Mock<IIndexedFileService>();
         _mockIngestService = new Mock<IFileIngestService>();
+        _mockHubContext = new Mock<IHubContext<IndexerHub>>();
         _mockLogger = new Mock<ILogger<IndexedFilesController>>();
-        _controller = new IndexedFilesController(_mockService.Object, _mockIngestService.Object, _mockLogger.Object);
+        _controller = new IndexedFilesController(_mockService.Object, _mockIngestService.Object, _mockHubContext.Object, _mockLogger.Object);
     }
 
     [Fact]

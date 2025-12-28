@@ -11,6 +11,7 @@ public interface IIndexerClient
 {
     Task ReprocessFile(Guid fileId, string filePath);
     Task ReprocessFiles(IEnumerable<ReprocessFileRequest> files);
+    Task RequestPreview(Guid fileId, string filePath);
 }
 
 /// <summary>
@@ -91,6 +92,24 @@ public class IndexerHub : Hub
     public async Task ReportComplete(Guid fileId, bool success, string? error)
     {
         await Clients.Group("ui").SendAsync("ReprocessComplete", fileId, success, error);
+    }
+
+    /// <summary>
+    /// Called by Indexer when preview is ready (uploaded to MinIO)
+    /// </summary>
+    public async Task ReportPreviewReady(Guid fileId, string previewUrl)
+    {
+        _logger.LogDebug("Preview ready for {FileId}: {Url}", fileId, previewUrl);
+        await Clients.Group("ui").SendAsync("PreviewReady", fileId, previewUrl);
+    }
+
+    /// <summary>
+    /// Called by Indexer when preview generation fails
+    /// </summary>
+    public async Task ReportPreviewFailed(Guid fileId, string error)
+    {
+        _logger.LogWarning("Preview failed for {FileId}: {Error}", fileId, error);
+        await Clients.Group("ui").SendAsync("PreviewFailed", fileId, error);
     }
 
     /// <summary>

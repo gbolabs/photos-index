@@ -1,0 +1,32 @@
+<div class="preview-modal">
+  <div class="preview-header">
+    <h2 mat-dialog-title>{{ data.fileName }}</h2>
+    <button mat-icon-button (click)="close()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <mat-dialog-content class="preview-content">
+    <div class="image-container">
+      @if (loading()) {
+        <!-- Blurred thumbnail with loading spinner -->
+        <div class="loading-overlay">
+          <img [src]="data.thumbnailUrl" [alt]="data.fileName" class="thumbnail-blur" />
+          <div class="spinner-container">
+            <mat-spinner diameter="48"></mat-spinner>
+            <p class="loading-text">Loading full resolution...</p>
+          </div>
+        </div>
+      } @else if (error()) {
+        <div class="error-container">
+          <mat-icon color="warn" class="error-icon">error</mat-icon>
+          <p class="error-text">{{ error() }}</p>
+          <button mat-raised-button color="primary" (click)="close()">Close</button>
+        </div>
+      } @else if (previewUrl()) {
+        <!-- Full resolution image -->
+        <img [src]="previewUrl()" [alt]="data.fileName" class="full-image" />
+      }
+    </div>
+  </mat-dialog-content>
+</div>
