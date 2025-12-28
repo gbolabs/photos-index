@@ -497,8 +497,8 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /mnt/photos-index/certs:/certs:ro
-      - /mnt/photos-index/traefik:/etc/traefik/dynamic:ro
+      - /mnt/hdr1/apps/photos-index/certs:/certs:ro
+      - /mnt/hdr1/apps/photos-index/traefik:/etc/traefik/dynamic:ro
 
   # ============================================================================
   # Jaeger - Distributed Tracing
