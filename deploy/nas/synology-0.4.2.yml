@@ -1,4 +1,4 @@
-# Photos Index v0.4.1 - Synology NAS (Indexer Only)
+# Photos Index v0.4.2 - Synology NAS (Indexer Only)
 #
 # This runs ONLY the indexer on Synology. All other services run on TrueNAS.
 # The indexer connects to TrueNAS API via SignalR for bidirectional communication.
@@ -9,14 +9,19 @@
 # - Excluded directories (@eaDir, #recycle, etc.) are built into the indexer
 #
 # Usage:
-#   docker compose -f synology-0.4.1.yml up -d
+#   docker compose -f synology-0.4.2.yml up -d
 
 name: photos-index-indexer
 
 services:
+  # ============================================================================
+  # Indexer - File scanning service
+  # ============================================================================
   indexer:
     container_name: photos-index-indexer
     image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.2
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     environment:
       # API connection (TrueNAS) - HTTPS on port 8053
@@ -58,3 +63,36 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # ============================================================================
+  # Watchtower - Auto-update containers from GHCR
+  # ============================================================================
+  watchtower:
+    container_name: photos-index-watchtower
+    image: containrrr/watchtower
+    environment:
+      # Polling interval (5 minutes)
+      WATCHTOWER_POLL_INTERVAL: 300
+      # Only update containers with watchtower.enable=true label
+      WATCHTOWER_LABEL_ENABLE: "true"
+      # Remove old images after update
+      WATCHTOWER_CLEANUP: "true"
+      # Include stopped containers
+      WATCHTOWER_INCLUDE_STOPPED: "true"
+      # Enable HTTP API with Prometheus metrics
+      WATCHTOWER_HTTP_API_METRICS: "true"
+      WATCHTOWER_HTTP_API_TOKEN: "photos-index-metrics"
+      # Timezone
+      TZ: Europe/Zurich
+    ports:
+      - "8055:8080"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Note: CPU limits removed - Synology kernel doesn't support CFS scheduler
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M

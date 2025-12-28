@@ -15,6 +15,33 @@
 # - Admin UI for bulk reprocessing
 
 configs:
+  prometheus_config:
+    content: |
+      global:
+        scrape_interval: 30s
+        evaluation_interval: 30s
+      scrape_configs:
+        # Watchtower on TrueNAS (local)
+        - job_name: 'watchtower-truenas'
+          metrics_path: /v1/metrics
+          bearer_token: 'photos-index-metrics'
+          static_configs:
+            - targets: ['watchtower:8080']
+              labels:
+                instance: 'truenas'
+        # Watchtower on Synology (remote)
+        - job_name: 'watchtower-synology'
+          metrics_path: /v1/metrics
+          bearer_token: 'photos-index-metrics'
+          static_configs:
+            - targets: ['192.168.114.30:8055']
+              labels:
+                instance: 'synology'
+        # RabbitMQ metrics
+        - job_name: 'rabbitmq'
+          static_configs:
+            - targets: ['rabbitmq:15692']
+
   loki_config:
     content: |
       auth_enabled: false
@@ -54,6 +81,12 @@ configs:
     content: |
       apiVersion: 1
       datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: prometheus
+          access: proxy
+          url: http://prometheus:9090
+          isDefault: false
         - name: Jaeger
           type: jaeger
           uid: jaeger
@@ -178,11 +211,15 @@ configs:
               <div class="grid">
                   <a href="/grafana/" class="card grafana">
                       <div class="card-header"><div class="card-icon">📊</div><div class="card-title">Grafana</div></div>
-                      <div class="card-desc">Unified dashboard for logs and traces.</div>
+                      <div class="card-desc">Unified dashboard for logs, traces and metrics.</div>
                   </a>
                   <a href="/jaeger/" class="card jaeger">
                       <div class="card-header"><div class="card-icon">🔍</div><div class="card-title">Jaeger</div></div>
                       <div class="card-desc">Distributed tracing. View request flows.</div>
+                  </a>
+                  <a href="/prometheus/" class="card prometheus" style="--card-color: #e6522c;">
+                      <div class="card-header"><div class="card-icon" style="background: linear-gradient(135deg, #e6522c, #ff7043);">📈</div><div class="card-title">Prometheus</div></div>
+                      <div class="card-desc">Metrics collection. Watchtower status.</div>
                   </a>
               </div>
               <div class="section-title"><span class="status"></span>Infrastructure</div>
@@ -257,6 +294,7 @@ services:
       # SignalR (v0.4.0) - enabled by default
       SignalR__EnableDetailedErrors: 'true'
     labels:
+      - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
       # API routes (HTTP)
       - traefik.http.routers.api.rule=PathPrefix(`/api`)
@@ -288,6 +326,8 @@ services:
   metadata-service:
     container_name: photos-index-metadata
     image: ghcr.io/gbolabs/photos-index/metadata-service:0.4.2
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     depends_on:
       jaeger:
         condition: service_started
@@ -316,6 +356,8 @@ services:
   thumbnail-service:
     container_name: photos-index-thumbnail
     image: ghcr.io/gbolabs/photos-index/thumbnail-service:0.4.2
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     depends_on:
       jaeger:
         condition: service_started
@@ -348,6 +390,7 @@ services:
     depends_on:
       - api
     labels:
+      - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
       # Web routes (HTTP)
       - traefik.http.routers.web.rule=PathPrefix(`/`)
@@ -642,6 +685,65 @@ services:
       - traefik.http.routers.obs-secure.service=obs
       - traefik.http.routers.obs-secure.tls=true
     restart: unless-stopped
+
+  # ============================================================================
+  # Watchtower - Auto-update containers from GHCR
+  # ============================================================================
+  watchtower:
+    container_name: photos-index-watchtower
+    image: containrrr/watchtower
+    environment:
+      # Polling interval (5 minutes)
+      WATCHTOWER_POLL_INTERVAL: 300
+      # Only update containers with watchtower.enable=true label
+      WATCHTOWER_LABEL_ENABLE: "true"
+      # Remove old images after update
+      WATCHTOWER_CLEANUP: "true"
+      # Include stopped containers
+      WATCHTOWER_INCLUDE_STOPPED: "true"
+      # Enable HTTP API with Prometheus metrics
+      WATCHTOWER_HTTP_API_METRICS: "true"
+      WATCHTOWER_HTTP_API_TOKEN: "photos-index-metrics"
+      # Timezone
+      TZ: Europe/Zurich
+    labels:
+      - traefik.enable=false
+    ports:
+      - "8055:8080"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # ============================================================================
+  # Prometheus - Metrics collection
+  # ============================================================================
+  prometheus:
+    container_name: photos-index-prometheus
+    image: prom/prometheus:latest
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.external-url=/prometheus/'
+      - '--web.route-prefix=/prometheus/'
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    labels:
+      - traefik.enable=true
+      # Prometheus - HTTP
+      - traefik.http.routers.prometheus.rule=PathPrefix(`/prometheus`)
+      - traefik.http.routers.prometheus.entrypoints=web
+      - traefik.http.routers.prometheus.priority=110
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+      # Prometheus - HTTPS
+      - traefik.http.routers.prometheus-secure.rule=PathPrefix(`/prometheus`)
+      - traefik.http.routers.prometheus-secure.entrypoints=websecure
+      - traefik.http.routers.prometheus-secure.priority=110
+      - traefik.http.routers.prometheus-secure.service=prometheus
+      - traefik.http.routers.prometheus-secure.tls=true
+    restart: unless-stopped
+    volumes:
+      - /mnt/hdr1/apps/photos-index/prometheus:/prometheus
 
 volumes:
   rabbitmq_data:
