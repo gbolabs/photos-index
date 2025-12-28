@@ -42,6 +42,7 @@ An ADR is a short document that captures an important architectural decision alo
 | [006](./006-jaeger-over-aspire.md) | Grafana Observability Stack Over Aspire Dashboard | Accepted | 2025-12-25 |
 | [007](./007-masstransit-messaging-patterns.md) | MassTransit Messaging Patterns for Distributed Processing | Accepted | 2025-12-25 |
 | [008](./008-signalr-indexer-communication.md) | SignalR for API-Indexer Bidirectional Communication | Accepted | 2025-12-26 |
+| [009](./009-watchtower-auto-deployment.md) | Watchtower for Automated Container Updates | Accepted | 2025-12-28 |
 
 ## References
 
