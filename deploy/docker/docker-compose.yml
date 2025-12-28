@@ -178,6 +178,12 @@ services:
       # No strip prefix - MinIO path is /thumbnails/thumbs/{hash}.jpg = bucket/key
       # Service configuration for thumbnails
       - "traefik.http.services.minio-thumbnails.loadbalancer.server.port=9000"
+      # Previews router - direct access to MinIO previews bucket (full-size images)
+      - "traefik.http.routers.previews.rule=PathPrefix(`/previews`)"
+      - "traefik.http.routers.previews.entrypoints=web"
+      - "traefik.http.routers.previews.priority=120"
+      - "traefik.http.routers.previews.service=minio-previews"
+      - "traefik.http.services.minio-previews.loadbalancer.server.port=9000"
 
   # ===================================
   # Jaeger (Distributed Tracing)

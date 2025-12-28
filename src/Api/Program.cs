@@ -131,8 +131,9 @@ if (!app.Environment.IsEnvironment("Testing"))
     var minioClient = app.Services.GetRequiredService<IMinioClient>();
     var imagesBucket = builder.Configuration["Minio:ImagesBucket"] ?? "images";
     var thumbnailsBucket = builder.Configuration["Minio:ThumbnailsBucket"] ?? "thumbnails";
+    var previewsBucket = builder.Configuration["Minio:PreviewsBucket"] ?? "previews";
 
-    foreach (var bucket in new[] { imagesBucket, thumbnailsBucket })
+    foreach (var bucket in new[] { imagesBucket, thumbnailsBucket, previewsBucket })
     {
         try
         {
@@ -142,8 +143,8 @@ if (!app.Environment.IsEnvironment("Testing"))
                 app.Logger.LogInformation("Creating MinIO bucket: {Bucket}", bucket);
                 await minioClient.MakeBucketAsync(new Minio.DataModel.Args.MakeBucketArgs().WithBucket(bucket));
 
-                // Make thumbnails bucket publicly readable for Traefik to serve
-                if (bucket == thumbnailsBucket)
+                // Make thumbnails and previews buckets publicly readable for Traefik to serve
+                if (bucket == thumbnailsBucket || bucket == previewsBucket)
                 {
                     var policy = $$"""
                     {
@@ -160,6 +161,22 @@ if (!app.Environment.IsEnvironment("Testing"))
                         .WithBucket(bucket)
                         .WithPolicy(policy));
                     app.Logger.LogInformation("Set public read policy on bucket: {Bucket}", bucket);
+                }
+
+                // Set lifecycle policy for previews bucket (auto-expire after 1 day)
+                if (bucket == previewsBucket)
+                {
+                    var rule = new Minio.DataModel.ILM.LifecycleRule
+                    {
+                        ID = "auto-expire-previews",
+                        Status = "Enabled",
+                        Expiration = new Minio.DataModel.ILM.Expiration { Days = 1 }
+                    };
+                    var lifecycleConfig = new Minio.DataModel.ILM.LifecycleConfiguration([rule]);
+                    await minioClient.SetBucketLifecycleAsync(new Minio.DataModel.Args.SetBucketLifecycleArgs()
+                        .WithBucket(bucket)
+                        .WithLifecycleConfiguration(lifecycleConfig));
+                    app.Logger.LogInformation("Set 1-day expiration lifecycle on bucket: {Bucket}", bucket);
                 }
             }
         }

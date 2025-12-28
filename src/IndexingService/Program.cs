@@ -7,7 +7,9 @@ using IndexingService.ApiClient;
 using IndexingService.Models;
 using IndexingService.Services;
 using Microsoft.Extensions.Options;
+using Minio;
 using Shared.Extensions;
+using Shared.Storage;
 using SixLabors.ImageSharp;
 
 // Register HEIC/HEIF and AVIF decoders for Apple photos
@@ -50,6 +52,40 @@ builder.Services.AddHttpClient<IPhotosApiClient, PhotosApiClient>(client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
     client.Timeout = TimeSpan.FromMinutes(5);
+});
+
+// Configure MinIO for preview uploads
+var minioEndpoint = builder.Configuration["Minio:Endpoint"]
+    ?? builder.Configuration["MINIO_ENDPOINT"]
+    ?? "localhost:9000";
+var minioAccessKey = builder.Configuration["Minio:AccessKey"]
+    ?? builder.Configuration["MINIO_ACCESS_KEY"]
+    ?? "minioadmin";
+var minioSecretKey = builder.Configuration["Minio:SecretKey"]
+    ?? builder.Configuration["MINIO_SECRET_KEY"]
+    ?? "minioadmin";
+var minioUseSsl = builder.Configuration.GetValue("Minio:UseSsl",
+    builder.Configuration.GetValue("MINIO_USE_SSL", false));
+
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var client = new MinioClient()
+        .WithEndpoint(minioEndpoint)
+        .WithCredentials(minioAccessKey, minioSecretKey);
+
+    if (minioUseSsl)
+        client = client.WithSSL();
+
+    return client.Build();
+});
+builder.Services.AddSingleton<IObjectStorage, MinioObjectStorage>();
+
+// Configure previews bucket name
+builder.Services.Configure<IndexingOptions>(options =>
+{
+    options.PreviewsBucket = builder.Configuration["Minio:PreviewsBucket"]
+        ?? builder.Configuration["MINIO_PREVIEWS_BUCKET"]
+        ?? "previews";
 });
 
 // Add indexer status tracking

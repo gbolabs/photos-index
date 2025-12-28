@@ -1,5 +1,7 @@
+using Api.Hubs;
 using Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Shared.Dtos;
 using Shared.Requests;
 using Shared.Responses;
@@ -16,15 +18,18 @@ public class IndexedFilesController : ControllerBase
 {
     private readonly IIndexedFileService _service;
     private readonly IFileIngestService _ingestService;
+    private readonly IHubContext<IndexerHub> _hubContext;
     private readonly ILogger<IndexedFilesController> _logger;
 
     public IndexedFilesController(
         IIndexedFileService service,
         IFileIngestService ingestService,
+        IHubContext<IndexerHub> hubContext,
         ILogger<IndexedFilesController> logger)
     {
         _service = service;
         _ingestService = ingestService;
+        _hubContext = hubContext;
         _logger = logger;
     }
 
@@ -105,6 +110,36 @@ public class IndexedFilesController : ControllerBase
 
         var (content, fileName, contentType) = result.Value;
         return File(content, contentType, fileName);
+    }
+
+    /// <summary>
+    /// Request a full-size preview of the file.
+    /// The preview will be uploaded to MinIO by the indexer and the URL will be sent via SignalR.
+    /// </summary>
+    [HttpPost("{id:guid}/preview")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> RequestPreview(Guid id, CancellationToken ct = default)
+    {
+        var file = await _service.GetByIdAsync(id, ct);
+
+        if (file is null)
+            return NotFound(ApiErrorResponse.NotFound($"File with ID {id} not found"));
+
+        // Check if any indexer is connected
+        if (IndexerHub.GetConnectedIndexerCount() == 0)
+        {
+            _logger.LogWarning("No indexers connected to serve preview request for {FileId}", id);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                ApiErrorResponse.InternalError("No indexer available to generate preview. Please try again later."));
+        }
+
+        // Send preview request to all connected indexers (first one with access to file will respond)
+        _logger.LogInformation("Requesting preview for file {FileId}: {FilePath}", id, file.FilePath);
+        await _hubContext.Clients.All.SendAsync("RequestPreview", id, file.FilePath, ct);
+
+        return Accepted(new { message = "Preview request sent. Listen for PreviewReady event via SignalR." });
     }
 
     /// <summary>

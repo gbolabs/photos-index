@@ -7,4 +7,5 @@ public class IndexingOptions
     public bool ExtractMetadata { get; set; } = false; // Disabled by default for distributed processing
     public int BatchSize { get; set; } = 250; // Larger batches = fewer API round trips
     public int MaxParallelism { get; set; } = 8; // I/O bound operations can exceed core count
+    public string PreviewsBucket { get; set; } = "previews"; // MinIO bucket for full-size image previews
 }
