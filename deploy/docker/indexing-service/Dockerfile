@@ -86,10 +86,14 @@ ENV BUILD_TIME=${BUILD_TIME}
 WORKDIR /app
 
 # Install required libraries for image processing (including HEIC/HEIF support)
-# Alpine uses musl libc, libheif is available in community repo
+# libheif and libde265 for HEIC decoding, x265 for HEVC
 RUN apk add --no-cache \
     libgdiplus \
-    libheif
+    libheif \
+    libheif-dev \
+    libde265 \
+    x265-libs \
+    && ln -sf /usr/lib/libheif.so.1 /usr/lib/libheif.so || true
 
 # Create non-root user
 RUN addgroup -S appuser && adduser -S appuser -G appuser

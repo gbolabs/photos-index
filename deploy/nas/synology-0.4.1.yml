@@ -1,14 +1,15 @@
-# Photos Index v0.4.0 - Synology NAS (Indexer Only)
+# Photos Index v0.4.1 - Synology NAS (Indexer Only)
 #
 # This runs ONLY the indexer on Synology. All other services run on TrueNAS.
-# The indexer connects to TrueNAS API via HTTP and SignalR for bidirectional communication.
+# The indexer connects to TrueNAS API via SignalR for bidirectional communication.
+#
+# IMPORTANT:
+# - Scan directories are configured via the TrueNAS web UI, NOT here
+# - The paths configured in TrueNAS must match the volume mounts below
+# - Excluded directories (@eaDir, #recycle, etc.) are built into the indexer
 #
 # Usage:
-#   docker compose -f synology-0.4.0.yml up -d
-#
-# Requirements:
-#   - TrueNAS must be running with API accessible at TRUENAS_API_URL
-#   - Photo directories must be mounted
+#   docker compose -f synology-0.4.1.yml up -d
 
 name: photos-index-indexer
 
@@ -17,47 +18,25 @@ services:
     container_name: photos-index-indexer
     image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.1
     restart: unless-stopped
-    extra_hosts:
-      - "tn.isago.ch:192.168.114.31"
     environment:
-      # API connection (TrueNAS) - use HTTPS with valid certificate on port 8053
-      Indexing__ApiBaseUrl: https://tn.isago.ch:8053
-
-      # Scan directories (must match volume mounts below)
-      Indexing__ScanDirectories__0__Path: /nas/public
-      Indexing__ScanDirectories__0__Name: Public Photos
-      Indexing__ScanDirectories__1__Path: /nas/photo
-      Indexing__ScanDirectories__1__Name: Photo Archive
-      Indexing__ScanDirectories__2__Path: /nas/photos
-      Indexing__ScanDirectories__2__Name: Photos Collection
+      # API connection (TrueNAS) - HTTPS on port 8053
+      API_BASE_URL: https://tn.isago.ch:8053
 
       # Distributed mode - don't process locally, send to TrueNAS
-      Indexing__ExtractMetadata: "false"
-      Indexing__GenerateThumbnails: "false"
+      EXTRACT_METADATA: "false"
+      GENERATE_THUMBNAILS: "false"
 
-      # Exclude Synology system directories
-      Indexing__ExcludedDirectoryNames__0: "@eaDir"
-      Indexing__ExcludedDirectoryNames__1: "@SynoResource"
-      Indexing__ExcludedDirectoryNames__2: "#recycle"
-      Indexing__ExcludedDirectoryNames__3: "@tmp"
-
-      # Scan behavior
-      Indexing__ScanIntervalMinutes: "60"
-      Indexing__EnableFileWatcher: "false"
-
-      # OpenTelemetry - send traces to TrueNAS Jaeger (port 4317 direct, not through Traefik)
+      # OpenTelemetry - send traces to TrueNAS Jaeger
       OTEL_EXPORTER_OTLP_ENDPOINT: http://192.168.114.31:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: photos-index-indexer-synology
 
-      # SignalR is enabled automatically when ApiBaseUrl is set
-      # The indexer will connect to {ApiBaseUrl}/hubs/indexer
-
     volumes:
       # Mount photo directories - READ-ONLY for safety
-      - /volume1/Public:/nas/public:ro
-      - /volume1/photo:/nas/photo:ro
-      - /volume1/Photos:/nas/photos:ro
+      # These paths must match what's configured in TrueNAS scan directories
+      - /volume1/Public:/public:ro
+      - /volume1/photo:/photo:ro
+      - /volume1/Photos:/photos:ro
 
     # Note: CPU limits removed - Synology kernel doesn't support CFS scheduler
     deploy:
@@ -67,7 +46,6 @@ services:
         reservations:
           memory: 256M
 
-    # Health check - verify API connectivity
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "https://tn.isago.ch:8053/health"]
       interval: 30s
