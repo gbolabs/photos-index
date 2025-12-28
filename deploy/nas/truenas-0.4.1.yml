@@ -172,7 +172,7 @@ configs:
       <body>
           <div class="container">
               <h1>Photos Index</h1>
-              <p class="version">v0.4.0 - SignalR + Reprocess</p>
+              <p class="version">v0.4.1 - Distributed Processing</p>
               <p class="subtitle">Observability Portal</p>
               <div class="section-title"><span class="status"></span>Observability</div>
               <div class="grid">
@@ -404,12 +404,20 @@ services:
       timeout: 5s
     labels:
       - traefik.enable=true
+      # RabbitMQ - HTTP
       - traefik.http.routers.rabbitmq.rule=PathPrefix(`/rabbitmq`)
       - traefik.http.routers.rabbitmq.entrypoints=web
       - traefik.http.routers.rabbitmq.priority=110
       - traefik.http.routers.rabbitmq.middlewares=rabbitmq-strip-prefix
       - traefik.http.middlewares.rabbitmq-strip-prefix.stripprefix.prefixes=/rabbitmq
       - traefik.http.services.rabbitmq.loadbalancer.server.port=15672
+      # RabbitMQ - HTTPS
+      - traefik.http.routers.rabbitmq-secure.rule=PathPrefix(`/rabbitmq`)
+      - traefik.http.routers.rabbitmq-secure.entrypoints=websecure
+      - traefik.http.routers.rabbitmq-secure.priority=110
+      - traefik.http.routers.rabbitmq-secure.middlewares=rabbitmq-strip-prefix
+      - traefik.http.routers.rabbitmq-secure.service=rabbitmq
+      - traefik.http.routers.rabbitmq-secure.tls=true
     ports:
       - '5672:5672'
     restart: unless-stopped
@@ -434,7 +442,7 @@ services:
       timeout: 5s
     labels:
       - traefik.enable=true
-      # Console
+      # Console - HTTP
       - traefik.http.routers.minio-console.rule=PathPrefix(`/minio`)
       - traefik.http.routers.minio-console.entrypoints=web
       - traefik.http.routers.minio-console.priority=110
@@ -442,12 +450,25 @@ services:
       - traefik.http.routers.minio-console.middlewares=minio-strip-prefix
       - traefik.http.middlewares.minio-strip-prefix.stripprefix.prefixes=/minio
       - traefik.http.services.minio-console.loadbalancer.server.port=9001
-      # Thumbnails (direct access)
+      # Console - HTTPS
+      - traefik.http.routers.minio-console-secure.rule=PathPrefix(`/minio`)
+      - traefik.http.routers.minio-console-secure.entrypoints=websecure
+      - traefik.http.routers.minio-console-secure.priority=110
+      - traefik.http.routers.minio-console-secure.service=minio-console
+      - traefik.http.routers.minio-console-secure.middlewares=minio-strip-prefix
+      - traefik.http.routers.minio-console-secure.tls=true
+      # Thumbnails (direct access) - HTTP
       - traefik.http.routers.thumbnails.rule=PathPrefix(`/thumbnails`)
       - traefik.http.routers.thumbnails.entrypoints=web
       - traefik.http.routers.thumbnails.priority=120
       - traefik.http.routers.thumbnails.service=minio-thumbnails
       - traefik.http.services.minio-thumbnails.loadbalancer.server.port=9000
+      # Thumbnails (direct access) - HTTPS
+      - traefik.http.routers.thumbnails-secure.rule=PathPrefix(`/thumbnails`)
+      - traefik.http.routers.thumbnails-secure.entrypoints=websecure
+      - traefik.http.routers.thumbnails-secure.priority=120
+      - traefik.http.routers.thumbnails-secure.service=minio-thumbnails
+      - traefik.http.routers.thumbnails-secure.tls=true
     ports:
       - '9000:9000'
       - '9001:9001'
@@ -515,10 +536,17 @@ services:
       QUERY_BASE_PATH: /jaeger
     labels:
       - traefik.enable=true
+      # Jaeger - HTTP
       - traefik.http.routers.jaeger.rule=PathPrefix(`/jaeger`)
       - traefik.http.routers.jaeger.entrypoints=web
       - traefik.http.routers.jaeger.priority=110
       - traefik.http.services.jaeger.loadbalancer.server.port=16686
+      # Jaeger - HTTPS
+      - traefik.http.routers.jaeger-secure.rule=PathPrefix(`/jaeger`)
+      - traefik.http.routers.jaeger-secure.entrypoints=websecure
+      - traefik.http.routers.jaeger-secure.priority=110
+      - traefik.http.routers.jaeger-secure.service=jaeger
+      - traefik.http.routers.jaeger-secure.tls=true
     ports:
       - '4317:4317'
     restart: unless-stopped
@@ -542,10 +570,17 @@ services:
       GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
     labels:
       - traefik.enable=true
+      # Grafana - HTTP
       - traefik.http.routers.grafana.rule=PathPrefix(`/grafana`)
       - traefik.http.routers.grafana.entrypoints=web
       - traefik.http.routers.grafana.priority=110
       - traefik.http.services.grafana.loadbalancer.server.port=3000
+      # Grafana - HTTPS
+      - traefik.http.routers.grafana-secure.rule=PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana-secure.entrypoints=websecure
+      - traefik.http.routers.grafana-secure.priority=110
+      - traefik.http.routers.grafana-secure.service=grafana
+      - traefik.http.routers.grafana-secure.tls=true
     restart: unless-stopped
     volumes:
       - /mnt/hdr1/apps/photos-index/grafana:/var/lib/grafana
@@ -592,12 +627,20 @@ services:
         target: /usr/share/nginx/html/index.html
     labels:
       - traefik.enable=true
+      # Obs - HTTP
       - traefik.http.routers.obs.rule=PathPrefix(`/obs`)
       - traefik.http.routers.obs.entrypoints=web
       - traefik.http.routers.obs.priority=110
       - traefik.http.routers.obs.middlewares=obs-strip-prefix
       - traefik.http.middlewares.obs-strip-prefix.stripprefix.prefixes=/obs
       - traefik.http.services.obs.loadbalancer.server.port=80
+      # Obs - HTTPS
+      - traefik.http.routers.obs-secure.rule=PathPrefix(`/obs`)
+      - traefik.http.routers.obs-secure.entrypoints=websecure
+      - traefik.http.routers.obs-secure.priority=110
+      - traefik.http.routers.obs-secure.middlewares=obs-strip-prefix
+      - traefik.http.routers.obs-secure.service=obs
+      - traefik.http.routers.obs-secure.tls=true
     restart: unless-stopped
 
 volumes:
