@@ -16,7 +16,7 @@ name: photos-index-indexer
 services:
   indexer:
     container_name: photos-index-indexer
-    image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.1
+    image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.2
     restart: unless-stopped
     environment:
       # API connection (TrueNAS) - HTTPS on port 8053
