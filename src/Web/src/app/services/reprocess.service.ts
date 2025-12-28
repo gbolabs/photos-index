@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
+import { HubConnection, HubConnectionBuilder, HubConnectionState, HttpTransportType } from '@microsoft/signalr';
 import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
 
 export interface ReprocessResult {
@@ -67,7 +67,10 @@ export class ReprocessService {
     if (this.hubConnection?.state === HubConnectionState.Connected) return;
 
     this.hubConnection = new HubConnectionBuilder()
-      .withUrl('/hubs/indexer')
+      .withUrl('/hubs/indexer', {
+        skipNegotiation: true,
+        transport: HttpTransportType.WebSockets
+      })
       .withAutomaticReconnect()
       .build();
 
