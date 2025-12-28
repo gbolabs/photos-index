@@ -18,8 +18,6 @@ services:
     container_name: photos-index-indexer
     image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.1
     restart: unless-stopped
-    extra_hosts:
-      - "tn.isago.ch:192.168.114.31"
     environment:
       # API connection (TrueNAS) - HTTPS on port 8053
       API_BASE_URL: https://tn.isago.ch:8053
@@ -36,9 +34,9 @@ services:
     volumes:
       # Mount photo directories - READ-ONLY for safety
       # These paths must match what's configured in TrueNAS scan directories
-      - /volume1/Public:/nas/public:ro
-      - /volume1/photo:/nas/photo:ro
-      - /volume1/Photos:/nas/photos:ro
+      - /volume1/Public:/public:ro
+      - /volume1/photo:/photo:ro
+      - /volume1/Photos:/photos:ro
 
     # Note: CPU limits removed - Synology kernel doesn't support CFS scheduler
     deploy:
