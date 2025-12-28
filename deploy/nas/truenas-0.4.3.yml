@@ -260,7 +260,7 @@ services:
   # ============================================================================
   api:
     container_name: photos-index-api
-    image: ghcr.io/gbolabs/photos-index/api:0.4.3
+    image: ghcr.io/gbolabs/photos-index/api:0
     depends_on:
       jaeger:
         condition: service_started
@@ -325,7 +325,7 @@ services:
   # ============================================================================
   metadata-service:
     container_name: photos-index-metadata
-    image: ghcr.io/gbolabs/photos-index/metadata-service:0.4.3
+    image: ghcr.io/gbolabs/photos-index/metadata-service:0
     labels:
       - com.centurylinklabs.watchtower.enable=true
     depends_on:
@@ -355,7 +355,7 @@ services:
   # ============================================================================
   thumbnail-service:
     container_name: photos-index-thumbnail
-    image: ghcr.io/gbolabs/photos-index/thumbnail-service:0.4.3
+    image: ghcr.io/gbolabs/photos-index/thumbnail-service:0
     labels:
       - com.centurylinklabs.watchtower.enable=true
     depends_on:
@@ -386,7 +386,7 @@ services:
   # ============================================================================
   web:
     container_name: photos-index-web
-    image: ghcr.io/gbolabs/photos-index/web:0.4.3
+    image: ghcr.io/gbolabs/photos-index/web:0
     depends_on:
       - api
     labels:
@@ -472,7 +472,7 @@ services:
   # ============================================================================
   minio:
     container_name: photos-index-minio
-    image: minio/minio:latest
+    image: minio/minio:0
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_PASSWORD: minioadmin
@@ -601,7 +601,7 @@ services:
   # ============================================================================
   grafana:
     container_name: photos-index-grafana
-    image: grafana/grafana:latest
+    image: grafana/grafana:0
     configs:
       - source: grafana_datasources
         target: /etc/grafana/provisioning/datasources/datasources.yaml
@@ -719,7 +719,7 @@ services:
   # ============================================================================
   prometheus:
     container_name: photos-index-prometheus
-    image: prom/prometheus:latest
+    image: prom/prometheus:0
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
