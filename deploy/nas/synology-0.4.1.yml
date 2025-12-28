@@ -15,7 +15,7 @@ name: photos-index-indexer
 services:
   indexer:
     container_name: photos-index-indexer
-    image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.0
+    image: ghcr.io/gbolabs/photos-index/indexing-service:0.4.1
     restart: unless-stopped
     extra_hosts:
       - "tn.isago.ch:192.168.114.31"
