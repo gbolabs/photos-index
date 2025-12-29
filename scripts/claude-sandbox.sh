@@ -75,11 +75,12 @@ Examples:
 
 Volumes:
   claude-workspace   Workspace for clone mode (survives crashes)
+  claude-config      Claude config and plugins (~/.claude, persists across runs)
   seq-data           Seq logs (with --otel, unless --no-persist)
 
 Clean mode options (use with 'clean'):
   --containers       Remove sandbox containers (claude-sandbox, seq-otel, claude-api-logger)
-  --volumes          Remove volumes (claude-workspace, seq-data)
+  --volumes          Remove volumes (claude-workspace, claude-config, seq-data)
   --images           Remove images (claude-sandbox, claude-api-logger)
   --all              Remove everything (containers + volumes + images)
 
@@ -152,6 +153,7 @@ REPO_URL="https://github.com/gbolabs/photos-index.git"
 CONTAINER_NAME="claude-sandbox"
 IMAGE_NAME="claude-sandbox:latest"
 WORKSPACE_VOLUME="claude-workspace"  # Volume for clone mode workspace
+CLAUDE_CONFIG_VOLUME="claude-config"  # Volume for ~/.claude (plugins, settings)
 
 # Colors
 RED='\033[0;31m'
@@ -384,6 +386,12 @@ run_mount_mode() {
     # Remove existing container if it exists (can't reuse name otherwise)
     podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
+    # Create claude config volume if it doesn't exist (for plugins persistence)
+    if ! podman volume exists "$CLAUDE_CONFIG_VOLUME"; then
+        log "Creating claude config volume: $CLAUDE_CONFIG_VOLUME"
+        podman volume create "$CLAUDE_CONFIG_VOLUME"
+    fi
+
     # shellcheck disable=SC2086
     podman run -it $rm_flag \
         --name "$CONTAINER_NAME" \
@@ -394,6 +402,7 @@ run_mount_mode() {
         -e GIT_COMMITTER_EMAIL="$git_email" \
         -p 8443:8443 \
         -v "$(pwd):/workspace:Z" \
+        -v "$CLAUDE_CONFIG_VOLUME:/home/claude/.claude:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
@@ -435,6 +444,12 @@ run_clone_mode() {
         log "Reusing existing workspace volume: $WORKSPACE_VOLUME"
     fi
 
+    # Create claude config volume if it doesn't exist (for plugins persistence)
+    if ! podman volume exists "$CLAUDE_CONFIG_VOLUME"; then
+        log "Creating claude config volume: $CLAUDE_CONFIG_VOLUME"
+        podman volume create "$CLAUDE_CONFIG_VOLUME"
+    fi
+
     # Remove existing container if it exists (can't reuse name otherwise)
     podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
@@ -450,6 +465,7 @@ run_clone_mode() {
         -e BRANCH="$branch" \
         -p 8443:8443 \
         -v "$WORKSPACE_VOLUME:/workspace:Z" \
+        -v "$CLAUDE_CONFIG_VOLUME:/home/claude/.claude:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
@@ -530,7 +546,7 @@ run_clean_mode() {
     # Clean volumes
     if [[ "$CLEAN_VOLUMES" == "true" ]]; then
         log "Removing volumes..."
-        for volume in "$WORKSPACE_VOLUME" "seq-data"; do
+        for volume in "$WORKSPACE_VOLUME" "$CLAUDE_CONFIG_VOLUME" "seq-data"; do
             if podman volume exists "$volume" 2>/dev/null; then
                 log "  Removing volume: $volume"
                 podman volume rm "$volume" 2>/dev/null || true
