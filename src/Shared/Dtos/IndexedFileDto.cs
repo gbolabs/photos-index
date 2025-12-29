@@ -28,4 +28,7 @@ public record IndexedFileDto
     public string? ShutterSpeed { get; init; }
     public string? LastError { get; init; }
     public int RetryCount { get; init; }
+    public bool IsHidden { get; init; }
+    public string? HiddenCategory { get; init; }
+    public DateTime? HiddenAt { get; init; }
 }

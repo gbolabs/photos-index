@@ -67,4 +67,27 @@ public interface IObjectStorage
     Task EnsureBucketExistsAsync(
         string bucket,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists objects in a bucket with an optional prefix filter.
+    /// </summary>
+    /// <param name="bucket">The bucket name.</param>
+    /// <param name="prefix">Optional prefix to filter objects.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of storage objects.</returns>
+    Task<IReadOnlyList<StorageObject>> ListObjectsAsync(
+        string bucket,
+        string? prefix = null,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Represents an object in storage.
+/// </summary>
+public record StorageObject
+{
+    public required string Key { get; init; }
+    public long Size { get; init; }
+    public DateTime LastModified { get; init; }
+    public string? ContentType { get; init; }
 }

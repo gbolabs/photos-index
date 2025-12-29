@@ -15,7 +15,7 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `03-002` Hash Computer | 🔲 Not Started | - | A2 |
 | `03-003` Metadata Extractor | 🔲 Not Started | - | A2 |
 | `03-004` Indexing Worker | ✅ Complete | [#9](https://github.com/gbolabs/photos-index/pull/9) | A2 |
-| `04-001` Delete Manager | 🔲 Not Started | - | A3 |
+| `04-001` Delete Manager | ✅ Complete | - | A3 |
 | `05-001` Angular API Services | ✅ Complete | [#8](https://github.com/gbolabs/photos-index/pull/8) | A4 |
 | `05-002` Dashboard | 🔲 Not Started | - | A4 |
 | `05-003` Directory Settings | 🔲 Not Started | - | A4 |

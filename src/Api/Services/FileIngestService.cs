@@ -56,6 +56,23 @@ public class FileIngestService : IFileIngestService
                     IndexedAt = DateTime.UtcNow,
                     IsDuplicate = false
                 };
+
+                // Check if file path matches any hidden folder rules
+                var matchingHiddenFolder = await _dbContext.HiddenFolders
+                    .FirstOrDefaultAsync(h =>
+                        request.FilePath.StartsWith(h.FolderPath + "/") ||
+                        request.FilePath.StartsWith(h.FolderPath + "\\"), ct);
+
+                if (matchingHiddenFolder is not null)
+                {
+                    file.IsHidden = true;
+                    file.HiddenCategory = HiddenCategory.FolderRule;
+                    file.HiddenAt = DateTime.UtcNow;
+                    file.HiddenByFolderId = matchingHiddenFolder.Id;
+                    _logger.LogDebug("Auto-hiding file {FilePath} due to hidden folder rule {FolderId}",
+                        request.FilePath, matchingHiddenFolder.Id);
+                }
+
                 _dbContext.IndexedFiles.Add(file);
             }
             else

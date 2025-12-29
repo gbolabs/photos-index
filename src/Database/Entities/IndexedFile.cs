@@ -55,6 +55,24 @@ public class IndexedFile
 
     public int RetryCount { get; set; } = 0;
 
-    // Navigation property
+    // Soft delete tracking
+    public bool IsDeleted { get; set; } = false;
+
+    public DateTime? DeletedAt { get; set; }
+
+    public string? ArchivePath { get; set; }
+
+    // Hidden file properties
+    public bool IsHidden { get; set; } = false;
+
+    public HiddenCategory? HiddenCategory { get; set; }
+
+    public DateTime? HiddenAt { get; set; }
+
+    public Guid? HiddenByFolderId { get; set; }
+
+    // Navigation properties
     public DuplicateGroup? DuplicateGroup { get; set; }
+
+    public HiddenFolder? HiddenByFolder { get; set; }
 }

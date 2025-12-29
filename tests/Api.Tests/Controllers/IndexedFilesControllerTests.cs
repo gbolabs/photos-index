@@ -17,6 +17,7 @@ public class IndexedFilesControllerTests
 {
     private readonly Mock<IIndexedFileService> _mockService;
     private readonly Mock<IFileIngestService> _mockIngestService;
+    private readonly Mock<IHiddenFolderService> _mockHiddenFolderService;
     private readonly Mock<IHubContext<IndexerHub>> _mockHubContext;
     private readonly Mock<ILogger<IndexedFilesController>> _mockLogger;
     private readonly IndexedFilesController _controller;
@@ -25,9 +26,10 @@ public class IndexedFilesControllerTests
     {
         _mockService = new Mock<IIndexedFileService>();
         _mockIngestService = new Mock<IFileIngestService>();
+        _mockHiddenFolderService = new Mock<IHiddenFolderService>();
         _mockHubContext = new Mock<IHubContext<IndexerHub>>();
         _mockLogger = new Mock<ILogger<IndexedFilesController>>();
-        _controller = new IndexedFilesController(_mockService.Object, _mockIngestService.Object, _mockHubContext.Object, _mockLogger.Object);
+        _controller = new IndexedFilesController(_mockService.Object, _mockIngestService.Object, _mockHiddenFolderService.Object, _mockHubContext.Object, _mockLogger.Object);
     }
 
     [Fact]
@@ -310,4 +312,70 @@ public class IndexedFilesControllerTests
         var error = badRequestResult.Value.Should().BeOfType<ApiErrorResponse>().Subject;
         error.Code.Should().Be("BAD_REQUEST");
     }
+
+    #region Hide/Unhide Tests
+
+    [Fact]
+    public async Task HideFiles_ReturnsOk_WhenSuccessful()
+    {
+        // Arrange
+        var request = new HideFilesRequest { FileIds = [Guid.NewGuid(), Guid.NewGuid()] };
+        _mockHiddenFolderService.Setup(s => s.HideFilesAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
+
+        // Act
+        var result = await _controller.HideFiles(request);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task HideFiles_ReturnsBadRequest_WhenNoFileIds()
+    {
+        // Arrange
+        var request = new HideFilesRequest { FileIds = [] };
+
+        // Act
+        var result = await _controller.HideFiles(request);
+
+        // Assert
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var error = badRequest.Value.Should().BeOfType<ApiErrorResponse>().Subject;
+        error.Code.Should().Be("BAD_REQUEST");
+    }
+
+    [Fact]
+    public async Task UnhideFiles_ReturnsOk_WhenSuccessful()
+    {
+        // Arrange
+        var request = new HideFilesRequest { FileIds = [Guid.NewGuid(), Guid.NewGuid()] };
+        _mockHiddenFolderService.Setup(s => s.UnhideFilesAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
+
+        // Act
+        var result = await _controller.UnhideFiles(request);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UnhideFiles_ReturnsBadRequest_WhenNoFileIds()
+    {
+        // Arrange
+        var request = new HideFilesRequest { FileIds = [] };
+
+        // Act
+        var result = await _controller.UnhideFiles(request);
+
+        // Assert
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var error = badRequest.Value.Should().BeOfType<ApiErrorResponse>().Subject;
+        error.Code.Should().Be("BAD_REQUEST");
+    }
+
+    #endregion
 }

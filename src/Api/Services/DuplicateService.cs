@@ -83,7 +83,9 @@ public class DuplicateService : IDuplicateService
             Status = group.Status,
             ValidatedAt = group.ValidatedAt,
             KeptFileId = group.KeptFileId,
-            Files = group.Files.Select(f => new IndexedFileDto
+            Files = group.Files
+                .Where(f => !f.IsHidden) // Filter out hidden files
+                .Select(f => new IndexedFileDto
             {
                 Id = f.Id,
                 FilePath = f.FilePath,
@@ -97,7 +99,10 @@ public class DuplicateService : IDuplicateService
                 IndexedAt = f.IndexedAt,
                 ThumbnailPath = f.ThumbnailPath,
                 IsDuplicate = f.IsDuplicate,
-                DuplicateGroupId = f.DuplicateGroupId
+                DuplicateGroupId = f.DuplicateGroupId,
+                IsHidden = f.IsHidden,
+                HiddenCategory = f.HiddenCategory?.ToString(),
+                HiddenAt = f.HiddenAt
             }).ToList()
         };
     }

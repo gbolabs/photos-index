@@ -8,6 +8,7 @@ describe('GalleryStateService', () => {
   let service: GalleryStateService;
   let httpMock: HttpTestingController;
   const apiUrl = 'http://localhost:5000/api/files';
+  const hiddenCountUrl = 'http://localhost:5000/api/hidden-folders/hidden-count';
 
   const mockFile: IndexedFileDto = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -32,7 +33,8 @@ describe('GalleryStateService', () => {
     aperture: null,
     shutterSpeed: null,
     lastError: null,
-    retryCount: 0
+    retryCount: 0,
+    isHidden: false
   };
 
   const mockPagedResponse: PagedResponse<IndexedFileDto> = {
@@ -50,8 +52,12 @@ describe('GalleryStateService', () => {
       providers: [GalleryStateService, provideHttpClient(), provideHttpClientTesting()]
     });
 
-    service = TestBed.inject(GalleryStateService);
     httpMock = TestBed.inject(HttpTestingController);
+    service = TestBed.inject(GalleryStateService);
+
+    // Handle the hidden count request made by HiddenStateService on init
+    const hiddenCountReq = httpMock.expectOne(hiddenCountUrl);
+    hiddenCountReq.flush({ count: 0 });
   });
 
   afterEach(() => {

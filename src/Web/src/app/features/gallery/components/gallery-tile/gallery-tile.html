@@ -2,6 +2,7 @@
   class="gallery-tile"
   [class.selected]="selected()"
   [class.has-error]="imageError()"
+  [class.is-hidden]="file().isHidden"
   [style.width.px]="size()"
   [style.height.px]="size()"
   (click)="onTileClick($event)"

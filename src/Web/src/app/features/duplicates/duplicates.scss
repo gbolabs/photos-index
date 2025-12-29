@@ -18,6 +18,17 @@
     flex: 1;
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    button.active {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+  }
+
   h1 {
     margin: 0 0 0.5rem;
     font-size: 24px;

@@ -89,8 +89,16 @@ builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 builder.Services.AddScoped<IFileIngestService, FileIngestService>();
 builder.Services.AddScoped<IReprocessService, ReprocessService>();
+builder.Services.AddScoped<IHiddenFolderService, HiddenFolderService>();
 builder.Services.AddSingleton<DuplicateScanBackgroundService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DuplicateScanBackgroundService>());
+
+// Register cleaner services
+builder.Services.Configure<CleanerOptions>(builder.Configuration.GetSection(CleanerOptions.ConfigSection));
+builder.Services.AddSingleton<CleanerJobService>();
+builder.Services.AddScoped<ICleanerJobService>(sp => sp.GetRequiredService<CleanerJobService>());
+builder.Services.AddHostedService<CleanerBackgroundService>();
+builder.Services.AddHostedService<RetentionBackgroundService>();
 
 var app = builder.Build();
 
@@ -134,8 +142,9 @@ if (!app.Environment.IsEnvironment("Testing"))
     var imagesBucket = builder.Configuration["Minio:ImagesBucket"] ?? "images";
     var thumbnailsBucket = builder.Configuration["Minio:ThumbnailsBucket"] ?? "thumbnails";
     var previewsBucket = builder.Configuration["Minio:PreviewsBucket"] ?? "previews";
+    var archiveBucket = builder.Configuration["Minio:ArchiveBucket"] ?? "archive";
 
-    foreach (var bucket in new[] { imagesBucket, thumbnailsBucket, previewsBucket })
+    foreach (var bucket in new[] { imagesBucket, thumbnailsBucket, previewsBucket, archiveBucket })
     {
         try
         {
@@ -211,8 +220,9 @@ app.UseHttpsRedirection();
 // Map controllers
 app.MapControllers();
 
-// Map SignalR hub for indexer communication
+// Map SignalR hubs
 app.MapHub<IndexerHub>("/hubs/indexer");
+app.MapHub<CleanerHub>("/hubs/cleaner");
 
 // Health check endpoint with version info
 app.MapGet("/health", (IBuildInfoService buildInfo) =>

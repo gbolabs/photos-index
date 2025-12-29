@@ -514,3 +514,215 @@ public class IndexedFileServiceSearchTests : IDisposable
         result.Items.First().FileName.Should().Be("scan.pdf");
     }
 }
+
+/// <summary>
+/// Tests for hidden files filtering functionality
+/// </summary>
+public class IndexedFileServiceHiddenFilesTests : IDisposable
+{
+    private readonly PhotosDbContext _dbContext;
+    private readonly Mock<ILogger<IndexedFileService>> _mockLogger;
+    private readonly IndexedFileService _service;
+
+    public IndexedFileServiceHiddenFilesTests()
+    {
+        var options = new DbContextOptionsBuilder<PhotosDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        _dbContext = new PhotosDbContext(options);
+        _mockLogger = new Mock<ILogger<IndexedFileService>>();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new List<KeyValuePair<string, string?>>
+            {
+                new("ThumbnailDirectory", "/tmp/thumbnails")
+            })
+            .Build();
+
+        _service = new IndexedFileService(_dbContext, _mockLogger.Object, configuration);
+
+        SeedTestData();
+    }
+
+    private void SeedTestData()
+    {
+        var visibleFile1 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/photos/visible1.jpg",
+            FileName = "visible1.jpg",
+            FileHash = "hash1",
+            FileSize = 1024,
+            CreatedAt = DateTime.UtcNow,
+            ModifiedAt = DateTime.UtcNow,
+            IndexedAt = DateTime.UtcNow,
+            IsHidden = false
+        };
+
+        var visibleFile2 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/photos/visible2.jpg",
+            FileName = "visible2.jpg",
+            FileHash = "hash2",
+            FileSize = 2048,
+            CreatedAt = DateTime.UtcNow,
+            ModifiedAt = DateTime.UtcNow,
+            IndexedAt = DateTime.UtcNow,
+            IsHidden = false
+        };
+
+        var hiddenManually = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/photos/hidden_manual.jpg",
+            FileName = "hidden_manual.jpg",
+            FileHash = "hash3",
+            FileSize = 512,
+            CreatedAt = DateTime.UtcNow,
+            ModifiedAt = DateTime.UtcNow,
+            IndexedAt = DateTime.UtcNow,
+            IsHidden = true,
+            HiddenCategory = HiddenCategory.Manual,
+            HiddenAt = DateTime.UtcNow
+        };
+
+        var hiddenByFolder = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/photos/private/hidden_folder.jpg",
+            FileName = "hidden_folder.jpg",
+            FileHash = "hash4",
+            FileSize = 1024,
+            CreatedAt = DateTime.UtcNow,
+            ModifiedAt = DateTime.UtcNow,
+            IndexedAt = DateTime.UtcNow,
+            IsHidden = true,
+            HiddenCategory = HiddenCategory.FolderRule,
+            HiddenAt = DateTime.UtcNow,
+            HiddenByFolderId = Guid.NewGuid()
+        };
+
+        _dbContext.IndexedFiles.AddRange(visibleFile1, visibleFile2, hiddenManually, hiddenByFolder);
+        _dbContext.SaveChanges();
+    }
+
+    public void Dispose()
+    {
+        _dbContext.Dispose();
+    }
+
+    [Fact]
+    public async Task QueryAsync_ExcludesHiddenFiles_ByDefault()
+    {
+        // Arrange
+        var query = new FileQueryParameters
+        {
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.QueryAsync(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().HaveCount(2);
+        result.Items.All(f => !f.IsHidden).Should().BeTrue();
+        result.TotalItems.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task QueryAsync_IncludesHiddenFiles_WhenIncludeHiddenIsTrue()
+    {
+        // Arrange
+        var query = new FileQueryParameters
+        {
+            Page = 1,
+            PageSize = 50,
+            IncludeHidden = true
+        };
+
+        // Act
+        var result = await _service.QueryAsync(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().HaveCount(4);
+        result.TotalItems.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task QueryAsync_ReturnsHiddenPropertiesInDto()
+    {
+        // Arrange
+        var query = new FileQueryParameters
+        {
+            Page = 1,
+            PageSize = 50,
+            IncludeHidden = true,
+            Search = "hidden_manual"
+        };
+
+        // Act
+        var result = await _service.QueryAsync(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        var hiddenFile = result.Items.First();
+        hiddenFile.IsHidden.Should().BeTrue();
+        hiddenFile.HiddenCategory.Should().Be("Manual");
+        hiddenFile.HiddenAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task QueryAsync_WithFilters_StillExcludesHiddenFiles()
+    {
+        // Arrange
+        var query = new FileQueryParameters
+        {
+            Page = 1,
+            PageSize = 50,
+            Search = "hidden"
+        };
+
+        // Act
+        var result = await _service.QueryAsync(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().BeEmpty(); // Both hidden files should be excluded
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ReturnsHiddenFileProperties()
+    {
+        // Arrange
+        var hiddenFile = await _dbContext.IndexedFiles
+            .FirstAsync(f => f.HiddenCategory == HiddenCategory.Manual);
+
+        // Act
+        var result = await _service.GetByIdAsync(hiddenFile.Id, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.IsHidden.Should().BeTrue();
+        result.HiddenCategory.Should().Be("Manual");
+        result.HiddenAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetBatchMetadataAsync_ReturnsHiddenFileProperties()
+    {
+        // Arrange
+        var hiddenFile = await _dbContext.IndexedFiles
+            .FirstAsync(f => f.HiddenCategory == HiddenCategory.FolderRule);
+        var fileIds = new List<Guid> { hiddenFile.Id };
+
+        // Act
+        var result = await _service.GetBatchMetadataAsync(fileIds, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().IsHidden.Should().BeTrue();
+        result.First().HiddenCategory.Should().Be("FolderRule");
+    }
+}

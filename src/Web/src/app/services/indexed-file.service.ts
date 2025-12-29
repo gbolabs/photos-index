@@ -98,6 +98,24 @@ export class IndexedFileService {
   }
 
   /**
+   * Hides one or more files from the default view.
+   */
+  hideFiles(fileIds: string[]): Observable<void> {
+    return this.http
+      .post<void>(`${this.apiUrl}/hide`, { fileIds })
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Unhides one or more files, making them visible in the default view.
+   */
+  unhideFiles(fileIds: string[]): Observable<void> {
+    return this.http
+      .post<void>(`${this.apiUrl}/unhide`, { fileIds })
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
    * Builds HTTP query parameters from FileQueryParameters.
    */
   private buildQueryParams(params?: FileQueryParameters): HttpParams {
@@ -141,6 +159,10 @@ export class IndexedFileService {
 
     if (params.sortDescending !== undefined) {
       httpParams = httpParams.set('sortDescending', params.sortDescending.toString());
+    }
+
+    if (params.includeHidden !== undefined) {
+      httpParams = httpParams.set('includeHidden', params.includeHidden.toString());
     }
 
     return httpParams;

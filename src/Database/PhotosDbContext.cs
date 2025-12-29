@@ -13,6 +13,9 @@ public class PhotosDbContext : DbContext
     public DbSet<ScanDirectory> ScanDirectories { get; set; }
     public DbSet<DuplicateGroup> DuplicateGroups { get; set; }
     public DbSet<SelectionPreference> SelectionPreferences { get; set; }
+    public DbSet<CleanerJob> CleanerJobs { get; set; }
+    public DbSet<CleanerJobFile> CleanerJobFiles { get; set; }
+    public DbSet<HiddenFolder> HiddenFolders { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,11 +46,24 @@ public class PhotosDbContext : DbContext
             entity.HasIndex(e => e.FileHash);
             entity.HasIndex(e => e.IsDuplicate);
 
-            // Foreign key relationship
+            // Indexes for hidden files
+            entity.HasIndex(e => e.IsHidden);
+
+            // Foreign key relationships
             entity.HasOne(e => e.DuplicateGroup)
                 .WithMany(d => d.Files)
                 .HasForeignKey(e => e.DuplicateGroupId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.HiddenByFolder)
+                .WithMany(h => h.HiddenFiles)
+                .HasForeignKey(e => e.HiddenByFolderId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Configure HiddenCategory as string
+            entity.Property(e => e.HiddenCategory)
+                .HasConversion<string>()
+                .HasMaxLength(20);
         });
 
         // Configure ScanDirectory entity
@@ -106,6 +122,86 @@ public class PhotosDbContext : DbContext
             // Indexes
             entity.HasIndex(e => e.PathPrefix);
             entity.HasIndex(e => e.SortOrder);
+        });
+
+        // Configure CleanerJob entity
+        modelBuilder.Entity<CleanerJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Category)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(e => e.ErrorMessage)
+                .HasMaxLength(2000);
+
+            // Indexes
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // Configure CleanerJobFile entity
+        modelBuilder.Entity<CleanerJobFile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.FilePath)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.FileHash)
+                .IsRequired()
+                .HasMaxLength(64);
+
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(e => e.ArchivePath)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.ErrorMessage)
+                .HasMaxLength(2000);
+
+            // Foreign key relationships
+            entity.HasOne(e => e.CleanerJob)
+                .WithMany(j => j.Files)
+                .HasForeignKey(e => e.CleanerJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.IndexedFile)
+                .WithMany()
+                .HasForeignKey(e => e.FileId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes
+            entity.HasIndex(e => e.CleanerJobId);
+            entity.HasIndex(e => e.FileId);
+            entity.HasIndex(e => e.Status);
+        });
+
+        // Configure HiddenFolder entity
+        modelBuilder.Entity<HiddenFolder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.FolderPath)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500);
+
+            // Indexes
+            entity.HasIndex(e => e.FolderPath);
         });
     }
 }

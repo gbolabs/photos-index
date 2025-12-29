@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,7 +7,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatBadgeModule } from '@angular/material/badge';
 import { GalleryFilters, TileSize } from '../../services/gallery-state.service';
+import { HiddenStateService } from '../../../../services/hidden-state.service';
 
 @Component({
   selector: 'app-filter-bar',
@@ -20,12 +22,15 @@ import { GalleryFilters, TileSize } from '../../services/gallery-state.service';
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
-    MatButtonToggleModule
+    MatButtonToggleModule,
+    MatBadgeModule
   ],
   templateUrl: './filter-bar.html',
   styleUrl: './filter-bar.scss'
 })
 export class FilterBarComponent {
+  readonly hiddenStateService = inject(HiddenStateService);
+
   readonly filters = input.required<GalleryFilters>();
   readonly tileSize = input.required<TileSize>();
   readonly directories = input<string[]>([]);
@@ -33,6 +38,7 @@ export class FilterBarComponent {
   readonly filtersChange = output<Partial<GalleryFilters>>();
   readonly tileSizeChange = output<TileSize>();
   readonly refresh = output<void>();
+  readonly showHiddenChange = output<boolean>();
 
   onSearchChange(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
@@ -53,5 +59,10 @@ export class FilterBarComponent {
 
   onRefresh(): void {
     this.refresh.emit();
+  }
+
+  onShowHiddenToggle(): void {
+    this.hiddenStateService.toggleShowHidden();
+    this.showHiddenChange.emit(this.hiddenStateService.showHidden());
   }
 }
