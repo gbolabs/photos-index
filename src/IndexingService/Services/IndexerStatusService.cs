@@ -13,11 +13,19 @@ public interface IIndexerStatusService
     void SetCurrentDirectory(string? directory);
     void SetActivity(string? activity);
     void SetProgress(int filesProcessed, int filesTotal);
-    void IncrementFilesProcessed();
+    void SetBytesProgress(long bytesProcessed, long bytesTotal);
+    void IncrementFilesProcessed(long bytesProcessed = 0);
     void RecordError(string error);
     void ClearError();
     void ScanStarted();
     void ScanCompleted();
+    void SetScanQueue(IReadOnlyList<ScanQueueItemDto> queue);
+    bool IsPaused { get; }
+    void Pause();
+    void Resume();
+    CancellationToken CancellationToken { get; }
+    void RequestCancellation();
+    void ResetCancellation();
 }
 
 public class IndexerStatusService : IIndexerStatusService
@@ -31,6 +39,7 @@ public class IndexerStatusService : IIndexerStatusService
     private readonly DateTime _startTime;
 
     private IndexerState _state = IndexerState.Idle;
+    private IndexerState _stateBeforePause = IndexerState.Idle;
     private string? _currentDirectory;
     private string? _currentActivity;
     private int _filesProcessed;
@@ -41,6 +50,25 @@ public class IndexerStatusService : IIndexerStatusService
     private DateTime _lastHeartbeat;
     private string? _lastError;
 
+    // Speed tracking
+    private long _bytesProcessed;
+    private long _bytesTotal;
+    private DateTime _speedCalculationStart;
+    private int _filesAtSpeedStart;
+    private long _bytesAtSpeedStart;
+    private double _filesPerSecond;
+    private double _bytesPerSecond;
+
+    // Queue
+    private IReadOnlyList<ScanQueueItemDto> _scanQueue = [];
+
+    // Pause/Cancel
+    private bool _isPaused;
+    private CancellationTokenSource _cts = new();
+
+    public bool IsPaused => _isPaused;
+    public CancellationToken CancellationToken => _cts.Token;
+
     public IndexerStatusService()
     {
         _hostname = Environment.MachineName;
@@ -50,6 +78,7 @@ public class IndexerStatusService : IIndexerStatusService
         _environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
         _startTime = DateTime.UtcNow;
         _lastHeartbeat = DateTime.UtcNow;
+        _speedCalculationStart = DateTime.UtcNow;
     }
 
     public IndexerStatusDto GetStatus()
@@ -57,6 +86,21 @@ public class IndexerStatusService : IIndexerStatusService
         lock (_lock)
         {
             _lastHeartbeat = DateTime.UtcNow;
+            UpdateSpeedMetrics();
+
+            // Calculate ETA
+            int? estimatedSecondsRemaining = null;
+            if (_filesPerSecond > 0 && _filesTotal > _filesProcessed)
+            {
+                var filesRemaining = _filesTotal - _filesProcessed;
+                estimatedSecondsRemaining = (int)(filesRemaining / _filesPerSecond);
+            }
+
+            // Calculate progress percentage
+            var progressPercentage = _filesTotal > 0
+                ? (double)_filesProcessed / _filesTotal * 100
+                : 0;
+
             return new IndexerStatusDto
             {
                 IndexerId = _indexerId,
@@ -75,8 +119,37 @@ public class IndexerStatusService : IIndexerStatusService
                 ConnectedAt = _startTime,
                 LastHeartbeat = _lastHeartbeat,
                 Uptime = DateTime.UtcNow - _startTime,
-                LastError = _lastError
+                LastError = _lastError,
+                FilesPerSecond = Math.Round(_filesPerSecond, 2),
+                BytesProcessed = _bytesProcessed,
+                BytesTotal = _bytesTotal,
+                BytesPerSecond = Math.Round(_bytesPerSecond, 0),
+                EstimatedSecondsRemaining = estimatedSecondsRemaining,
+                ProgressPercentage = Math.Round(progressPercentage, 1),
+                ScanQueue = _scanQueue,
+                QueuedDirectories = _scanQueue.Count
             };
+        }
+    }
+
+    private void UpdateSpeedMetrics()
+    {
+        var elapsed = (DateTime.UtcNow - _speedCalculationStart).TotalSeconds;
+        if (elapsed >= 1) // Update speed every second
+        {
+            var filesProcessedSinceStart = _filesProcessed - _filesAtSpeedStart;
+            var bytesProcessedSinceStart = _bytesProcessed - _bytesAtSpeedStart;
+
+            _filesPerSecond = filesProcessedSinceStart / elapsed;
+            _bytesPerSecond = bytesProcessedSinceStart / elapsed;
+
+            // Reset for next calculation window (rolling average over 5 seconds)
+            if (elapsed >= 5)
+            {
+                _speedCalculationStart = DateTime.UtcNow;
+                _filesAtSpeedStart = _filesProcessed;
+                _bytesAtSpeedStart = _bytesProcessed;
+            }
         }
     }
 
@@ -117,11 +190,22 @@ public class IndexerStatusService : IIndexerStatusService
         }
     }
 
-    public void IncrementFilesProcessed()
+    public void IncrementFilesProcessed(long bytesProcessed = 0)
     {
         lock (_lock)
         {
             _filesProcessed++;
+            _bytesProcessed += bytesProcessed;
+            _lastHeartbeat = DateTime.UtcNow;
+        }
+    }
+
+    public void SetBytesProgress(long bytesProcessed, long bytesTotal)
+    {
+        lock (_lock)
+        {
+            _bytesProcessed = bytesProcessed;
+            _bytesTotal = bytesTotal;
             _lastHeartbeat = DateTime.UtcNow;
         }
     }
@@ -153,6 +237,14 @@ public class IndexerStatusService : IIndexerStatusService
             _lastScanStarted = DateTime.UtcNow;
             _filesProcessed = 0;
             _filesTotal = 0;
+            _bytesProcessed = 0;
+            _bytesTotal = 0;
+            _filesPerSecond = 0;
+            _bytesPerSecond = 0;
+            _speedCalculationStart = DateTime.UtcNow;
+            _filesAtSpeedStart = 0;
+            _bytesAtSpeedStart = 0;
+            _isPaused = false;
             _lastHeartbeat = DateTime.UtcNow;
         }
     }
@@ -164,7 +256,62 @@ public class IndexerStatusService : IIndexerStatusService
             _state = IndexerState.Idle;
             _lastScanCompleted = DateTime.UtcNow;
             _currentDirectory = null;
+            _scanQueue = [];
             _lastHeartbeat = DateTime.UtcNow;
+        }
+    }
+
+    public void SetScanQueue(IReadOnlyList<ScanQueueItemDto> queue)
+    {
+        lock (_lock)
+        {
+            _scanQueue = queue;
+            _lastHeartbeat = DateTime.UtcNow;
+        }
+    }
+
+    public void Pause()
+    {
+        lock (_lock)
+        {
+            if (_state != IndexerState.Idle && _state != IndexerState.Paused)
+            {
+                _stateBeforePause = _state;
+                _state = IndexerState.Paused;
+                _isPaused = true;
+                _lastHeartbeat = DateTime.UtcNow;
+            }
+        }
+    }
+
+    public void Resume()
+    {
+        lock (_lock)
+        {
+            if (_state == IndexerState.Paused)
+            {
+                _state = _stateBeforePause;
+                _isPaused = false;
+                // Reset speed calculation after pause
+                _speedCalculationStart = DateTime.UtcNow;
+                _filesAtSpeedStart = _filesProcessed;
+                _bytesAtSpeedStart = _bytesProcessed;
+                _lastHeartbeat = DateTime.UtcNow;
+            }
+        }
+    }
+
+    public void RequestCancellation()
+    {
+        _cts.Cancel();
+    }
+
+    public void ResetCancellation()
+    {
+        if (_cts.IsCancellationRequested)
+        {
+            _cts.Dispose();
+            _cts = new CancellationTokenSource();
         }
     }
 }

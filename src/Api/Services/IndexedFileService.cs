@@ -57,8 +57,69 @@ public class IndexedFileService : IIndexedFileService
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var search = query.Search.ToLower();
-            dbQuery = dbQuery.Where(f => f.FileName.ToLower().Contains(search));
+            var search = query.Search.Trim();
+
+            // Parse search prefixes: path:, taken:, modified:, created:
+            if (search.StartsWith("path:", StringComparison.OrdinalIgnoreCase))
+            {
+                // Filter by file path (contains match)
+                var pathFilter = search[5..].Trim().ToLower();
+                dbQuery = dbQuery.Where(f => f.FilePath.ToLower().Contains(pathFilter));
+            }
+            else if (search.StartsWith("taken:", StringComparison.OrdinalIgnoreCase))
+            {
+                // Filter by DateTaken (exact day match)
+                var dateStr = search[6..].Trim();
+                if (TryParseDate(dateStr, out var date))
+                {
+                    var startOfDay = date.Date;
+                    var endOfDay = date.Date.AddDays(1);
+                    dbQuery = dbQuery.Where(f => f.DateTaken >= startOfDay && f.DateTaken < endOfDay);
+                }
+                else
+                {
+                    // Invalid date format - return empty results
+                    dbQuery = dbQuery.Where(f => false);
+                }
+            }
+            else if (search.StartsWith("modified:", StringComparison.OrdinalIgnoreCase))
+            {
+                // Filter by ModifiedAt (exact day match)
+                var dateStr = search[9..].Trim();
+                if (TryParseDate(dateStr, out var date))
+                {
+                    var startOfDay = date.Date;
+                    var endOfDay = date.Date.AddDays(1);
+                    dbQuery = dbQuery.Where(f => f.ModifiedAt >= startOfDay && f.ModifiedAt < endOfDay);
+                }
+                else
+                {
+                    // Invalid date format - return empty results
+                    dbQuery = dbQuery.Where(f => false);
+                }
+            }
+            else if (search.StartsWith("created:", StringComparison.OrdinalIgnoreCase))
+            {
+                // Filter by CreatedAt (exact day match)
+                var dateStr = search[8..].Trim();
+                if (TryParseDate(dateStr, out var date))
+                {
+                    var startOfDay = date.Date;
+                    var endOfDay = date.Date.AddDays(1);
+                    dbQuery = dbQuery.Where(f => f.CreatedAt >= startOfDay && f.CreatedAt < endOfDay);
+                }
+                else
+                {
+                    // Invalid date format - return empty results
+                    dbQuery = dbQuery.Where(f => false);
+                }
+            }
+            else
+            {
+                // Default: search by filename
+                var searchLower = search.ToLower();
+                dbQuery = dbQuery.Where(f => f.FileName.ToLower().Contains(searchLower));
+            }
         }
 
         // Get total count
@@ -516,4 +577,29 @@ public class IndexedFileService : IIndexedFileService
         LastError = entity.LastError,
         RetryCount = entity.RetryCount
     };
+
+    /// <summary>
+    /// Parses a date string supporting yyyy-MM-dd and dd-MM-yyyy formats.
+    /// </summary>
+    private static bool TryParseDate(string dateStr, out DateTime result)
+    {
+        // Try yyyy-MM-dd format first (ISO 8601)
+        if (DateTime.TryParseExact(dateStr, "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out result))
+        {
+            return true;
+        }
+
+        // Try dd-MM-yyyy format (European)
+        if (DateTime.TryParseExact(dateStr, "dd-MM-yyyy",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out result))
+        {
+            return true;
+        }
+
+        result = default;
+        return false;
+    }
 }

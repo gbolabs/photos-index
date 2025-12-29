@@ -10,6 +10,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 8px;
+  gap: 8px;
 
   h2 {
     margin: 0;
@@ -19,6 +20,30 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
+  }
+
+  .header-status {
+    flex-shrink: 0;
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 12px;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &.disconnected {
+        background: #ffebee;
+        color: #c62828;
+      }
+    }
   }
 }
 
@@ -65,16 +90,44 @@
   color: #ffffff;
   margin: 0;
   font-size: 14px;
+  font-weight: 500;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
+.loading-hint {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-size: 12px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
 .error-container {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 48px;
-  color: #ffffff;
+  justify-content: center;
+  width: 100%;
+
+  .thumbnail-blur {
+    position: absolute;
+    max-width: 100%;
+    max-height: 70vh;
+    filter: blur(20px);
+    transform: scale(1.1);
+    opacity: 0.4;
+  }
+
+  .error-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 48px;
+    color: #ffffff;
+    z-index: 1;
+  }
 }
 
 .error-icon {
@@ -87,6 +140,19 @@
   margin: 0;
   text-align: center;
   max-width: 300px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  button {
+    mat-icon {
+      margin-right: 4px;
+    }
+  }
 }
 
 .full-image {
