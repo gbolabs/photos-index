@@ -21,4 +21,7 @@ public interface IDuplicateService
     Task<int> ValidateDuplicatesAsync(ValidateDuplicatesRequest request, CancellationToken ct);
     Task<ValidateBatchResponse> ValidateBatchAsync(ValidateBatchRequest request, CancellationToken ct);
     Task<int> UndoValidationAsync(UndoValidationRequest request, CancellationToken ct);
+
+    // Scan methods
+    Task<DuplicateScanResultDto> ScanForDuplicatesAsync(CancellationToken ct);
 }

@@ -1,7 +1,10 @@
 using Api.Controllers;
+using Api.Hubs;
 using Api.Services;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Shared.Dtos;
@@ -14,6 +17,7 @@ namespace Api.Tests.Controllers;
 public class DuplicateGroupsControllerTests
 {
     private readonly Mock<IDuplicateService> _mockService;
+    private readonly DuplicateScanBackgroundService _scanService;
     private readonly Mock<ILogger<DuplicateGroupsController>> _mockLogger;
     private readonly DuplicateGroupsController _controller;
 
@@ -21,7 +25,17 @@ public class DuplicateGroupsControllerTests
     {
         _mockService = new Mock<IDuplicateService>();
         _mockLogger = new Mock<ILogger<DuplicateGroupsController>>();
-        _controller = new DuplicateGroupsController(_mockService.Object, _mockLogger.Object);
+
+        // Create a mock for the background service dependencies
+        var mockScopeFactory = new Mock<IServiceScopeFactory>();
+        var mockHubContext = new Mock<IHubContext<IndexerHub>>();
+        var mockScanLogger = new Mock<ILogger<DuplicateScanBackgroundService>>();
+        _scanService = new DuplicateScanBackgroundService(
+            mockScopeFactory.Object,
+            mockHubContext.Object,
+            mockScanLogger.Object);
+
+        _controller = new DuplicateGroupsController(_mockService.Object, _scanService, _mockLogger.Object);
     }
 
     [Fact]

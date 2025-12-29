@@ -25,9 +25,24 @@
 
     <button
       mat-raised-button
+      color="accent"
+      (click)="startScan()"
+      [disabled]="scanning() || loading()"
+      matTooltip="Scan all indexed files for duplicates"
+    >
+      @if (scanning()) {
+        <mat-spinner diameter="20"></mat-spinner>
+      } @else {
+        <mat-icon>search</mat-icon>
+      }
+      Scan for Duplicates
+    </button>
+
+    <button
+      mat-raised-button
       color="primary"
       (click)="autoSelectAll()"
-      [disabled]="loading()"
+      [disabled]="loading() || scanning()"
       matTooltip="Auto-select originals for all groups"
     >
       @if (loading()) {
@@ -42,9 +57,19 @@
       mat-icon-button
       (click)="refresh()"
       matTooltip="Refresh"
-      [disabled]="loading()"
+      [disabled]="loading() || scanning()"
     >
       <mat-icon>refresh</mat-icon>
     </button>
   </div>
 </mat-toolbar>
+
+@if (scanning() && scanJob()) {
+  <div class="scan-progress">
+    <mat-progress-bar mode="determinate" [value]="scanProgress"></mat-progress-bar>
+    <div class="scan-status">
+      <span>{{ scanJob()!.status | titlecase }}: {{ scanJob()!.processedHashes }} / {{ scanJob()!.totalDuplicateHashes }} hashes</span>
+      <span>{{ scanJob()!.newGroupsCreated }} new groups found</span>
+    </div>
+  </div>
+}
