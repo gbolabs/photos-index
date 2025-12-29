@@ -1,0 +1,150 @@
+# Photos Index v0.5.0 - Synology NAS (Indexer + Cleaner)
+#
+# This runs the Indexer and Cleaner services on Synology.
+# All other services (API, database, etc.) run on TrueNAS.
+#
+# IMPORTANT:
+# - Indexer has READ-ONLY access to photo directories (safety)
+# - Cleaner has READ-WRITE access to photo directories (required for deletion)
+# - Scan directories are configured via the TrueNAS web UI, NOT here
+# - The paths configured in TrueNAS must match the volume mounts below
+# - Excluded directories (@eaDir, #recycle, etc.) are built into the indexer
+#
+# Usage:
+#   docker compose -f synology-0.5.0.yml up -d
+
+name: photos-index-synology
+
+services:
+  # ============================================================================
+  # Indexer - File scanning service (READ-ONLY access)
+  # ============================================================================
+  indexer:
+    container_name: photos-index-indexer
+    image: ghcr.io/gbolabs/photos-index/indexing-service:0
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    restart: unless-stopped
+    environment:
+      # API connection (TrueNAS) - HTTPS on port 8053
+      API_BASE_URL: https://tn.isago.ch:8053
+
+      # Distributed mode - don't process locally, send to TrueNAS
+      EXTRACT_METADATA: "false"
+      GENERATE_THUMBNAILS: "false"
+
+      # OpenTelemetry - send traces to TrueNAS Jaeger
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://192.168.114.31:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: photos-index-indexer-synology
+
+    volumes:
+      # Mount photo directories - READ-ONLY for safety
+      # These paths must match what's configured in TrueNAS scan directories
+      - /volume1/Public:/public:ro
+      - /volume1/photo:/photo:ro
+      - /volume1/Photos:/photos:ro
+
+    # Note: CPU limits removed - Synology kernel doesn't support CFS scheduler
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "https://tn.isago.ch:8053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Cleaner - Safe file deletion service (READ-WRITE access)
+  # ============================================================================
+  cleaner:
+    container_name: photos-index-cleaner
+    image: ghcr.io/gbolabs/photos-index/cleaner-service:0
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    restart: unless-stopped
+    environment:
+      # API connection (TrueNAS) - HTTPS on port 8053
+      API_BASE_URL: https://tn.isago.ch:8053
+
+      # DRY-RUN mode - SAFETY FIRST!
+      # Set to "false" only when you're ready to enable actual deletions
+      DRY_RUN: "true"
+
+      # OpenTelemetry - send traces to TrueNAS Jaeger
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://192.168.114.31:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: photos-index-cleaner-synology
+
+    volumes:
+      # Mount photo directories - READ-WRITE for deletion capability
+      # CAUTION: This service can delete files!
+      - /volume1/Public:/public:rw
+      - /volume1/photo:/photo:rw
+      - /volume1/Photos:/photos:rw
+
+    # Note: CPU limits removed - Synology kernel doesn't support CFS scheduler
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "https://tn.isago.ch:8053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Watchtower - Auto-update containers from GHCR
+  # ============================================================================
+  watchtower:
+    container_name: photos-index-watchtower
+    image: containrrr/watchtower
+    environment:
+      # Polling interval (5 minutes)
+      WATCHTOWER_POLL_INTERVAL: 300
+      # Only update containers with watchtower.enable=true label
+      WATCHTOWER_LABEL_ENABLE: "true"
+      # Remove old images after update
+      WATCHTOWER_CLEANUP: "true"
+      # Include stopped containers
+      WATCHTOWER_INCLUDE_STOPPED: "true"
+      # Enable HTTP API with Prometheus metrics
+      WATCHTOWER_HTTP_API_METRICS: "true"
+      WATCHTOWER_HTTP_API_TOKEN: "photos-index-metrics"
+      # Timezone
+      TZ: Europe/Zurich
+    ports:
+      - "8055:8080"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Note: CPU limits removed - Synology kernel doesn't support CFS scheduler
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M

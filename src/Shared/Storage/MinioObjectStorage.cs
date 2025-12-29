@@ -135,4 +135,37 @@ public class MinioObjectStorage : IObjectStorage
                 .ConfigureAwait(false);
         }
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StorageObject>> ListObjectsAsync(
+        string bucket,
+        string? prefix = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(bucket);
+
+        var objects = new List<StorageObject>();
+
+        var listObjectsArgs = new ListObjectsArgs()
+            .WithBucket(bucket)
+            .WithRecursive(true);
+
+        if (!string.IsNullOrEmpty(prefix))
+        {
+            listObjectsArgs = listObjectsArgs.WithPrefix(prefix);
+        }
+
+        await foreach (var item in _minioClient.ListObjectsEnumAsync(listObjectsArgs, cancellationToken))
+        {
+            objects.Add(new StorageObject
+            {
+                Key = item.Key,
+                Size = (long)item.Size,
+                LastModified = item.LastModifiedDateTime ?? DateTime.MinValue,
+                ContentType = item.ContentType
+            });
+        }
+
+        return objects;
+    }
 }

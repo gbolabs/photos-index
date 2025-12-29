@@ -1,33 +1,90 @@
+using CleanerService.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Options;
+using Shared.Dtos;
 using Xunit;
 
 namespace CleanerService.Tests;
 
-public class CleanerWorkerTests
+/// <summary>
+/// Tests for the CleanerService options and configuration.
+/// </summary>
+public class CleanerServiceOptionsTests
 {
     [Fact]
-    public void CleanerWorker_Should_BeCreatable()
+    public void CleanerServiceOptions_DefaultValues()
     {
-        // Arrange
-        // TODO: Implement worker initialization with mocked dependencies
-
-        // Act
-        var result = true;
+        // Arrange & Act
+        var options = new CleanerServiceOptions();
 
         // Assert
-        result.Should().BeTrue();
+        options.DryRunEnabled.Should().BeTrue("Dry-run should be enabled by default for safety");
+        options.ApiBaseUrl.Should().Be("http://localhost:5000", "Default localhost URL for development");
+        options.MaxConcurrency.Should().Be(4);
+        options.UploadTimeoutSeconds.Should().Be(300);
     }
 
     [Fact]
-    public async Task ExecuteAsync_Should_CleanDuplicates()
+    public void CleanerServiceOptions_CanBeConfigured()
     {
         // Arrange
-        // TODO: Mock database operations for duplicate detection
-
-        // Act
-        await Task.CompletedTask;
+        var options = new CleanerServiceOptions
+        {
+            ApiBaseUrl = "https://api.example.com",
+            DryRunEnabled = false
+        };
 
         // Assert
-        true.Should().BeTrue();
+        options.ApiBaseUrl.Should().Be("https://api.example.com");
+        options.DryRunEnabled.Should().BeFalse();
+    }
+}
+
+/// <summary>
+/// Tests for content type detection.
+/// </summary>
+public class ContentTypeTests
+{
+    [Theory]
+    [InlineData(".jpg", "image/jpeg")]
+    [InlineData(".jpeg", "image/jpeg")]
+    [InlineData(".JPG", "image/jpeg")]
+    [InlineData(".png", "image/png")]
+    [InlineData(".PNG", "image/png")]
+    [InlineData(".gif", "image/gif")]
+    [InlineData(".heic", "image/heic")]
+    [InlineData(".heif", "image/heif")]
+    [InlineData(".webp", "image/webp")]
+    [InlineData(".avif", "image/avif")]
+    [InlineData(".bmp", "image/bmp")]
+    [InlineData(".tiff", "image/tiff")]
+    [InlineData(".tif", "image/tiff")]
+    [InlineData(".xyz", "application/octet-stream")]
+    [InlineData("", "application/octet-stream")]
+    public void GetContentType_ReturnsCorrectType(string extension, string expectedContentType)
+    {
+        // Act
+        var result = GetContentType($"file{extension}");
+
+        // Assert
+        result.Should().Be(expectedContentType);
+    }
+
+    // Mimics the private method in DeleteService
+    private static string GetContentType(string filePath)
+    {
+        return Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            ".webp" => "image/webp",
+            ".avif" => "image/avif",
+            ".bmp" => "image/bmp",
+            ".tiff" or ".tif" => "image/tiff",
+            _ => "application/octet-stream"
+        };
     }
 }

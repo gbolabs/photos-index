@@ -39,6 +39,14 @@ An ADR is a short document that captures an important architectural decision alo
 | [003](./003-remove-devcontainer-support.md) | Remove Dev Container Support | Accepted | 2025-12-23 |
 | [004](./004-distributed-processing-architecture.md) | Distributed Processing Architecture | Proposed | 2025-12-24 |
 | [005](./005-claude-api-traffic-logging.md) | Claude API Traffic Logging via Proxy Container | Proposed | 2025-12-24 |
+| [006](./006-jaeger-over-aspire.md) | Grafana Observability Stack Over Aspire Dashboard | Accepted | 2025-12-25 |
+| [007](./007-masstransit-messaging-patterns.md) | MassTransit Messaging Patterns for Distributed Processing | Accepted | 2025-12-25 |
+| [008](./008-signalr-indexer-communication.md) | SignalR for API-Indexer Bidirectional Communication | Accepted | 2025-12-26 |
+| [009](./009-watchtower-auto-deployment.md) | Watchtower for Automated Container Updates | Accepted | 2025-12-28 |
+| [010](./010-image-preview-architecture.md) | Image Preview Architecture | Accepted | 2025-12-28 |
+| [011](./011-gallery-view-architecture.md) | Gallery View Architecture | Proposed | 2025-12-29 |
+| [012](./012-incremental-indexing.md) | Incremental Indexing with Scan Sessions | Accepted | 2025-12-29 |
+| [013](./013-cleaner-service-architecture.md) | Cleaner Service Architecture for Safe Duplicate Removal | Accepted | 2025-12-29 |
 
 ## References
 

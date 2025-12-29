@@ -50,6 +50,13 @@ public class IndexedFile
 
     public int RetryCount { get; set; } = 0;
 
+    // Soft delete tracking
+    public bool IsDeleted { get; set; } = false;
+
+    public DateTime? DeletedAt { get; set; }
+
+    public string? ArchivePath { get; set; }
+
     // Navigation property
     public DuplicateGroup? DuplicateGroup { get; set; }
 }

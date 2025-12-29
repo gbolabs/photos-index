@@ -1,13 +1,20 @@
 # 001: Delete Manager
 
+**Status**: ✅ Complete
 **Priority**: P1 (Core Features)
 **Agent**: A3
-**Branch**: `feature/cleaner-delete-manager`
+**Branch**: `feature/v0.3.0-distributed-processing`
 **Estimated Complexity**: High
 
 ## Objective
 
-Implement safe file deletion with soft delete, trash directory, transaction logging, and rollback capability.
+Implement safe file deletion with API-driven archive workflow, category-based retention, and dry-run capability.
+
+> **Note**: The implementation evolved from the original design. Instead of local `.trash` directories:
+> - Files are uploaded to TrueNAS MinIO archive bucket before deletion
+> - API controls retention policies (6 months for hash duplicates, 2 years for near/manual)
+> - CleanerService runs on Synology with RW access, communicates via SignalR
+> - See [ADR-013](../adrs/013-cleaner-service-architecture.md) for full architecture.
 
 ## Dependencies
 
@@ -251,19 +258,21 @@ public interface ITransactionLogger
 
 ## Completion Checklist
 
-- [ ] Create IDeleteManager interface
-- [ ] Create DeleteOptions, DeleteResult, DeleteTransaction models
-- [ ] Implement DeleteManager with trash move
-- [ ] Implement hash verification before delete
-- [ ] Create ITransactionLogger interface
-- [ ] Implement TransactionLogger (file-based JSON)
-- [ ] Implement rollback functionality
-- [ ] Implement trash cleanup
-- [ ] Add dry-run mode
-- [ ] Create ICleanerApiClient interface
-- [ ] Implement CleanerApiClient
-- [ ] Update Worker to poll API and process deletions
-- [ ] Add OpenTelemetry tracing
+- [x] Create CleanerJob and CleanerJobFile database entities
+- [x] Create CleanerStatusDto, CleanerJobDto, DeleteFileRequest DTOs
+- [x] Create CleanerHub SignalR hub for API-Cleaner communication
+- [x] Create CleanerController with archive upload endpoint
+- [x] Implement CleanerBackgroundService for bulk job processing
+- [x] Implement RetentionBackgroundService for daily cleanup
+- [x] Implement CleanerService SignalR client
+- [x] Implement DeleteService with hash verification
+- [x] Add dry-run mode (default: enabled)
+- [x] Add category-based archive paths (hash_duplicate, near_duplicate, manual)
+- [x] Implement file upload to MinIO archive bucket
+- [x] Add OpenTelemetry tracing
+- [x] Update Synology deployment with CleanerService (RW mounts)
+- [x] Update TrueNAS deployment with cleaner configuration
+- [x] Create ADR-013 documenting architecture
 - [ ] Write comprehensive unit tests
 - [ ] All tests passing with coverage met
 - [ ] PR created and reviewed

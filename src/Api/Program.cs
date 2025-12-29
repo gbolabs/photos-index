@@ -1,4 +1,5 @@
 using Api.Consumers;
+using Api.Hubs;
 using Api.Middleware;
 using Api.Services;
 using Database;
@@ -18,6 +19,9 @@ builder.AddPhotosIndexTelemetry("photos-index-api");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add DbContext - connection string will be configured in appsettings.json
 builder.Services.AddDbContext<PhotosDbContext>(options =>
@@ -73,6 +77,13 @@ builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 builder.Services.AddScoped<IFileIngestService, FileIngestService>();
 
+// Register cleaner services
+builder.Services.Configure<CleanerOptions>(builder.Configuration.GetSection(CleanerOptions.ConfigSection));
+builder.Services.AddSingleton<CleanerJobService>();
+builder.Services.AddScoped<ICleanerJobService>(sp => sp.GetRequiredService<CleanerJobService>());
+builder.Services.AddHostedService<CleanerBackgroundService>();
+builder.Services.AddHostedService<RetentionBackgroundService>();
+
 var app = builder.Build();
 
 // Log startup info
@@ -84,7 +95,90 @@ if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<PhotosDbContext>();
-    db.Database.Migrate();
+
+    var maxRetries = 10;
+    var delay = TimeSpan.FromSeconds(2);
+
+    for (var attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
+        {
+            app.Logger.LogInformation("Attempting database migration (attempt {Attempt}/{MaxRetries})", attempt, maxRetries);
+            db.Database.Migrate();
+            app.Logger.LogInformation("Database migration completed successfully");
+            break;
+        }
+        catch (Exception ex) when (attempt < maxRetries)
+        {
+            app.Logger.LogWarning(ex, "Database connection failed (attempt {Attempt}/{MaxRetries}). Retrying in {Delay}s...",
+                attempt, maxRetries, delay.TotalSeconds);
+            Thread.Sleep(delay);
+            delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 1.5, 30)); // Exponential backoff, max 30s
+        }
+    }
+}
+
+// Ensure MinIO buckets exist
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    var minioClient = app.Services.GetRequiredService<IMinioClient>();
+    var imagesBucket = builder.Configuration["Minio:ImagesBucket"] ?? "images";
+    var thumbnailsBucket = builder.Configuration["Minio:ThumbnailsBucket"] ?? "thumbnails";
+    var previewsBucket = builder.Configuration["Minio:PreviewsBucket"] ?? "previews";
+    var archiveBucket = builder.Configuration["Minio:ArchiveBucket"] ?? "archive";
+
+    foreach (var bucket in new[] { imagesBucket, thumbnailsBucket, previewsBucket, archiveBucket })
+    {
+        try
+        {
+            var exists = await minioClient.BucketExistsAsync(new Minio.DataModel.Args.BucketExistsArgs().WithBucket(bucket));
+            if (!exists)
+            {
+                app.Logger.LogInformation("Creating MinIO bucket: {Bucket}", bucket);
+                await minioClient.MakeBucketAsync(new Minio.DataModel.Args.MakeBucketArgs().WithBucket(bucket));
+
+                // Make thumbnails and previews buckets publicly readable for Traefik to serve
+                if (bucket == thumbnailsBucket || bucket == previewsBucket)
+                {
+                    var policy = $$"""
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Principal": {"AWS": ["*"]},
+                            "Action": ["s3:GetObject"],
+                            "Resource": ["arn:aws:s3:::{{bucket}}/*"]
+                        }]
+                    }
+                    """;
+                    await minioClient.SetPolicyAsync(new Minio.DataModel.Args.SetPolicyArgs()
+                        .WithBucket(bucket)
+                        .WithPolicy(policy));
+                    app.Logger.LogInformation("Set public read policy on bucket: {Bucket}", bucket);
+                }
+
+                // Set lifecycle policy for previews bucket (auto-expire after 1 day)
+                if (bucket == previewsBucket)
+                {
+                    var rule = new Minio.DataModel.ILM.LifecycleRule
+                    {
+                        ID = "auto-expire-previews",
+                        Status = "Enabled",
+                        Expiration = new Minio.DataModel.ILM.Expiration { Days = 1 }
+                    };
+                    var lifecycleConfig = new Minio.DataModel.ILM.LifecycleConfiguration([rule]);
+                    await minioClient.SetBucketLifecycleAsync(new Minio.DataModel.Args.SetBucketLifecycleArgs()
+                        .WithBucket(bucket)
+                        .WithLifecycleConfiguration(lifecycleConfig));
+                    app.Logger.LogInformation("Set 1-day expiration lifecycle on bucket: {Bucket}", bucket);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Failed to create/configure MinIO bucket: {Bucket}", bucket);
+        }
+    }
 }
 
 // Add TraceId header to all responses for telemetry correlation
@@ -105,6 +199,10 @@ app.UseHttpsRedirection();
 
 // Map controllers
 app.MapControllers();
+
+// Map SignalR hubs
+app.MapHub<IndexerHub>("/hubs/indexer");
+app.MapHub<CleanerHub>("/hubs/cleaner");
 
 // Health check endpoint with version info
 app.MapGet("/health", (IBuildInfoService buildInfo) =>
