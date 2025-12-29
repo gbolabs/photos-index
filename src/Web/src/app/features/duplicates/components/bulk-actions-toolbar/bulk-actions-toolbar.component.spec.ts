@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { MatDialog } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
 import { BulkActionsToolbarComponent } from './bulk-actions-toolbar.component';
 import { DuplicateService } from '../../../../services/duplicate.service';
@@ -29,6 +30,7 @@ describe('BulkActionsToolbarComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideNoopAnimations(),
+        { provide: MatDialog, useValue: { open: vi.fn() } },
       ],
     }).compileComponents();
 
@@ -159,4 +161,5 @@ describe('BulkActionsToolbarComponent', () => {
     const toolbar = compiled.querySelector('mat-toolbar');
     expect(toolbar).toBeTruthy();
   });
+
 });

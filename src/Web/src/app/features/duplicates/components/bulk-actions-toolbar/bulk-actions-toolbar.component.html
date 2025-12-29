@@ -55,6 +55,15 @@
 
     <button
       mat-icon-button
+      (click)="openSettings()"
+      matTooltip="Selection Preferences"
+      [disabled]="loading() || scanning()"
+    >
+      <mat-icon>tune</mat-icon>
+    </button>
+
+    <button
+      mat-icon-button
       (click)="refresh()"
       matTooltip="Refresh"
       [disabled]="loading() || scanning()"
