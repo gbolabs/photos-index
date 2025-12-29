@@ -44,4 +44,7 @@ RUN chmod +x /entrypoint.sh
 # Switch to non-root user
 USER claude
 
+# Create config directories for plugins and auth (will be mounted as volume)
+RUN mkdir -p /home/claude/.claude /home/claude/.anthropic
+
 ENTRYPOINT ["/entrypoint.sh"]
