@@ -36,4 +36,9 @@ public interface IHiddenFolderService
     /// Unhides specific files.
     /// </summary>
     Task<int> UnhideFilesAsync(HideFilesRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Gets the count of hidden files.
+    /// </summary>
+    Task<int> GetHiddenCountAsync(CancellationToken ct);
 }

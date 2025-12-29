@@ -47,6 +47,17 @@ public class HiddenFoldersController : ControllerBase
     }
 
     /// <summary>
+    /// Get count of hidden files.
+    /// </summary>
+    [HttpGet("hidden-count")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<ActionResult<object>> GetHiddenCount(CancellationToken ct = default)
+    {
+        var count = await _service.GetHiddenCountAsync(ct);
+        return Ok(new { count });
+    }
+
+    /// <summary>
     /// Create a new hidden folder rule.
     /// </summary>
     [HttpPost]

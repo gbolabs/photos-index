@@ -210,4 +210,11 @@ public class HiddenFolderService : IHiddenFolderService
 
         return files.Count;
     }
+
+    public async Task<int> GetHiddenCountAsync(CancellationToken ct)
+    {
+        return await _dbContext.IndexedFiles
+            .AsNoTracking()
+            .CountAsync(f => f.IsHidden, ct);
+    }
 }
