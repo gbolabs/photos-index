@@ -5,8 +5,10 @@ import {
   signal,
   output,
   computed,
+  input,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,9 +18,13 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
 import { DuplicateService } from '../../../../services/duplicate.service';
 import { DuplicateGroupDto, PagedResponse, IndexedFileDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
+import { environment } from '../../../../../environments/environment';
 
 type SortColumn = 'size' | 'date' | 'fileCount';
 type SortDirection = 'asc' | 'desc';
@@ -32,6 +38,7 @@ interface RowState {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatTableModule,
     MatButtonModule,
     MatIconModule,
@@ -41,6 +48,9 @@ interface RowState {
     MatTooltipModule,
     MatSortModule,
     MatCardModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatChipsModule,
     FileSizePipe,
   ],
   templateUrl: './duplicate-table-view.component.html',
@@ -68,8 +78,18 @@ export class DuplicateTableViewComponent implements OnInit {
   sortColumn = signal<SortColumn>('size');
   sortDirection = signal<SortDirection>('desc');
 
+  // Filtering
+  statusFilter = signal<string>('');
+  statusOptions = [
+    { value: '', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'proposed', label: 'Proposed' },
+    { value: 'auto-selected', label: 'Auto-selected' },
+    { value: 'validated', label: 'Validated' },
+  ];
+
   // Table columns
-  displayedColumns = ['select', 'original', 'size', 'date', 'duplicates'];
+  displayedColumns = ['select', 'thumbnail', 'original', 'size', 'date', 'status', 'duplicates'];
 
   // Output events
   groupSelected = output<DuplicateGroupDto>();
@@ -96,7 +116,8 @@ export class DuplicateTableViewComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.duplicateService.getAll(this.pageIndex + 1, this.pageSize).subscribe({
+    const status = this.statusFilter() || undefined;
+    this.duplicateService.getAll(this.pageIndex + 1, this.pageSize, status).subscribe({
       next: (response: PagedResponse<DuplicateGroupDto>) => {
         // Sort the groups based on current sort settings
         const sortedGroups = this.sortGroups(response.items);
@@ -110,6 +131,13 @@ export class DuplicateTableViewComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  onFilterChange(status: string): void {
+    this.statusFilter.set(status);
+    this.pageIndex = 0; // Reset to first page
+    this.selectedGroupIds.set(new Set());
+    this.loadGroups();
   }
 
   onPageChange(event: PageEvent): void {
@@ -303,4 +331,26 @@ export class DuplicateTableViewComponent implements OnInit {
   isExpandedRow = (index: number, group: DuplicateGroupDto) => {
     return this.isRowExpanded(group.id);
   };
+
+  getThumbnailUrl(group: DuplicateGroupDto): string | null {
+    if (group.firstFileThumbnailPath) {
+      return `${environment.apiUrl}${group.firstFileThumbnailPath}`;
+    }
+    return null;
+  }
+
+  getStatusLabel(status: string): string {
+    const option = this.statusOptions.find(o => o.value === status);
+    return option?.label || status;
+  }
+
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'pending': return 'status-pending';
+      case 'proposed': return 'status-proposed';
+      case 'auto-selected': return 'status-auto-selected';
+      case 'validated': return 'status-validated';
+      default: return '';
+    }
+  }
 }
