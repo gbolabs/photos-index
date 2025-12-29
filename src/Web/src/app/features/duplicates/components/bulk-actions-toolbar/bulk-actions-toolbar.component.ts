@@ -7,9 +7,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DuplicateService, DuplicateScanJob } from '../../../../services/duplicate.service';
 import { FileStatisticsDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
+import { SelectionPreferencesDialogComponent } from '../selection-preferences-dialog/selection-preferences-dialog.component';
 import { interval, Subscription, takeWhile } from 'rxjs';
 
 @Component({
@@ -24,6 +26,7 @@ import { interval, Subscription, takeWhile } from 'rxjs';
     MatProgressBarModule,
     MatTooltipModule,
     MatChipsModule,
+    MatDialogModule,
     FileSizePipe,
   ],
   templateUrl: './bulk-actions-toolbar.component.html',
@@ -31,6 +34,7 @@ import { interval, Subscription, takeWhile } from 'rxjs';
 })
 export class BulkActionsToolbarComponent implements OnDestroy {
   private duplicateService = inject(DuplicateService);
+  private dialog = inject(MatDialog);
   private pollSubscription?: Subscription;
 
   // Inputs
@@ -146,5 +150,17 @@ export class BulkActionsToolbarComponent implements OnDestroy {
     const job = this.scanJob();
     if (!job || job.totalDuplicateHashes === 0) return 0;
     return Math.round((job.processedHashes / job.totalDuplicateHashes) * 100);
+  }
+
+  openSettings(): void {
+    const dialogRef = this.dialog.open(SelectionPreferencesDialogComponent, {
+      width: '600px',
+      maxHeight: '90vh',
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadStats();
+      this.actionCompleted.emit();
+    });
   }
 }
