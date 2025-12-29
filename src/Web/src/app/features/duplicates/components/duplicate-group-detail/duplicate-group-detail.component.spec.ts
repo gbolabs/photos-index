@@ -77,6 +77,13 @@ describe('DuplicateGroupDetailComponent', () => {
     files: [mockFile1, mockFile2],
     resolvedAt: null,
     createdAt: '2024-01-01T10:00:00Z',
+    firstFileThumbnailPath: null,
+    status: 'pending',
+    validatedAt: null,
+    keptFileId: null,
+    lastReviewedAt: null,
+    reviewOrder: null,
+    reviewSessionId: null,
   };
 
   beforeEach(async () => {
