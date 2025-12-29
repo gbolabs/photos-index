@@ -14,6 +14,19 @@ export interface DuplicateGroupDto {
   createdAt: string;
   originalFileId: string | null;
   files: IndexedFileDto[];
+
+  // Thumbnail for list display
+  firstFileThumbnailPath: string | null;
+
+  // Validation fields
+  status: string;
+  validatedAt: string | null;
+  keptFileId: string | null;
+
+  // Review session fields
+  lastReviewedAt: string | null;
+  reviewOrder: number | null;
+  reviewSessionId: string | null;
 }
 
 /**

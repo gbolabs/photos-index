@@ -41,6 +41,14 @@ import { MatButtonModule } from '@angular/material/button';
             <td>Skip group</td>
           </tr>
           <tr>
+            <td><kbd>V</kbd></td>
+            <td>Validate selection</td>
+          </tr>
+          <tr>
+            <td><kbd>X</kbd></td>
+            <td>Execute cleanup (validate + delete duplicates)</td>
+          </tr>
+          <tr>
             <td><kbd>U</kbd></td>
             <td>Undo action</td>
           </tr>

@@ -101,4 +101,5 @@ export interface SystemVersionsDto {
   indexers: ServiceVersionDto[];
   thumbnailService: ServiceVersionDto | null;
   metadataService: ServiceVersionDto | null;
+  cleaners: ServiceVersionDto[];
 }

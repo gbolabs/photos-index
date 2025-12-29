@@ -28,15 +28,20 @@ export class DuplicateService {
   private apiUrl = `${environment.apiUrl}/api/duplicates`;
 
   /**
-   * Gets all duplicate groups with pagination.
+   * Gets all duplicate groups with pagination and optional filtering.
    */
   getAll(
     page = 1,
-    pageSize = 20
+    pageSize = 20,
+    status?: string
   ): Observable<PagedResponse<DuplicateGroupDto>> {
-    const params = new HttpParams()
+    let params = new HttpParams()
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
+
+    if (status) {
+      params = params.set('status', status);
+    }
 
     return this.http
       .get<PagedResponse<DuplicateGroupDto>>(this.apiUrl, { params })

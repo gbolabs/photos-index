@@ -46,6 +46,7 @@ public class DuplicateService : IDuplicateService
                 CreatedAt = g.CreatedAt,
                 OriginalFileId = g.Files.Where(f => !f.IsDuplicate).Select(f => (Guid?)f.Id).FirstOrDefault(),
                 Files = new List<IndexedFileDto>(), // Don't load files in list view
+                FirstFileThumbnailPath = g.Files.Where(f => !f.IsHidden).Select(f => f.ThumbnailPath).FirstOrDefault(),
                 Status = g.Status,
                 ValidatedAt = g.ValidatedAt,
                 KeptFileId = g.KeptFileId

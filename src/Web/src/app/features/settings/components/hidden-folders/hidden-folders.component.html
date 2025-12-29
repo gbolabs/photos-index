@@ -1,87 +1,305 @@
 <div class="hidden-folders">
   <div class="hidden-folders__header">
     <div>
-      <h2>Hidden Folders</h2>
-      <p class="hidden-folders__subtitle">Manage folder rules to hide files from the default view</p>
-    </div>
-    <div class="hidden-folders__actions">
-      <button mat-icon-button (click)="loadHiddenFolders()" [disabled]="loading()" matTooltip="Refresh">
-        <mat-icon>refresh</mat-icon>
-      </button>
-      <button mat-raised-button color="primary" (click)="onAddFolder()" [disabled]="loading()">
-        <mat-icon>add</mat-icon>
-        Add Folder
-      </button>
+      <h2>Hidden Files</h2>
+      <p class="hidden-folders__subtitle">Manage rules to hide files from the default view</p>
     </div>
   </div>
 
-  @if (error()) {
-    <div class="hidden-folders__error">
-      <p>{{ error() }}</p>
-      <button mat-raised-button color="primary" (click)="loadHiddenFolders()">Retry</button>
-    </div>
-  }
-
-  @if (loading() && hiddenFolders().length === 0) {
-    <div class="hidden-folders__loading">
-      <mat-spinner diameter="32"></mat-spinner>
-      <p>Loading hidden folders...</p>
-    </div>
-  } @else if (hiddenFolders().length === 0) {
-    <div class="hidden-folders__empty">
-      <mat-icon>folder_off</mat-icon>
-      <p>No hidden folder rules configured</p>
-      <p class="hidden-folders__empty-hint">Add a folder path to hide all files within it from the default view</p>
-    </div>
-  } @else {
-    <table mat-table [dataSource]="hiddenFolders()" class="mat-elevation-z2">
-      <!-- Folder Path Column -->
-      <ng-container matColumnDef="folderPath">
-        <th mat-header-cell *matHeaderCellDef>Folder Path</th>
-        <td mat-cell *matCellDef="let folder">
-          <div class="folder-path-cell">
-            <mat-icon>folder</mat-icon>
-            <span>{{ folder.folderPath }}</span>
+  <mat-tab-group>
+    <!-- Folder Rules Tab -->
+    <mat-tab label="Folder Rules">
+      <div class="tab-content">
+        <div class="section-header">
+          <p class="section-description">Hide all files within specific folders</p>
+          <div class="section-actions">
+            <button mat-icon-button (click)="loadHiddenFolders()" [disabled]="loading()" matTooltip="Refresh">
+              <mat-icon>refresh</mat-icon>
+            </button>
+            <button mat-raised-button color="primary" (click)="onAddFolder()" [disabled]="loading()">
+              <mat-icon>add</mat-icon>
+              Add Folder
+            </button>
           </div>
-        </td>
-      </ng-container>
+        </div>
 
-      <!-- Description Column -->
-      <ng-container matColumnDef="description">
-        <th mat-header-cell *matHeaderCellDef>Description</th>
-        <td mat-cell *matCellDef="let folder">{{ folder.description || '-' }}</td>
-      </ng-container>
+        @if (error()) {
+          <div class="hidden-folders__error">
+            <p>{{ error() }}</p>
+            <button mat-raised-button color="primary" (click)="loadHiddenFolders()">Retry</button>
+          </div>
+        }
 
-      <!-- Affected Files Column -->
-      <ng-container matColumnDef="affectedFileCount">
-        <th mat-header-cell *matHeaderCellDef>Hidden Files</th>
-        <td mat-cell *matCellDef="let folder">{{ folder.affectedFileCount }}</td>
-      </ng-container>
+        @if (loading() && hiddenFolders().length === 0) {
+          <div class="hidden-folders__loading">
+            <mat-spinner diameter="32"></mat-spinner>
+            <p>Loading hidden folders...</p>
+          </div>
+        } @else if (hiddenFolders().length === 0) {
+          <div class="hidden-folders__empty">
+            <mat-icon>folder_off</mat-icon>
+            <p>No hidden folder rules configured</p>
+            <p class="hidden-folders__empty-hint">Add a folder path to hide all files within it from the default view</p>
+          </div>
+        } @else {
+          <table mat-table [dataSource]="hiddenFolders()" class="mat-elevation-z2">
+            <!-- Folder Path Column -->
+            <ng-container matColumnDef="folderPath">
+              <th mat-header-cell *matHeaderCellDef>Folder Path</th>
+              <td mat-cell *matCellDef="let folder">
+                <div class="folder-path-cell">
+                  <mat-icon>folder</mat-icon>
+                  <span>{{ folder.folderPath }}</span>
+                </div>
+              </td>
+            </ng-container>
 
-      <!-- Created At Column -->
-      <ng-container matColumnDef="createdAt">
-        <th mat-header-cell *matHeaderCellDef>Created</th>
-        <td mat-cell *matCellDef="let folder">{{ formatDate(folder.createdAt) }}</td>
-      </ng-container>
+            <!-- Description Column -->
+            <ng-container matColumnDef="description">
+              <th mat-header-cell *matHeaderCellDef>Description</th>
+              <td mat-cell *matCellDef="let folder">{{ folder.description || '-' }}</td>
+            </ng-container>
 
-      <!-- Actions Column -->
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef></th>
-        <td mat-cell *matCellDef="let folder">
-          <button
-            mat-icon-button
-            color="warn"
-            (click)="onDeleteFolder(folder)"
-            [disabled]="loading()"
-            matTooltip="Remove hidden folder rule"
-          >
-            <mat-icon>delete</mat-icon>
-          </button>
-        </td>
-      </ng-container>
+            <!-- Affected Files Column -->
+            <ng-container matColumnDef="affectedFileCount">
+              <th mat-header-cell *matHeaderCellDef>Hidden Files</th>
+              <td mat-cell *matCellDef="let folder">{{ folder.affectedFileCount }}</td>
+            </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-    </table>
-  }
+            <!-- Created At Column -->
+            <ng-container matColumnDef="createdAt">
+              <th mat-header-cell *matHeaderCellDef>Created</th>
+              <td mat-cell *matCellDef="let folder">{{ formatDate(folder.createdAt) }}</td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let folder">
+                <button
+                  mat-icon-button
+                  color="warn"
+                  (click)="onDeleteFolder(folder)"
+                  [disabled]="loading()"
+                  matTooltip="Remove hidden folder rule"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- Size Rules Tab -->
+    <mat-tab label="Size Rules (Icons)">
+      <div class="tab-content">
+        <div class="section-header">
+          <p class="section-description">Hide small images like icons and thumbnails based on dimensions</p>
+          <div class="section-actions">
+            <button mat-icon-button (click)="loadSizeRules(); loadPreview()" [disabled]="sizeRulesLoading()" matTooltip="Refresh">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Size Rule Creation Form -->
+        <mat-card class="size-rule-form">
+          <mat-card-header>
+            <mat-card-title>Create Size Rule</mat-card-title>
+            <mat-card-subtitle>Hide all images with dimensions at or below the specified size</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-row">
+              <div class="presets">
+                <label>Quick Presets:</label>
+                <div class="preset-buttons">
+                  @for (preset of sizePresets; track preset.label) {
+                    <button
+                      mat-stroked-button
+                      [color]="newSizeWidth() === preset.width && newSizeHeight() === preset.height ? 'primary' : undefined"
+                      (click)="onPresetSelected(preset)"
+                    >
+                      {{ preset.label }}
+                    </button>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row size-inputs">
+              <mat-form-field appearance="outline">
+                <mat-label>Max Width (px)</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  [ngModel]="newSizeWidth()"
+                  (ngModelChange)="newSizeWidth.set($event); onSizeChanged()"
+                  min="1"
+                  max="10000"
+                />
+              </mat-form-field>
+              <span class="size-separator">x</span>
+              <mat-form-field appearance="outline">
+                <mat-label>Max Height (px)</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  [ngModel]="newSizeHeight()"
+                  (ngModelChange)="newSizeHeight.set($event); onSizeChanged()"
+                  min="1"
+                  max="10000"
+                />
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Description (optional)</mat-label>
+                <input
+                  matInput
+                  [ngModel]="sizeRuleDescription()"
+                  (ngModelChange)="sizeRuleDescription.set($event)"
+                  placeholder="e.g., Small icons"
+                />
+              </mat-form-field>
+            </div>
+
+            <!-- Preview Section -->
+            <div class="preview-section">
+              <h4>Preview</h4>
+              @if (previewLoading()) {
+                <div class="preview-loading">
+                  <mat-spinner diameter="24"></mat-spinner>
+                  <span>Calculating...</span>
+                </div>
+              } @else if (sizeRulePreview()) {
+                <div class="preview-summary">
+                  <div class="preview-stat">
+                    <span class="stat-value">{{ sizeRulePreview()!.totalFiles }}</span>
+                    <span class="stat-label">files would be hidden</span>
+                  </div>
+                  <div class="preview-stat">
+                    <span class="stat-value">{{ sizeRulePreview()!.totalSizeBytes | fileSize }}</span>
+                    <span class="stat-label">total size</span>
+                  </div>
+                </div>
+
+                @if (sizeRulePreview()!.sizeGroups.length > 0) {
+                  <mat-expansion-panel>
+                    <mat-expansion-panel-header>
+                      <mat-panel-title>Size breakdown ({{ sizeRulePreview()!.sizeGroups.length }} unique sizes)</mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <div class="size-groups">
+                      @for (group of sizeRulePreview()!.sizeGroups; track formatSizeGroupLabel(group)) {
+                        <div class="size-group">
+                          <span class="group-dimensions">{{ group.width }}x{{ group.height }}</span>
+                          <span class="group-count">{{ group.fileCount }} files</span>
+                          <span class="group-size">({{ group.totalSizeBytes | fileSize }})</span>
+                        </div>
+                      }
+                    </div>
+                  </mat-expansion-panel>
+                }
+              } @else {
+                <p class="preview-empty">No matching files found</p>
+              }
+            </div>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="createSizeRule()"
+              [disabled]="creatingRule() || previewLoading() || !sizeRulePreview() || sizeRulePreview()!.totalFiles === 0"
+            >
+              @if (creatingRule()) {
+                <mat-spinner diameter="20" class="button-spinner"></mat-spinner>
+              }
+              Hide {{ sizeRulePreview()?.totalFiles || 0 }} Files
+            </button>
+          </mat-card-actions>
+        </mat-card>
+
+        <!-- Existing Size Rules -->
+        <div class="existing-rules">
+          <h3>Active Size Rules</h3>
+
+          @if (sizeRulesError()) {
+            <div class="hidden-folders__error">
+              <p>{{ sizeRulesError() }}</p>
+              <button mat-raised-button color="primary" (click)="loadSizeRules()">Retry</button>
+            </div>
+          }
+
+          @if (sizeRulesLoading() && sizeRules().length === 0) {
+            <div class="hidden-folders__loading">
+              <mat-spinner diameter="32"></mat-spinner>
+              <p>Loading size rules...</p>
+            </div>
+          } @else if (sizeRules().length === 0) {
+            <div class="hidden-folders__empty">
+              <mat-icon>photo_size_select_small</mat-icon>
+              <p>No size rules configured</p>
+              <p class="hidden-folders__empty-hint">Create a size rule above to hide small images</p>
+            </div>
+          } @else {
+            <table mat-table [dataSource]="sizeRules()" class="mat-elevation-z2">
+              <!-- Dimensions Column -->
+              <ng-container matColumnDef="dimensions">
+                <th mat-header-cell *matHeaderCellDef>Max Dimensions</th>
+                <td mat-cell *matCellDef="let rule">
+                  <div class="dimensions-cell">
+                    <mat-icon>photo_size_select_small</mat-icon>
+                    <span>{{ rule.maxWidth }}x{{ rule.maxHeight }} px</span>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- Description Column -->
+              <ng-container matColumnDef="description">
+                <th mat-header-cell *matHeaderCellDef>Description</th>
+                <td mat-cell *matCellDef="let rule">{{ rule.description || '-' }}</td>
+              </ng-container>
+
+              <!-- Affected Files Column -->
+              <ng-container matColumnDef="affectedFileCount">
+                <th mat-header-cell *matHeaderCellDef>Hidden Files</th>
+                <td mat-cell *matCellDef="let rule">{{ rule.affectedFileCount }}</td>
+              </ng-container>
+
+              <!-- Created At Column -->
+              <ng-container matColumnDef="createdAt">
+                <th mat-header-cell *matHeaderCellDef>Created</th>
+                <td mat-cell *matCellDef="let rule">{{ formatDate(rule.createdAt) }}</td>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let rule">
+                  <button
+                    mat-icon-button
+                    color="warn"
+                    (click)="onDeleteSizeRule(rule)"
+                    [disabled]="sizeRulesLoading()"
+                    matTooltip="Remove size rule and unhide files"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="sizeRulesColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: sizeRulesColumns"></tr>
+            </table>
+          }
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
 </div>

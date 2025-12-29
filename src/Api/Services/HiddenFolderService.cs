@@ -210,4 +210,150 @@ public class HiddenFolderService : IHiddenFolderService
 
         return files.Count;
     }
+
+    public async Task<int> GetHiddenCountAsync(CancellationToken ct)
+    {
+        return await _dbContext.IndexedFiles
+            .AsNoTracking()
+            .CountAsync(f => f.IsHidden, ct);
+    }
+
+    // Size rule methods
+
+    public async Task<IReadOnlyList<HiddenSizeRuleDto>> GetAllSizeRulesAsync(CancellationToken ct)
+    {
+        var rules = await _dbContext.HiddenSizeRules
+            .AsNoTracking()
+            .OrderBy(r => r.MaxWidth)
+            .ThenBy(r => r.MaxHeight)
+            .Select(r => new HiddenSizeRuleDto
+            {
+                Id = r.Id,
+                MaxWidth = r.MaxWidth,
+                MaxHeight = r.MaxHeight,
+                Description = r.Description,
+                CreatedAt = r.CreatedAt,
+                AffectedFileCount = _dbContext.IndexedFiles
+                    .Count(f => f.HiddenBySizeRuleId == r.Id)
+            })
+            .ToListAsync(ct);
+
+        return rules;
+    }
+
+    public async Task<SizeRulePreviewDto> PreviewSizeRuleAsync(int maxWidth, int maxHeight, CancellationToken ct)
+    {
+        var matchingFiles = await _dbContext.IndexedFiles
+            .AsNoTracking()
+            .Where(f => !f.IsHidden) // Only show files that aren't already hidden
+            .Where(f => f.Width.HasValue && f.Height.HasValue)
+            .Where(f => f.Width <= maxWidth && f.Height <= maxHeight)
+            .Select(f => new { f.Width, f.Height, f.FileSize })
+            .ToListAsync(ct);
+
+        var sizeGroups = matchingFiles
+            .GroupBy(f => new { f.Width, f.Height })
+            .Select(g => new SizeGroupDto
+            {
+                Width = g.Key.Width!.Value,
+                Height = g.Key.Height!.Value,
+                FileCount = g.Count(),
+                TotalSizeBytes = g.Sum(f => f.FileSize)
+            })
+            .OrderBy(g => g.Width)
+            .ThenBy(g => g.Height)
+            .ToList();
+
+        return new SizeRulePreviewDto
+        {
+            TotalFiles = matchingFiles.Count,
+            TotalSizeBytes = matchingFiles.Sum(f => f.FileSize),
+            SizeGroups = sizeGroups
+        };
+    }
+
+    public async Task<HiddenSizeRuleDto> CreateSizeRuleAsync(CreateHiddenSizeRuleRequest request, CancellationToken ct)
+    {
+        // Check if rule with same dimensions already exists
+        var existing = await _dbContext.HiddenSizeRules
+            .FirstOrDefaultAsync(r => r.MaxWidth == request.MaxWidth && r.MaxHeight == request.MaxHeight, ct);
+
+        if (existing is not null)
+        {
+            _logger.LogWarning("Size rule already exists for {Width}x{Height}", request.MaxWidth, request.MaxHeight);
+            throw new InvalidOperationException($"Size rule already exists for {request.MaxWidth}x{request.MaxHeight}");
+        }
+
+        var sizeRule = new HiddenSizeRule
+        {
+            Id = Guid.NewGuid(),
+            MaxWidth = request.MaxWidth,
+            MaxHeight = request.MaxHeight,
+            Description = request.Description ?? $"Images {request.MaxWidth}x{request.MaxHeight} or smaller",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.HiddenSizeRules.Add(sizeRule);
+
+        // Mark all matching files as hidden
+        var matchingFiles = await _dbContext.IndexedFiles
+            .Where(f => !f.IsHidden)
+            .Where(f => f.Width.HasValue && f.Height.HasValue)
+            .Where(f => f.Width <= request.MaxWidth && f.Height <= request.MaxHeight)
+            .ToListAsync(ct);
+
+        foreach (var file in matchingFiles)
+        {
+            file.IsHidden = true;
+            file.HiddenCategory = HiddenCategory.SizeRule;
+            file.HiddenAt = DateTime.UtcNow;
+            file.HiddenBySizeRuleId = sizeRule.Id;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Created size rule for {Width}x{Height}, affected {Count} files",
+            request.MaxWidth, request.MaxHeight, matchingFiles.Count);
+
+        return new HiddenSizeRuleDto
+        {
+            Id = sizeRule.Id,
+            MaxWidth = sizeRule.MaxWidth,
+            MaxHeight = sizeRule.MaxHeight,
+            Description = sizeRule.Description,
+            CreatedAt = sizeRule.CreatedAt,
+            AffectedFileCount = matchingFiles.Count
+        };
+    }
+
+    public async Task<bool> DeleteSizeRuleAsync(Guid id, CancellationToken ct)
+    {
+        var sizeRule = await _dbContext.HiddenSizeRules.FindAsync([id], ct);
+
+        if (sizeRule is null)
+            return false;
+
+        // Unhide files that were hidden by this size rule
+        var affectedFiles = await _dbContext.IndexedFiles
+            .Where(f => f.HiddenBySizeRuleId == id)
+            .ToListAsync(ct);
+
+        foreach (var file in affectedFiles)
+        {
+            file.IsHidden = false;
+            file.HiddenCategory = null;
+            file.HiddenAt = null;
+            file.HiddenBySizeRuleId = null;
+        }
+
+        _dbContext.HiddenSizeRules.Remove(sizeRule);
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Deleted size rule {Id} for {Width}x{Height}, unhid {Count} files",
+            id, sizeRule.MaxWidth, sizeRule.MaxHeight, affectedFiles.Count);
+
+        return true;
+    }
 }

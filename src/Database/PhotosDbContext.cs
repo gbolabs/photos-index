@@ -16,6 +16,7 @@ public class PhotosDbContext : DbContext
     public DbSet<CleanerJob> CleanerJobs { get; set; }
     public DbSet<CleanerJobFile> CleanerJobFiles { get; set; }
     public DbSet<HiddenFolder> HiddenFolders { get; set; }
+    public DbSet<HiddenSizeRule> HiddenSizeRules { get; set; }
     public DbSet<SelectionSession> SelectionSessions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -59,6 +60,11 @@ public class PhotosDbContext : DbContext
             entity.HasOne(e => e.HiddenByFolder)
                 .WithMany(h => h.HiddenFiles)
                 .HasForeignKey(e => e.HiddenByFolderId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.HiddenBySizeRule)
+                .WithMany(h => h.HiddenFiles)
+                .HasForeignKey(e => e.HiddenBySizeRuleId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             // Configure HiddenCategory as string
@@ -226,6 +232,18 @@ public class PhotosDbContext : DbContext
 
             // Indexes
             entity.HasIndex(e => e.FolderPath);
+        });
+
+        // Configure HiddenSizeRule entity
+        modelBuilder.Entity<HiddenSizeRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500);
+
+            // Indexes
+            entity.HasIndex(e => new { e.MaxWidth, e.MaxHeight });
         });
     }
 }

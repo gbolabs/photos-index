@@ -15,6 +15,11 @@ public record DuplicateGroupDto
     public Guid? OriginalFileId { get; init; }
     public IReadOnlyList<IndexedFileDto> Files { get; init; } = [];
 
+    /// <summary>
+    /// Thumbnail path of the first file in the group (for list display).
+    /// </summary>
+    public string? FirstFileThumbnailPath { get; init; }
+
     // Validation fields
     public string Status { get; init; } = "pending";
     public DateTime? ValidatedAt { get; init; }

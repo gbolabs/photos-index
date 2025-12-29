@@ -397,6 +397,16 @@ export class DuplicateGroupDetailComponent implements OnChanges {
         event.preventDefault();
         this.goToLast();
         break;
+      case 'x':
+      case 'X':
+        event.preventDefault();
+        this.executeCleanup();
+        break;
+      case 'v':
+      case 'V':
+        event.preventDefault();
+        this.validateAndAdvance();
+        break;
       default:
         // Handle 1-9 for quick select
         if (/^[1-9]$/.test(event.key)) {
@@ -580,6 +590,64 @@ export class DuplicateGroupDetailComponent implements OnChanges {
       },
       error: () => {
         // No session active, that's fine
+      },
+    });
+  }
+
+  /**
+   * Execute cleanup: validate selection, queue duplicates for deletion, and advance.
+   * Keyboard shortcut: X (eXecute)
+   */
+  executeCleanup(): void {
+    const g = this.group();
+    if (!g) return;
+
+    // Check if there's a selection
+    const keptFileId = g.keptFileId || g.originalFileId;
+    if (!keptFileId) {
+      this.snackBar.open('Please select a file to keep first', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    // Confirm before cleanup
+    const duplicateCount = g.fileCount - 1;
+    if (!confirm(`Queue ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} for deletion and move to next group?`)) {
+      return;
+    }
+
+    // First validate, then delete
+    this.duplicateService.validateSelection(g.id).subscribe({
+      next: (validateResult) => {
+        if (validateResult.success) {
+          // Now queue for deletion
+          this.duplicateService.deleteNonOriginals(g.id).subscribe({
+            next: (deleteResult) => {
+              this.snackBar.open(
+                `Queued ${deleteResult.filesQueued} file${deleteResult.filesQueued !== 1 ? 's' : ''} for deletion`,
+                'OK',
+                { duration: 3000 }
+              );
+
+              // Advance to next group
+              if (validateResult.nextGroupId) {
+                this.navigateToGroup.emit(validateResult.nextGroupId);
+              } else {
+                this.snackBar.open('All groups processed!', 'OK', { duration: 3000 });
+                this.back.emit();
+              }
+            },
+            error: (err) => {
+              console.error('Failed to queue files for deletion:', err);
+              this.snackBar.open('Failed to queue files for deletion', 'Dismiss', { duration: 3000 });
+            },
+          });
+        } else {
+          this.snackBar.open(validateResult.message || 'Failed to validate selection', 'Dismiss', { duration: 3000 });
+        }
+      },
+      error: (err) => {
+        console.error('Failed to validate selection:', err);
+        this.snackBar.open('Failed to validate selection', 'Dismiss', { duration: 3000 });
       },
     });
   }

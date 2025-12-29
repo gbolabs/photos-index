@@ -80,6 +80,13 @@ describe('DuplicateTableViewComponent', () => {
     createdAt: '2024-01-15T10:00:00Z',
     originalFileId: 'file-1',
     files: [mockFile1, mockFile2, mockFile3],
+    firstFileThumbnailPath: null,
+    status: 'pending',
+    validatedAt: null,
+    keptFileId: null,
+    lastReviewedAt: null,
+    reviewOrder: null,
+    reviewSessionId: null,
   };
 
   const mockGroup2: DuplicateGroupDto = {
@@ -95,6 +102,13 @@ describe('DuplicateTableViewComponent', () => {
       { ...mockFile1, id: 'file-4', filePath: '/photos/sunset.jpg', fileSize: 1024000 },
       { ...mockFile1, id: 'file-5', filePath: '/photos/sunset_2.jpg', fileSize: 1024000 },
     ],
+    firstFileThumbnailPath: null,
+    status: 'pending',
+    validatedAt: null,
+    keptFileId: null,
+    lastReviewedAt: null,
+    reviewOrder: null,
+    reviewSessionId: null,
   };
 
   const mockGroup3: DuplicateGroupDto = {
@@ -110,6 +124,13 @@ describe('DuplicateTableViewComponent', () => {
       { ...mockFile1, id: 'file-6', filePath: '/photos/mountain.jpg', fileSize: 2048000 },
       { ...mockFile1, id: 'file-7', filePath: '/photos/mountain_copy.jpg', fileSize: 2048000 },
     ],
+    firstFileThumbnailPath: null,
+    status: 'validated',
+    validatedAt: '2024-01-20T10:00:00Z',
+    keptFileId: 'file-6',
+    lastReviewedAt: null,
+    reviewOrder: null,
+    reviewSessionId: null,
   };
 
   const mockPagedResponse: PagedResponse<DuplicateGroupDto> = {
@@ -183,7 +204,7 @@ describe('DuplicateTableViewComponent', () => {
     });
 
     it('should initialize with correct displayedColumns', () => {
-      expect(component.displayedColumns).toEqual(['select', 'original', 'size', 'date', 'duplicates']);
+      expect(component.displayedColumns).toEqual(['select', 'thumbnail', 'original', 'size', 'date', 'status', 'duplicates']);
     });
 
     it('should initialize with loading state true', () => {
@@ -199,7 +220,7 @@ describe('DuplicateTableViewComponent', () => {
     it('should load groups successfully', () => {
       fixture.detectChanges();
 
-      expect(mockDuplicateService.getAll).toHaveBeenCalledWith(1, 50);
+      expect(mockDuplicateService.getAll).toHaveBeenCalledWith(1, 50, undefined);
       expect(component.groups().length).toBe(3);
       expect(component.totalItems()).toBe(3);
       expect(component.loading()).toBe(false);
@@ -232,7 +253,7 @@ describe('DuplicateTableViewComponent', () => {
 
       component.loadGroups();
 
-      expect(mockDuplicateService.getAll).toHaveBeenCalledWith(3, 100); // pageIndex + 1
+      expect(mockDuplicateService.getAll).toHaveBeenCalledWith(3, 100, undefined); // pageIndex + 1
     });
 
     it('should sort groups after loading', () => {

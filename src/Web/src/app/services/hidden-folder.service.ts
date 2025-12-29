@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
-import { HiddenFolder, CreateHiddenFolderRequest, FolderPath } from '../models';
+import { HiddenFolder, CreateHiddenFolderRequest, FolderPath, HiddenSizeRule, CreateHiddenSizeRuleRequest, SizeRulePreview } from '../models';
 import { ApiErrorHandler } from './api-error-handler';
 
 /**
@@ -66,6 +66,48 @@ export class HiddenFolderService {
   getHiddenFileCount(): Observable<{ count: number }> {
     return this.http
       .get<{ count: number }>(`${this.apiUrl}/hidden-count`)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  // Size Rule Methods
+
+  /**
+   * Gets all size-based hiding rules.
+   */
+  getSizeRules(): Observable<HiddenSizeRule[]> {
+    return this.http
+      .get<HiddenSizeRule[]>(`${this.apiUrl}/size-rules`)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Preview files that would be hidden by a size rule.
+   */
+  previewSizeRule(maxWidth: number, maxHeight: number): Observable<SizeRulePreview> {
+    const params = new HttpParams()
+      .set('maxWidth', maxWidth.toString())
+      .set('maxHeight', maxHeight.toString());
+
+    return this.http
+      .get<SizeRulePreview>(`${this.apiUrl}/size-rules/preview`, { params })
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Creates a new size-based hiding rule.
+   */
+  createSizeRule(request: CreateHiddenSizeRuleRequest): Observable<HiddenSizeRule> {
+    return this.http
+      .post<HiddenSizeRule>(`${this.apiUrl}/size-rules`, request)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Deletes a size-based hiding rule.
+   */
+  deleteSizeRule(id: string): Observable<void> {
+    return this.http
+      .delete<void>(`${this.apiUrl}/size-rules/${id}`)
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
 }

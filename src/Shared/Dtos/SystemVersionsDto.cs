@@ -29,6 +29,11 @@ public class SystemVersionsDto
     /// Metadata service version info.
     /// </summary>
     public ServiceVersionDto? MetadataService { get; set; }
+
+    /// <summary>
+    /// Connected cleaner service versions.
+    /// </summary>
+    public IReadOnlyList<ServiceVersionDto> Cleaners { get; set; } = [];
 }
 
 /// <summary>

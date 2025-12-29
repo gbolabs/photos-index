@@ -71,6 +71,13 @@ describe('DuplicateService', () => {
       createdAt: '2025-12-20T00:00:00Z',
       originalFileId: null,
       files: [],
+      firstFileThumbnailPath: null,
+      status: 'pending',
+      validatedAt: null,
+      keptFileId: null,
+      lastReviewedAt: null,
+      reviewOrder: null,
+      reviewSessionId: null,
     };
 
     service

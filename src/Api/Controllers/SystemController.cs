@@ -32,6 +32,9 @@ public class SystemController : ControllerBase
     {
         var apiBuildInfo = _buildInfoService.GetBuildInfo();
         var indexerStatuses = IndexerHub.GetConnectedIndexerStatuses();
+        var cleanerStatuses = CleanerHub.GetConnectedCleanerStatuses();
+        var thumbnailStatuses = ThumbnailServiceHub.GetConnectedServiceStatuses();
+        var metadataStatuses = MetadataServiceHub.GetConnectedServiceStatuses();
 
         var result = new SystemVersionsDto
         {
@@ -53,7 +56,38 @@ public class SystemController : ControllerBase
                 InstanceId = s.IndexerId,
                 Uptime = FormatUptime(s.Uptime),
                 IsAvailable = s.State != IndexerState.Disconnected && s.State != IndexerState.Error
-            }).ToList()
+            }).ToList(),
+            Cleaners = cleanerStatuses.Select(s => new ServiceVersionDto
+            {
+                ServiceName = "photos-index-cleaner",
+                Version = s.Version ?? "unknown",
+                CommitHash = s.CommitHash,
+                InstanceId = s.CleanerId,
+                Uptime = FormatUptime(s.Uptime),
+                IsAvailable = s.State != CleanerState.Disconnected && s.State != CleanerState.Error
+            }).ToList(),
+            ThumbnailService = thumbnailStatuses.FirstOrDefault() is { } thumbStatus
+                ? new ServiceVersionDto
+                {
+                    ServiceName = "photos-index-thumbnail",
+                    Version = thumbStatus.Version ?? "unknown",
+                    CommitHash = thumbStatus.CommitHash,
+                    InstanceId = thumbStatus.ServiceId,
+                    Uptime = FormatUptime(thumbStatus.Uptime),
+                    IsAvailable = thumbStatus.State != ThumbnailServiceState.Disconnected && thumbStatus.State != ThumbnailServiceState.Error
+                }
+                : null,
+            MetadataService = metadataStatuses.FirstOrDefault() is { } metaStatus
+                ? new ServiceVersionDto
+                {
+                    ServiceName = "photos-index-metadata",
+                    Version = metaStatus.Version ?? "unknown",
+                    CommitHash = metaStatus.CommitHash,
+                    InstanceId = metaStatus.ServiceId,
+                    Uptime = FormatUptime(metaStatus.Uptime),
+                    IsAvailable = metaStatus.State != MetadataServiceState.Disconnected && metaStatus.State != MetadataServiceState.Error
+                }
+                : null
         };
 
         return Ok(result);
