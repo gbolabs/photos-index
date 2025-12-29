@@ -182,6 +182,38 @@
             </div>
           }
 
+          <!-- Cleaners -->
+          @if (systemVersions()?.cleaners && systemVersions()!.cleaners.length > 0) {
+            @for (cleaner of systemVersions()!.cleaners; track cleaner.instanceId) {
+              <div class="version-item" [class.available]="cleaner.isAvailable" [class.unavailable]="!cleaner.isAvailable">
+                <div class="service-header">
+                  <mat-icon>cleaning_services</mat-icon>
+                  <span class="service-name">Cleaner</span>
+                  <span class="version-badge">v{{ cleaner.version }}</span>
+                </div>
+                <div class="service-details">
+                  @if (cleaner.instanceId) {
+                    <span class="detail instance-id">{{ cleaner.instanceId.substring(0, 8) }}</span>
+                  }
+                  @if (cleaner.commitHash) {
+                    <span class="detail">{{ cleaner.commitHash }}</span>
+                  }
+                  @if (cleaner.uptime) {
+                    <span class="detail">Uptime: {{ cleaner.uptime }}</span>
+                  }
+                </div>
+              </div>
+            }
+          } @else {
+            <div class="version-item unavailable">
+              <div class="service-header">
+                <mat-icon>cleaning_services</mat-icon>
+                <span class="service-name">Cleaner</span>
+                <span class="status-badge">Disconnected</span>
+              </div>
+            </div>
+          }
+
           <!-- Web App (future) -->
           @if (systemVersions()?.web) {
             <div class="version-item" [class.available]="systemVersions()?.web?.isAvailable">
@@ -198,24 +230,62 @@
             </div>
           }
 
-          <!-- Thumbnail Service (future) -->
+          <!-- Thumbnail Service -->
           @if (systemVersions()?.thumbnailService) {
-            <div class="version-item" [class.available]="systemVersions()?.thumbnailService?.isAvailable">
+            <div class="version-item" [class.available]="systemVersions()?.thumbnailService?.isAvailable" [class.unavailable]="!systemVersions()?.thumbnailService?.isAvailable">
               <div class="service-header">
                 <mat-icon>image</mat-icon>
                 <span class="service-name">Thumbnails</span>
                 <span class="version-badge">v{{ systemVersions()?.thumbnailService?.version }}</span>
               </div>
+              <div class="service-details">
+                @if (systemVersions()?.thumbnailService?.instanceId) {
+                  <span class="detail instance-id">{{ systemVersions()?.thumbnailService?.instanceId?.substring(0, 8) }}</span>
+                }
+                @if (systemVersions()?.thumbnailService?.commitHash) {
+                  <span class="detail">{{ systemVersions()?.thumbnailService?.commitHash }}</span>
+                }
+                @if (systemVersions()?.thumbnailService?.uptime) {
+                  <span class="detail">Uptime: {{ systemVersions()?.thumbnailService?.uptime }}</span>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="version-item unavailable">
+              <div class="service-header">
+                <mat-icon>image</mat-icon>
+                <span class="service-name">Thumbnails</span>
+                <span class="status-badge">Disconnected</span>
+              </div>
             </div>
           }
 
-          <!-- Metadata Service (future) -->
+          <!-- Metadata Service -->
           @if (systemVersions()?.metadataService) {
-            <div class="version-item" [class.available]="systemVersions()?.metadataService?.isAvailable">
+            <div class="version-item" [class.available]="systemVersions()?.metadataService?.isAvailable" [class.unavailable]="!systemVersions()?.metadataService?.isAvailable">
               <div class="service-header">
                 <mat-icon>description</mat-icon>
                 <span class="service-name">Metadata</span>
                 <span class="version-badge">v{{ systemVersions()?.metadataService?.version }}</span>
+              </div>
+              <div class="service-details">
+                @if (systemVersions()?.metadataService?.instanceId) {
+                  <span class="detail instance-id">{{ systemVersions()?.metadataService?.instanceId?.substring(0, 8) }}</span>
+                }
+                @if (systemVersions()?.metadataService?.commitHash) {
+                  <span class="detail">{{ systemVersions()?.metadataService?.commitHash }}</span>
+                }
+                @if (systemVersions()?.metadataService?.uptime) {
+                  <span class="detail">Uptime: {{ systemVersions()?.metadataService?.uptime }}</span>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="version-item unavailable">
+              <div class="service-header">
+                <mat-icon>description</mat-icon>
+                <span class="service-name">Metadata</span>
+                <span class="status-badge">Disconnected</span>
               </div>
             </div>
           }

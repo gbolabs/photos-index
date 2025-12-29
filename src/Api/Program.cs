@@ -223,6 +223,8 @@ app.MapControllers();
 // Map SignalR hubs
 app.MapHub<IndexerHub>("/hubs/indexer");
 app.MapHub<CleanerHub>("/hubs/cleaner");
+app.MapHub<ThumbnailServiceHub>("/hubs/thumbnail");
+app.MapHub<MetadataServiceHub>("/hubs/metadata");
 
 // Health check endpoint with version info
 app.MapGet("/health", (IBuildInfoService buildInfo) =>
