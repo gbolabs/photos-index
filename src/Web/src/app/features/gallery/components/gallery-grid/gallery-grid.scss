@@ -2,11 +2,14 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0; // Required for flexbox scroll containers
+  overflow: hidden;
 }
 
 .gallery-viewport {
   flex: 1;
   width: 100%;
+  min-height: 0; // Required for CDK virtual scroll in flex container
 }
 
 .gallery-row {
