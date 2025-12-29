@@ -10,6 +10,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/indexing/indexing').then(m => m.Indexing)
   },
   {
+    path: 'gallery',
+    loadComponent: () => import('./features/gallery/gallery').then(m => m.GalleryComponent)
+  },
+  {
     path: 'files',
     loadComponent: () => import('./features/files/files').then(m => m.Files)
   },

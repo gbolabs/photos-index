@@ -1,0 +1,59 @@
+<div class="filter-bar">
+  <div class="filter-group">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search</mat-label>
+      <input
+        matInput
+        type="text"
+        placeholder="Search files..."
+        [value]="filters().search"
+        (input)="onSearchChange($event)"
+      />
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="directory-field">
+      <mat-label>Directory</mat-label>
+      <mat-select
+        [value]="filters().directory || ''"
+        (selectionChange)="onDirectoryChange($event.value)"
+      >
+        <mat-option value="">All directories</mat-option>
+        @for (dir of directories(); track dir) {
+          <mat-option [value]="dir">{{ dir }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <button
+      mat-stroked-button
+      [class.active]="filters().duplicatesOnly"
+      (click)="onDuplicatesOnlyChange(!filters().duplicatesOnly)"
+    >
+      <mat-icon>content_copy</mat-icon>
+      Duplicates only
+    </button>
+  </div>
+
+  <div class="view-controls">
+    <mat-button-toggle-group
+      [value]="tileSize()"
+      (change)="onTileSizeChange($event.value)"
+      aria-label="Tile size"
+    >
+      <mat-button-toggle value="small" aria-label="Small tiles">
+        <mat-icon>grid_view</mat-icon>
+      </mat-button-toggle>
+      <mat-button-toggle value="medium" aria-label="Medium tiles">
+        <mat-icon>view_module</mat-icon>
+      </mat-button-toggle>
+      <mat-button-toggle value="large" aria-label="Large tiles">
+        <mat-icon>view_comfy</mat-icon>
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <button mat-icon-button (click)="onRefresh()" aria-label="Refresh">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+</div>

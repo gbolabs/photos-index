@@ -1,0 +1,21 @@
+<div class="gallery-container">
+  <app-filter-bar
+    [filters]="filters()"
+    [tileSize]="tileSize()"
+    [directories]="directories()"
+    (filtersChange)="onFiltersChange($event)"
+    (tileSizeChange)="onTileSizeChange($event)"
+    (refresh)="onRefresh()"
+  />
+
+  <app-gallery-grid
+    [files]="files()"
+    [loading]="loading()"
+    [loadingMore]="loadingMore()"
+    [hasMore]="hasMore()"
+    [tileSize]="tileSizePx()"
+    (fileClick)="onFileClick($event)"
+    (fileSelect)="onFileSelect($event)"
+    (loadMore)="onLoadMore()"
+  />
+</div>
