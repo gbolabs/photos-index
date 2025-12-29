@@ -250,4 +250,63 @@ public class PhotosApiClient : IPhotosApiClient
             throw;
         }
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<FileNeedsReindexDto>> CheckFilesNeedReindexAsync(
+        CheckFilesNeedReindexRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var activity = ActivitySource.StartActivity("CheckFilesNeedReindex");
+        activity?.SetTag("directory.id", request.DirectoryId);
+        activity?.SetTag("files.count", request.Files.Count);
+
+        try
+        {
+            _logger.LogDebug(
+                "Checking {Count} files for reindex status in directory {DirectoryId}",
+                request.Files.Count,
+                request.DirectoryId);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                "api/files/needs-reindex",
+                request,
+                _jsonOptions,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<List<FileNeedsReindexDto>>(_jsonOptions, cancellationToken)
+                ?? [];
+
+            var needsReindex = result.Count(r => r.NeedsReindex);
+            _logger.LogInformation(
+                "Checked {Total} files: {NeedsReindex} need reindexing, {Skipped} unchanged",
+                result.Count,
+                needsReindex,
+                result.Count - needsReindex);
+
+            activity?.SetTag("result.needs_reindex", needsReindex);
+            activity?.SetTag("result.unchanged", result.Count - needsReindex);
+
+            return result;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(
+                ex,
+                "HTTP error while checking reindex status for {Count} files",
+                request.Files.Count);
+            activity?.SetTag("error", true);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Unexpected error while checking reindex status for {Count} files",
+                request.Files.Count);
+            activity?.SetTag("error", true);
+            throw;
+        }
+    }
 }
