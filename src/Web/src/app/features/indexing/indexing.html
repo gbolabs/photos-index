@@ -34,45 +34,155 @@
       </mat-card-content>
     </mat-card>
   } @else {
-    <!-- Indexing Status Banner -->
-    @if (indexingStatus().isRunning) {
-      <mat-card class="indexing-status-card">
-        <mat-card-content>
-          <div class="status-header">
-            <div class="status-icon">
-              <mat-spinner diameter="24" color="primary"></mat-spinner>
+    <!-- Indexer Status Card -->
+    <mat-card class="indexer-status-card" [class.active]="isIndexerActive()" [class.paused]="isIndexerPaused()">
+      <mat-card-content>
+        <div class="indexer-header">
+          <div class="indexer-connection">
+            <mat-icon [class]="isIndexerConnected() ? 'connected' : 'disconnected'">
+              {{ isIndexerConnected() ? 'cloud_done' : 'cloud_off' }}
+            </mat-icon>
+            <div class="indexer-info">
+              @if (isIndexerConnected()) {
+                <span class="indexer-name">{{ indexerStatus().hostname }}</span>
+                <span class="indexer-id">{{ indexerStatus().indexerId }}</span>
+              } @else {
+                <span class="indexer-name disconnected">No indexer connected</span>
+              }
             </div>
-            <div class="status-info">
-              <h3>Indexing in Progress</h3>
-              <p class="status-path">{{ indexingStatus().currentDirectoryPath || 'Processing...' }}</p>
-            </div>
-            <div class="status-elapsed">
+          </div>
+          <div class="indexer-state">
+            <mat-icon [color]="getStateColor()">{{ getStateIcon() }}</mat-icon>
+            <span class="state-label">{{ indexerStatus().state }}</span>
+          </div>
+          @if (isIndexerConnected()) {
+            <div class="indexer-uptime">
               <mat-icon>schedule</mat-icon>
-              <span>{{ getElapsedTime() }}</span>
+              <span>Uptime: {{ formatUptime() }}</span>
             </div>
+          }
+        </div>
+
+        @if (isIndexerActive() || isIndexerPaused()) {
+          <mat-divider></mat-divider>
+
+          <div class="scan-progress-section">
+            <div class="progress-header">
+              <div class="current-directory">
+                <mat-icon>folder</mat-icon>
+                <span>{{ indexerStatus().currentDirectory || 'Processing...' }}</span>
+              </div>
+              <div class="scan-controls">
+                @if (isIndexerActive()) {
+                  <button mat-icon-button (click)="pauseScan()" matTooltip="Pause scan" color="warn">
+                    <mat-icon>pause</mat-icon>
+                  </button>
+                } @else if (isIndexerPaused()) {
+                  <button mat-icon-button (click)="resumeScan()" matTooltip="Resume scan" color="primary">
+                    <mat-icon>play_arrow</mat-icon>
+                  </button>
+                }
+                <button mat-icon-button (click)="cancelScan()" matTooltip="Cancel scan" color="warn">
+                  <mat-icon>stop</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <div class="progress-bar-container">
+              <mat-progress-bar
+                [mode]="isIndexerPaused() ? 'determinate' : 'determinate'"
+                [value]="indexerStatus().progressPercentage"
+                [color]="isIndexerPaused() ? 'warn' : 'primary'"
+              ></mat-progress-bar>
+              <span class="progress-percentage">{{ indexerStatus().progressPercentage | number:'1.0-1' }}%</span>
+            </div>
+
+            <div class="progress-stats">
+              <div class="stat-group">
+                <div class="stat">
+                  <span class="stat-value">{{ indexerStatus().filesProcessed | number }}</span>
+                  <span class="stat-label">Processed</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value">{{ indexerStatus().filesTotal | number }}</span>
+                  <span class="stat-label">Total</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value error">{{ indexerStatus().errorCount | number }}</span>
+                  <span class="stat-label">Errors</span>
+                </div>
+              </div>
+              <div class="stat-group">
+                <div class="stat">
+                  <mat-icon class="stat-icon">speed</mat-icon>
+                  <span class="stat-value">{{ formatSpeed() }}</span>
+                  <span class="stat-label">Speed</span>
+                </div>
+                <div class="stat">
+                  <mat-icon class="stat-icon">data_usage</mat-icon>
+                  <span class="stat-value">{{ indexerStatus().bytesPerSecond | fileSize }}/s</span>
+                  <span class="stat-label">Throughput</span>
+                </div>
+                <div class="stat">
+                  <mat-icon class="stat-icon">timer</mat-icon>
+                  <span class="stat-value">{{ formatEta() }}</span>
+                  <span class="stat-label">ETA</span>
+                </div>
+              </div>
+            </div>
+
+            @if (indexerStatus().currentActivity) {
+              <div class="current-activity">
+                <mat-icon>info</mat-icon>
+                <span>{{ indexerStatus().currentActivity }}</span>
+              </div>
+            }
+
+            @if (indexerStatus().scanQueue && indexerStatus().scanQueue!.length > 0) {
+              <mat-divider></mat-divider>
+              <div class="scan-queue">
+                <h4>Queue ({{ indexerStatus().queuedDirectories }} directories)</h4>
+                <ul>
+                  @for (item of indexerStatus().scanQueue!.slice(0, 3); track item.directoryPath) {
+                    <li>
+                      <mat-icon>folder_outlined</mat-icon>
+                      <span class="queue-path">{{ item.directoryPath }}</span>
+                      @if (item.estimatedFileCount) {
+                        <span class="queue-estimate">~{{ item.estimatedFileCount | number }} files</span>
+                      }
+                    </li>
+                  }
+                  @if (indexerStatus().scanQueue!.length > 3) {
+                    <li class="more-items">
+                      <mat-icon>more_horiz</mat-icon>
+                      <span>+{{ indexerStatus().scanQueue!.length - 3 }} more...</span>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+
+            @if (indexerStatus().lastError) {
+              <div class="last-error">
+                <mat-icon color="warn">warning</mat-icon>
+                <span>{{ indexerStatus().lastError }}</span>
+              </div>
+            }
           </div>
-          <mat-progress-bar mode="determinate" [value]="getProgressPercentage()" color="primary"></mat-progress-bar>
-          <div class="status-stats">
-            <div class="stat">
-              <span class="stat-value">{{ indexingStatus().filesScanned | number }}</span>
-              <span class="stat-label">Scanned</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value success">{{ indexingStatus().filesIngested | number }}</span>
-              <span class="stat-label">Ingested</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value error">{{ indexingStatus().filesFailed | number }}</span>
-              <span class="stat-label">Failed</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">{{ getProgressPercentage() }}%</span>
-              <span class="stat-label">Progress</span>
-            </div>
+        }
+
+        @if (!isIndexerActive() && !isIndexerPaused() && isIndexerConnected()) {
+          <mat-divider></mat-divider>
+          <div class="idle-status">
+            <mat-icon>check_circle</mat-icon>
+            <span>Indexer is idle and ready</span>
+            @if (indexerStatus().lastScanCompleted) {
+              <span class="last-scan">Last scan: {{ formatDate(indexerStatus().lastScanCompleted) }}</span>
+            }
           </div>
-        </mat-card-content>
-      </mat-card>
-    }
+        }
+      </mat-card-content>
+    </mat-card>
 
     <!-- Summary -->
     <div class="summary-cards">

@@ -12,6 +12,9 @@ public interface IIndexerClient
     Task ReprocessFile(Guid fileId, string filePath);
     Task ReprocessFiles(IEnumerable<ReprocessFileRequest> files);
     Task RequestPreview(Guid fileId, string filePath);
+    Task PauseScan();
+    Task ResumeScan();
+    Task CancelScan();
 }
 
 /// <summary>
@@ -154,6 +157,36 @@ public class IndexerHub : Hub
         _logger.LogInformation("Triggering scan: DirectoryId={DirectoryId}", directoryId?.ToString() ?? "all");
         await Clients.All.SendAsync("StartScan", directoryId);
         await Clients.Group("ui").SendAsync("ScanTriggered", directoryId);
+    }
+
+    /// <summary>
+    /// Pause the current scan on all connected indexers
+    /// </summary>
+    public async Task PauseScan()
+    {
+        _logger.LogInformation("Pausing scan on all indexers");
+        await Clients.All.SendAsync("PauseScan");
+        await Clients.Group("ui").SendAsync("ScanPaused");
+    }
+
+    /// <summary>
+    /// Resume a paused scan on all connected indexers
+    /// </summary>
+    public async Task ResumeScan()
+    {
+        _logger.LogInformation("Resuming scan on all indexers");
+        await Clients.All.SendAsync("ResumeScan");
+        await Clients.Group("ui").SendAsync("ScanResumed");
+    }
+
+    /// <summary>
+    /// Cancel the current scan on all connected indexers
+    /// </summary>
+    public async Task CancelScan()
+    {
+        _logger.LogInformation("Cancelling scan on all indexers");
+        await Clients.All.SendAsync("CancelScan");
+        await Clients.Group("ui").SendAsync("ScanCancelled");
     }
 
     /// <summary>

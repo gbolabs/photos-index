@@ -65,6 +65,9 @@ public class SignalRClientService : ISignalRClientService
         _hubConnection.On("RequestStatus", HandleStatusRequestAsync);
         _hubConnection.On<Guid?>("StartScan", HandleStartScanAsync);
         _hubConnection.On<Guid, string>("RequestPreview", HandleRequestPreviewAsync);
+        _hubConnection.On("PauseScan", HandlePauseScanAsync);
+        _hubConnection.On("ResumeScan", HandleResumeScanAsync);
+        _hubConnection.On("CancelScan", HandleCancelScanAsync);
 
         _hubConnection.Reconnecting += error =>
         {
@@ -152,6 +155,27 @@ public class SignalRClientService : ISignalRClientService
         _logger.LogInformation("Received StartScan command from hub: DirectoryId={DirectoryId}",
             directoryId?.ToString() ?? "all");
         _scanTrigger.TriggerScan(directoryId);
+        return Task.CompletedTask;
+    }
+
+    private Task HandlePauseScanAsync()
+    {
+        _logger.LogInformation("Received PauseScan command from hub");
+        _statusService.Pause();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleResumeScanAsync()
+    {
+        _logger.LogInformation("Received ResumeScan command from hub");
+        _statusService.Resume();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleCancelScanAsync()
+    {
+        _logger.LogInformation("Received CancelScan command from hub");
+        _statusService.RequestCancellation();
         return Task.CompletedTask;
     }
 
