@@ -379,4 +379,115 @@ public class DuplicateService : IDuplicateService
 
         return count;
     }
+
+    public async Task<DuplicateScanResultDto> ScanForDuplicatesAsync(CancellationToken ct)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        _logger.LogInformation("Starting duplicate scan on all indexed files...");
+
+        var totalFilesScanned = await _dbContext.IndexedFiles.CountAsync(ct);
+
+        // Find all hashes that appear more than once (excluding null/empty hashes)
+        var duplicateHashes = await _dbContext.IndexedFiles
+            .Where(f => f.FileHash != null && f.FileHash != "")
+            .GroupBy(f => f.FileHash)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToListAsync(ct);
+
+        _logger.LogInformation("Found {Count} hashes with duplicates", duplicateHashes.Count);
+
+        // Get existing groups by hash for quick lookup
+        var existingGroups = await _dbContext.DuplicateGroups
+            .ToDictionaryAsync(g => g.Hash, g => g, ct);
+
+        var newGroupsCreated = 0;
+        var groupsUpdated = 0;
+
+        foreach (var hash in duplicateHashes)
+        {
+            if (string.IsNullOrEmpty(hash))
+                continue;
+
+            var files = await _dbContext.IndexedFiles
+                .Where(f => f.FileHash == hash)
+                .ToListAsync(ct);
+
+            if (existingGroups.TryGetValue(hash, out var existingGroup))
+            {
+                // Update existing group
+                existingGroup.FileCount = files.Count;
+                existingGroup.TotalSize = files.Sum(f => f.FileSize);
+
+                foreach (var file in files.Where(f => f.DuplicateGroupId != existingGroup.Id))
+                {
+                    file.DuplicateGroupId = existingGroup.Id;
+                    file.IsDuplicate = true;
+                }
+
+                // Ensure at least one file is marked as original
+                if (!files.Any(f => !f.IsDuplicate))
+                {
+                    files.First().IsDuplicate = false;
+                }
+
+                groupsUpdated++;
+            }
+            else
+            {
+                // Create new group
+                var group = new Database.Entities.DuplicateGroup
+                {
+                    Id = Guid.NewGuid(),
+                    Hash = hash,
+                    FileCount = files.Count,
+                    TotalSize = files.Sum(f => f.FileSize),
+                    Status = "pending",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _dbContext.DuplicateGroups.Add(group);
+
+                // Link files to group
+                foreach (var file in files)
+                {
+                    file.DuplicateGroupId = group.Id;
+                    file.IsDuplicate = true;
+                }
+
+                // Mark first file as original (by earliest indexed date)
+                files.OrderBy(f => f.IndexedAt).First().IsDuplicate = false;
+
+                newGroupsCreated++;
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        stopwatch.Stop();
+
+        // Calculate final statistics
+        var totalGroups = await _dbContext.DuplicateGroups.CountAsync(ct);
+        var totalDuplicateFiles = await _dbContext.IndexedFiles
+            .CountAsync(f => f.DuplicateGroupId != null, ct);
+        var potentialSavings = await _dbContext.DuplicateGroups
+            .Where(g => g.FileCount > 0)
+            .Select(g => g.TotalSize - (g.TotalSize / g.FileCount))
+            .SumAsync(ct);
+
+        _logger.LogInformation(
+            "Duplicate scan completed: {NewGroups} new groups, {UpdatedGroups} updated, {TotalGroups} total groups, {Duration}ms",
+            newGroupsCreated, groupsUpdated, totalGroups, stopwatch.ElapsedMilliseconds);
+
+        return new DuplicateScanResultDto
+        {
+            TotalFilesScanned = totalFilesScanned,
+            NewGroupsCreated = newGroupsCreated,
+            GroupsUpdated = groupsUpdated,
+            TotalGroups = totalGroups,
+            TotalDuplicateFiles = totalDuplicateFiles,
+            PotentialSavingsBytes = potentialSavings,
+            ScanDurationMs = stopwatch.ElapsedMilliseconds
+        };
+    }
 }

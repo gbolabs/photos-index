@@ -15,11 +15,16 @@ namespace Api.Controllers;
 public class DuplicateGroupsController : ControllerBase
 {
     private readonly IDuplicateService _service;
+    private readonly DuplicateScanBackgroundService _scanService;
     private readonly ILogger<DuplicateGroupsController> _logger;
 
-    public DuplicateGroupsController(IDuplicateService service, ILogger<DuplicateGroupsController> logger)
+    public DuplicateGroupsController(
+        IDuplicateService service,
+        DuplicateScanBackgroundService scanService,
+        ILogger<DuplicateGroupsController> logger)
     {
         _service = service;
+        _scanService = scanService;
         _logger = logger;
     }
 
@@ -178,5 +183,61 @@ public class DuplicateGroupsController : ControllerBase
     {
         var count = await _service.UndoValidationAsync(request, ct);
         return Ok(new { undone = count });
+    }
+
+    /// <summary>
+    /// Queue a duplicate scan job (async).
+    /// </summary>
+    /// <remarks>
+    /// Queues a background job to scan all indexed files for duplicates.
+    /// Returns immediately with a job ID. Monitor progress via SignalR or the status endpoint.
+    /// </remarks>
+    [HttpPost("scan")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status202Accepted)]
+    public IActionResult QueueScanJob()
+    {
+        _logger.LogInformation("Duplicate scan job requested via API");
+        var jobId = _scanService.QueueScanJob();
+        return Accepted(new { jobId, message = "Scan job queued. Monitor progress via SignalR 'DuplicateScanProgress' event." });
+    }
+
+    /// <summary>
+    /// Get status of a duplicate scan job.
+    /// </summary>
+    [HttpGet("scan/{jobId}")]
+    [ProducesResponseType(typeof(DuplicateScanJob), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public ActionResult<DuplicateScanJob> GetScanJobStatus(string jobId)
+    {
+        var job = _scanService.GetJobStatus(jobId);
+        if (job is null)
+            return NotFound(ApiErrorResponse.NotFound($"Scan job {jobId} not found"));
+        return Ok(job);
+    }
+
+    /// <summary>
+    /// Get recent duplicate scan jobs.
+    /// </summary>
+    [HttpGet("scan/jobs")]
+    [ProducesResponseType(typeof(IEnumerable<DuplicateScanJob>), StatusCodes.Status200OK)]
+    public ActionResult<IEnumerable<DuplicateScanJob>> GetRecentJobs()
+    {
+        return Ok(_scanService.GetRecentJobs());
+    }
+
+    /// <summary>
+    /// Synchronously scan for duplicates (for small collections).
+    /// </summary>
+    /// <remarks>
+    /// Runs duplicate detection synchronously. May timeout on large collections.
+    /// For large collections, use POST /scan to queue an async job.
+    /// </remarks>
+    [HttpPost("scan/sync")]
+    [ProducesResponseType(typeof(DuplicateScanResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<DuplicateScanResultDto>> ScanForDuplicatesSync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("Synchronous duplicate scan requested via API");
+        var result = await _service.ScanForDuplicatesAsync(ct);
+        return Ok(result);
     }
 }

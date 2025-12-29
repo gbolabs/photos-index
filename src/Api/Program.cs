@@ -89,6 +89,8 @@ builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 builder.Services.AddScoped<IFileIngestService, FileIngestService>();
 builder.Services.AddScoped<IReprocessService, ReprocessService>();
+builder.Services.AddSingleton<DuplicateScanBackgroundService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DuplicateScanBackgroundService>());
 
 var app = builder.Build();
 

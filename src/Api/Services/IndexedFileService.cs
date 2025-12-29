@@ -435,8 +435,9 @@ public class IndexedFileService : IIndexedFileService
 
     private async Task DetectDuplicatesAsync(CancellationToken ct)
     {
-        // Find all files with duplicate hashes
+        // Find all files with duplicate hashes (excluding null/empty hashes)
         var duplicateHashes = await _dbContext.IndexedFiles
+            .Where(f => f.FileHash != null && f.FileHash != "")
             .GroupBy(f => f.FileHash)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
@@ -444,6 +445,9 @@ public class IndexedFileService : IIndexedFileService
 
         foreach (var hash in duplicateHashes)
         {
+            if (string.IsNullOrEmpty(hash))
+                continue;
+
             // Check if group already exists
             var existingGroup = await _dbContext.DuplicateGroups
                 .FirstOrDefaultAsync(g => g.Hash == hash, ct);
@@ -461,6 +465,7 @@ public class IndexedFileService : IIndexedFileService
                     Hash = hash,
                     FileCount = files.Count,
                     TotalSize = files.Sum(f => f.FileSize),
+                    Status = "pending",
                     CreatedAt = DateTime.UtcNow
                 };
                 _dbContext.DuplicateGroups.Add(group);
