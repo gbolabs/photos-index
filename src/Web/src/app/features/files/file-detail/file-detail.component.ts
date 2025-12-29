@@ -73,7 +73,7 @@ export class FileDetailComponent implements OnInit {
 
   getThumbnailUrl(): string {
     const fileData = this.file();
-    return fileData ? this.fileService.getThumbnailUrl(fileData.id, fileData.thumbnailPath) : '';
+    return fileData ? this.fileService.getThumbnailUrl(fileData.id, fileData.thumbnailPath, fileData.fileHash) : '';
   }
 
   async copyPath(): Promise<void> {

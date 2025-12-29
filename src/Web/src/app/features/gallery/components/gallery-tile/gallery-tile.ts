@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IndexedFileDto } from '../../../../models';
 
@@ -17,6 +17,8 @@ export class GalleryTileComponent {
 
   readonly click = output<IndexedFileDto>();
   readonly select = output<IndexedFileDto>();
+
+  readonly imageError = signal(false);
 
   onTileClick(event: MouseEvent): void {
     if (event.ctrlKey || event.metaKey) {
@@ -39,5 +41,15 @@ export class GalleryTileComponent {
       return `${file.width} / ${file.height}`;
     }
     return '1 / 1';
+  }
+
+  onImageError(): void {
+    this.imageError.set(true);
+  }
+
+  get fileExtension(): string {
+    const name = this.file().fileName;
+    const ext = name.split('.').pop()?.toUpperCase() || '';
+    return ext;
   }
 }

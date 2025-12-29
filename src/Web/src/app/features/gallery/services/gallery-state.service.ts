@@ -178,7 +178,7 @@ export class GalleryStateService {
    * Get thumbnail URL for a file
    */
   getThumbnailUrl(file: IndexedFileDto): string {
-    return this.fileService.getThumbnailUrl(file.id, file.thumbnailPath);
+    return this.fileService.getThumbnailUrl(file.id, file.thumbnailPath, file.fileHash);
   }
 
   private buildQueryParams(): FileQueryParameters {
