@@ -222,14 +222,20 @@
     } @else {
       <div class="directory-list">
         @for (dir of directories(); track dir.id) {
-          <mat-card class="directory-card" [class.disabled]="!dir.isEnabled" [class.scanning]="dir.scanning">
+          <mat-card class="directory-card"
+            [class.disabled]="!dir.isEnabled"
+            [class.scanning]="dir.scanning"
+            [class.never-scanned]="dir.isEnabled && !dir.lastScannedAt"
+            [class.scanned]="dir.isEnabled && dir.lastScannedAt && !dir.scanning">
             @if (dir.scanning) {
               <mat-progress-bar mode="indeterminate" color="primary"></mat-progress-bar>
             }
             <mat-card-content>
               <div class="directory-main">
                 <div class="directory-icon">
-                  <mat-icon [class.enabled]="dir.isEnabled">
+                  <mat-icon [class.enabled]="dir.isEnabled && dir.lastScannedAt"
+                            [class.never-scanned]="dir.isEnabled && !dir.lastScannedAt"
+                            [class.disabled]="!dir.isEnabled">
                     {{ dir.isEnabled ? 'folder' : 'folder_off' }}
                   </mat-icon>
                 </div>
