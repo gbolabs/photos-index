@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router, ActivatedRoute } from '@angular/router';
 import { IndexedFileDto, FileQueryParameters, FileSortBy } from '../../../models';
 import { IndexedFileService } from '../../../services/indexed-file.service';
 import { firstValueFrom } from 'rxjs';
@@ -18,6 +19,7 @@ export type TileSize = 'small' | 'medium' | 'large';
 })
 export class GalleryStateService {
   private readonly fileService = inject(IndexedFileService);
+  private readonly router = inject(Router);
 
   // View state
   readonly tileSize = signal<TileSize>('medium');
@@ -127,7 +129,42 @@ export class GalleryStateService {
    */
   updateFilters(filters: Partial<GalleryFilters>): void {
     this.filters.update(current => ({ ...current, ...filters }));
+    this.syncFiltersToUrl();
     this.loadFiles();
+  }
+
+  /**
+   * Initialize filters from URL query params
+   */
+  initFromUrl(queryParams: Record<string, string>): void {
+    const filters: GalleryFilters = {
+      directory: queryParams['directory'] || null,
+      search: queryParams['search'] || null,
+      minDate: queryParams['minDate'] || null,
+      maxDate: queryParams['maxDate'] || null,
+      duplicatesOnly: queryParams['duplicatesOnly'] === 'true'
+    };
+    this.filters.set(filters);
+  }
+
+  /**
+   * Sync current filters to URL query params
+   */
+  private syncFiltersToUrl(): void {
+    const filters = this.filters();
+    const queryParams: Record<string, string | null> = {};
+
+    if (filters.directory) queryParams['directory'] = filters.directory;
+    if (filters.search) queryParams['search'] = filters.search;
+    if (filters.minDate) queryParams['minDate'] = filters.minDate;
+    if (filters.maxDate) queryParams['maxDate'] = filters.maxDate;
+    if (filters.duplicatesOnly) queryParams['duplicatesOnly'] = 'true';
+
+    this.router.navigate([], {
+      queryParams,
+      queryParamsHandling: 'replace',
+      replaceUrl: true
+    });
   }
 
   /**
