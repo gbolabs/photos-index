@@ -3,6 +3,7 @@
   flex-direction: column;
   max-height: 90vh;
   max-width: 90vw;
+  min-width: 300px;
 }
 
 .preview-header {
@@ -56,10 +57,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 400px;
-  min-height: 300px;
   background: #1e1e1e;
   position: relative;
+  width: 100%;
 }
 
 .loading-overlay {

@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { GalleryGridComponent } from './components/gallery-grid/gallery-grid';
 import { FilterBarComponent } from './components/filter-bar/filter-bar';
 import { GalleryStateService, GalleryFilters, TileSize } from './services/gallery-state.service';
@@ -20,6 +20,7 @@ import { IndexedFileDto } from '../../models';
 export class GalleryComponent implements OnInit {
   private readonly stateService = inject(GalleryStateService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   readonly files = this.stateService.files;
   readonly loading = this.stateService.loading;
@@ -32,6 +33,9 @@ export class GalleryComponent implements OnInit {
   readonly directories = signal<string[]>([]);
 
   ngOnInit(): void {
+    // Initialize filters from URL query params (preserves filters on back navigation)
+    const queryParams = this.route.snapshot.queryParams as Record<string, string>;
+    this.stateService.initFromUrl(queryParams);
     this.stateService.loadFiles();
     this.loadDirectories();
   }

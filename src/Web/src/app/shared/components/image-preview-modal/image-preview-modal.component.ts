@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +12,8 @@ export interface ImagePreviewDialogData {
   fileId: string;
   fileName: string;
   thumbnailUrl: string;
+  width?: number;
+  height?: number;
 }
 
 type LoadingState = 'connecting' | 'requesting' | 'waiting' | 'loading-image';
@@ -42,9 +44,41 @@ export class ImagePreviewModalComponent implements OnInit, OnDestroy {
   retryCount = signal(0);
   canRetry = signal(false);
   signalRConnected = this.signalR.connected;
+  imageLoaded = signal(false);
+  loadedWidth = signal(0);
+  loadedHeight = signal(0);
 
   private static readonly TIMEOUT_MS = 30000; // 30 second timeout
   private static readonly MAX_RETRIES = 3;
+
+  // Computed container style based on image aspect ratio
+  readonly containerStyle = computed(() => {
+    const width = this.data.width || this.loadedWidth() || 800;
+    const height = this.data.height || this.loadedHeight() || 600;
+    const aspectRatio = width / height;
+
+    // Calculate optimal size based on viewport
+    const maxWidth = Math.min(window.innerWidth * 0.9, 1200);
+    const maxHeight = Math.min(window.innerHeight * 0.85, 900);
+
+    let containerWidth: number;
+    let containerHeight: number;
+
+    if (aspectRatio > maxWidth / maxHeight) {
+      // Width-constrained
+      containerWidth = maxWidth;
+      containerHeight = maxWidth / aspectRatio;
+    } else {
+      // Height-constrained
+      containerHeight = maxHeight;
+      containerWidth = maxHeight * aspectRatio;
+    }
+
+    return {
+      width: `${Math.round(containerWidth)}px`,
+      minHeight: `${Math.round(containerHeight)}px`
+    };
+  });
 
   private subscription = new Subscription();
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -181,6 +215,15 @@ export class ImagePreviewModalComponent implements OnInit, OnDestroy {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  onImageLoad(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    if (img.naturalWidth && img.naturalHeight) {
+      this.loadedWidth.set(img.naturalWidth);
+      this.loadedHeight.set(img.naturalHeight);
+      this.imageLoaded.set(true);
+    }
   }
 
   ngOnDestroy(): void {

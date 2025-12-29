@@ -1,4 +1,4 @@
-<div class="preview-modal">
+<div class="preview-modal" [style.width]="containerStyle().width">
   <div class="preview-header">
     <h2 mat-dialog-title>{{ data.fileName }}</h2>
     <div class="header-status">
@@ -15,11 +15,11 @@
   </div>
 
   <mat-dialog-content class="preview-content">
-    <div class="image-container">
+    <div class="image-container" [style.min-height]="containerStyle().minHeight">
       @if (loading()) {
         <!-- Blurred thumbnail with loading spinner -->
         <div class="loading-overlay">
-          <img [src]="data.thumbnailUrl" [alt]="data.fileName" class="thumbnail-blur" />
+          <img [src]="data.thumbnailUrl" [alt]="data.fileName" class="thumbnail-blur" (load)="onImageLoad($event)" />
           <div class="spinner-container">
             <mat-spinner diameter="48"></mat-spinner>
             <p class="loading-text">{{ loadingMessage }}</p>
@@ -47,7 +47,7 @@
         </div>
       } @else if (previewUrl()) {
         <!-- Full resolution image -->
-        <img [src]="previewUrl()" [alt]="data.fileName" class="full-image" />
+        <img [src]="previewUrl()" [alt]="data.fileName" class="full-image" (load)="onImageLoad($event)" />
       }
     </div>
   </mat-dialog-content>
