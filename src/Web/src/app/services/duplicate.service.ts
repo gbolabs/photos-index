@@ -209,6 +209,86 @@ export class DuplicateService {
       .get<GroupNavigationDto>(`${this.apiUrl}/${groupId}/navigation`, { params })
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
+
+  // Session methods for keyboard-driven review
+
+  /**
+   * Start or resume a keyboard review session.
+   */
+  startSession(resumeExisting = true): Observable<SelectionSessionDto> {
+    return this.http
+      .post<SelectionSessionDto>(`${this.apiUrl}/session/start`, { resumeExisting })
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Get the current active session.
+   */
+  getCurrentSession(): Observable<SelectionSessionDto | null> {
+    return this.http
+      .get<SelectionSessionDto>(`${this.apiUrl}/session/current`)
+      .pipe(catchError(() => {
+        // 204 No Content returns null
+        return new Observable<SelectionSessionDto | null>(subscriber => {
+          subscriber.next(null);
+          subscriber.complete();
+        });
+      }));
+  }
+
+  /**
+   * Pause the current session.
+   */
+  pauseSession(sessionId: string): Observable<SelectionSessionDto> {
+    return this.http
+      .post<SelectionSessionDto>(`${this.apiUrl}/session/${sessionId}/pause`, {})
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Get session progress.
+   */
+  getSessionProgress(sessionId: string): Observable<SessionProgressDto> {
+    return this.http
+      .get<SessionProgressDto>(`${this.apiUrl}/session/${sessionId}/progress`)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Propose a file as original (keyboard: Space).
+   */
+  proposeOriginal(groupId: string, fileId: string): Observable<ReviewActionResultDto> {
+    return this.http
+      .post<ReviewActionResultDto>(`${this.apiUrl}/${groupId}/propose`, { fileId })
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Validate the current selection (keyboard: Enter).
+   */
+  validateSelection(groupId: string): Observable<ReviewActionResultDto> {
+    return this.http
+      .post<ReviewActionResultDto>(`${this.apiUrl}/${groupId}/validate-selection`, {})
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Skip the current group (keyboard: S).
+   */
+  skipGroup(groupId: string): Observable<ReviewActionResultDto> {
+    return this.http
+      .post<ReviewActionResultDto>(`${this.apiUrl}/${groupId}/skip`, {})
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Undo the last action (keyboard: U).
+   */
+  undoAction(groupId: string): Observable<ReviewActionResultDto> {
+    return this.http
+      .post<ReviewActionResultDto>(`${this.apiUrl}/${groupId}/undo`, {})
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
 }
 
 /**
@@ -298,4 +378,43 @@ export interface GroupNavigationDto {
   nextGroupId?: string;
   currentPosition: number;
   totalGroups: number;
+}
+
+/**
+ * Keyboard review session data.
+ */
+export interface SelectionSessionDto {
+  id: string;
+  createdAt: string;
+  resumedAt?: string;
+  completedAt?: string;
+  status: string;
+  totalGroups: number;
+  groupsProposed: number;
+  groupsValidated: number;
+  groupsSkipped: number;
+  currentGroupId?: string;
+  lastReviewedGroupId?: string;
+  lastActivityAt?: string;
+}
+
+/**
+ * Session progress information.
+ */
+export interface SessionProgressDto {
+  proposed: number;
+  validated: number;
+  skipped: number;
+  remaining: number;
+  progressPercent: number;
+  nextGroupId?: string;
+}
+
+/**
+ * Result of a review action (propose, validate, skip, undo).
+ */
+export interface ReviewActionResultDto {
+  success: boolean;
+  nextGroupId?: string;
+  message?: string;
 }

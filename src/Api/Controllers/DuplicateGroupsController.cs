@@ -299,4 +299,138 @@ public class DuplicateGroupsController : ControllerBase
         var result = await _service.GetNavigationAsync(id, status, ct);
         return Ok(result);
     }
+
+    // Session endpoints for keyboard-driven review
+
+    /// <summary>
+    /// Start or resume a keyboard review session.
+    /// </summary>
+    /// <remarks>
+    /// Creates a new session or resumes an existing active/paused session.
+    /// Session state is persisted to survive restarts.
+    /// </remarks>
+    [HttpPost("session/start")]
+    [ProducesResponseType(typeof(SelectionSessionDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SelectionSessionDto>> StartSession(
+        [FromBody] StartSessionRequest? request,
+        CancellationToken ct = default)
+    {
+        request ??= new StartSessionRequest();
+        var session = await _service.StartOrResumeSessionAsync(request.ResumeExisting, ct);
+        return Ok(session);
+    }
+
+    /// <summary>
+    /// Get the current active session.
+    /// </summary>
+    [HttpGet("session/current")]
+    [ProducesResponseType(typeof(SelectionSessionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult<SelectionSessionDto>> GetCurrentSession(CancellationToken ct = default)
+    {
+        var session = await _service.GetCurrentSessionAsync(ct);
+        if (session is null)
+            return NoContent();
+        return Ok(session);
+    }
+
+    /// <summary>
+    /// Pause the current session.
+    /// </summary>
+    [HttpPost("session/{sessionId:guid}/pause")]
+    [ProducesResponseType(typeof(SelectionSessionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SelectionSessionDto>> PauseSession(
+        Guid sessionId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var session = await _service.PauseSessionAsync(sessionId, ct);
+            return Ok(session);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ApiErrorResponse.NotFound(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Get session progress.
+    /// </summary>
+    [HttpGet("session/{sessionId:guid}/progress")]
+    [ProducesResponseType(typeof(SessionProgressDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SessionProgressDto>> GetSessionProgress(
+        Guid sessionId,
+        CancellationToken ct = default)
+    {
+        var progress = await _service.GetSessionProgressAsync(sessionId, ct);
+        return Ok(progress);
+    }
+
+    /// <summary>
+    /// Propose a file as original for a duplicate group (keyboard shortcut: Space).
+    /// </summary>
+    /// <remarks>
+    /// Sets the specified file as the proposed original but does not validate.
+    /// Returns the next unreviewed group ID for navigation.
+    /// </remarks>
+    [HttpPost("{id:guid}/propose")]
+    [ProducesResponseType(typeof(ReviewActionResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ReviewActionResultDto>> ProposeOriginal(
+        Guid id,
+        [FromBody] ProposeOriginalRequest request,
+        CancellationToken ct = default)
+    {
+        var result = await _service.ProposeOriginalAsync(id, request.FileId, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Validate the current group selection (keyboard shortcut: Enter).
+    /// </summary>
+    /// <remarks>
+    /// Validates the proposed/selected original and advances to the next group.
+    /// </remarks>
+    [HttpPost("{id:guid}/validate-selection")]
+    [ProducesResponseType(typeof(ReviewActionResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ReviewActionResultDto>> ValidateSelection(
+        Guid id,
+        CancellationToken ct = default)
+    {
+        var result = await _service.ValidateGroupAsync(id, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Skip the current group (keyboard shortcut: S).
+    /// </summary>
+    /// <remarks>
+    /// Skips the group without making a selection and advances to the next group.
+    /// </remarks>
+    [HttpPost("{id:guid}/skip")]
+    [ProducesResponseType(typeof(ReviewActionResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ReviewActionResultDto>> SkipGroup(
+        Guid id,
+        CancellationToken ct = default)
+    {
+        var result = await _service.SkipGroupAsync(id, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Undo the last action on a group (keyboard shortcut: U).
+    /// </summary>
+    /// <remarks>
+    /// Reverts the group to pending status and resets the kept file selection.
+    /// </remarks>
+    [HttpPost("{id:guid}/undo")]
+    [ProducesResponseType(typeof(ReviewActionResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ReviewActionResultDto>> UndoAction(
+        Guid id,
+        CancellationToken ct = default)
+    {
+        var result = await _service.UndoLastActionAsync(id, ct);
+        return Ok(result);
+    }
 }

@@ -717,4 +717,364 @@ public class DuplicateService : IDuplicateService
             TotalGroups = orderedGroupIds.Count
         };
     }
+
+    // Session methods for keyboard-driven review
+
+    public async Task<SelectionSessionDto> StartOrResumeSessionAsync(bool resumeExisting, CancellationToken ct)
+    {
+        // Try to find an existing active session
+        if (resumeExisting)
+        {
+            var existingSession = await _dbContext.SelectionSessions
+                .Where(s => s.Status == "active" || s.Status == "paused")
+                .OrderByDescending(s => s.LastActivityAt ?? s.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+
+            if (existingSession != null)
+            {
+                existingSession.Status = "active";
+                existingSession.ResumedAt = DateTime.UtcNow;
+                existingSession.LastActivityAt = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync(ct);
+
+                _logger.LogInformation("Resumed existing session {SessionId}", existingSession.Id);
+
+                return MapToSessionDto(existingSession);
+            }
+        }
+
+        // Create new session
+        var totalGroups = await _dbContext.DuplicateGroups
+            .CountAsync(g => g.Status == "pending" || g.Status == "proposed", ct);
+
+        var firstGroup = await _dbContext.DuplicateGroups
+            .Where(g => g.Status == "pending" || g.Status == "proposed")
+            .OrderByDescending(g => g.TotalSize)
+            .Select(g => g.Id)
+            .FirstOrDefaultAsync(ct);
+
+        var session = new Database.Entities.SelectionSession
+        {
+            Id = Guid.NewGuid(),
+            CreatedAt = DateTime.UtcNow,
+            Status = "active",
+            TotalGroups = totalGroups,
+            CurrentGroupId = firstGroup,
+            LastActivityAt = DateTime.UtcNow
+        };
+
+        _dbContext.SelectionSessions.Add(session);
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Created new session {SessionId} with {TotalGroups} groups", session.Id, totalGroups);
+
+        return MapToSessionDto(session);
+    }
+
+    public async Task<SelectionSessionDto?> GetCurrentSessionAsync(CancellationToken ct)
+    {
+        var session = await _dbContext.SelectionSessions
+            .Where(s => s.Status == "active")
+            .OrderByDescending(s => s.LastActivityAt ?? s.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        return session != null ? MapToSessionDto(session) : null;
+    }
+
+    public async Task<SelectionSessionDto> PauseSessionAsync(Guid sessionId, CancellationToken ct)
+    {
+        var session = await _dbContext.SelectionSessions.FindAsync([sessionId], ct);
+
+        if (session is null)
+            throw new InvalidOperationException("Session not found");
+
+        session.Status = "paused";
+        session.LastActivityAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Paused session {SessionId}", sessionId);
+
+        return MapToSessionDto(session);
+    }
+
+    public async Task<ReviewActionResultDto> ProposeOriginalAsync(Guid groupId, Guid fileId, CancellationToken ct)
+    {
+        var group = await _dbContext.DuplicateGroups
+            .Include(g => g.Files)
+            .FirstOrDefaultAsync(g => g.Id == groupId, ct);
+
+        if (group is null)
+            return new ReviewActionResultDto { Success = false, Message = "Group not found" };
+
+        var targetFile = group.Files.FirstOrDefault(f => f.Id == fileId);
+        if (targetFile is null)
+            return new ReviewActionResultDto { Success = false, Message = "File not found in group" };
+
+        // Reset all files to duplicate
+        foreach (var file in group.Files)
+        {
+            file.IsDuplicate = true;
+        }
+
+        // Set the target as original
+        targetFile.IsDuplicate = false;
+
+        // Update group status to "proposed"
+        group.Status = "proposed";
+        group.KeptFileId = fileId;
+        group.LastReviewedAt = DateTime.UtcNow;
+
+        // Update session progress if there's an active session
+        var session = await _dbContext.SelectionSessions
+            .Where(s => s.Status == "active")
+            .FirstOrDefaultAsync(ct);
+
+        if (session != null)
+        {
+            session.GroupsProposed++;
+            session.LastReviewedGroupId = groupId;
+            session.LastActivityAt = DateTime.UtcNow;
+            group.ReviewSessionId = session.Id;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        // Get next unreviewed group
+        var nextGroupId = await GetNextUnreviewedGroupIdAsync(groupId, ct);
+
+        _logger.LogInformation("Proposed file {FileId} as original in group {GroupId}", fileId, groupId);
+
+        return new ReviewActionResultDto
+        {
+            Success = true,
+            NextGroupId = nextGroupId,
+            Message = "File proposed as original"
+        };
+    }
+
+    public async Task<ReviewActionResultDto> ValidateGroupAsync(Guid groupId, CancellationToken ct)
+    {
+        var group = await _dbContext.DuplicateGroups.FindAsync([groupId], ct);
+
+        if (group is null)
+            return new ReviewActionResultDto { Success = false, Message = "Group not found" };
+
+        if (group.Status != "proposed" && group.KeptFileId is null)
+            return new ReviewActionResultDto { Success = false, Message = "Group has no proposed original" };
+
+        // Update status to validated
+        group.Status = "validated";
+        group.ValidatedAt = DateTime.UtcNow;
+        group.LastReviewedAt = DateTime.UtcNow;
+
+        // Update session progress
+        var session = await _dbContext.SelectionSessions
+            .Where(s => s.Status == "active")
+            .FirstOrDefaultAsync(ct);
+
+        if (session != null)
+        {
+            session.GroupsValidated++;
+            session.LastReviewedGroupId = groupId;
+            session.LastActivityAt = DateTime.UtcNow;
+
+            // If this was a proposed group, decrement proposed count
+            if (group.ReviewSessionId == session.Id)
+            {
+                session.GroupsProposed = Math.Max(0, session.GroupsProposed - 1);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        // Get next unreviewed group
+        var nextGroupId = await GetNextUnreviewedGroupIdAsync(groupId, ct);
+
+        _logger.LogInformation("Validated group {GroupId}", groupId);
+
+        return new ReviewActionResultDto
+        {
+            Success = true,
+            NextGroupId = nextGroupId,
+            Message = "Group validated"
+        };
+    }
+
+    public async Task<ReviewActionResultDto> SkipGroupAsync(Guid groupId, CancellationToken ct)
+    {
+        var group = await _dbContext.DuplicateGroups.FindAsync([groupId], ct);
+
+        if (group is null)
+            return new ReviewActionResultDto { Success = false, Message = "Group not found" };
+
+        // Mark last reviewed but don't change status
+        group.LastReviewedAt = DateTime.UtcNow;
+
+        // Update session progress
+        var session = await _dbContext.SelectionSessions
+            .Where(s => s.Status == "active")
+            .FirstOrDefaultAsync(ct);
+
+        if (session != null)
+        {
+            session.GroupsSkipped++;
+            session.LastReviewedGroupId = groupId;
+            session.LastActivityAt = DateTime.UtcNow;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        // Get next unreviewed group
+        var nextGroupId = await GetNextUnreviewedGroupIdAsync(groupId, ct);
+
+        _logger.LogInformation("Skipped group {GroupId}", groupId);
+
+        return new ReviewActionResultDto
+        {
+            Success = true,
+            NextGroupId = nextGroupId,
+            Message = "Group skipped"
+        };
+    }
+
+    public async Task<ReviewActionResultDto> UndoLastActionAsync(Guid groupId, CancellationToken ct)
+    {
+        var group = await _dbContext.DuplicateGroups
+            .Include(g => g.Files)
+            .FirstOrDefaultAsync(g => g.Id == groupId, ct);
+
+        if (group is null)
+            return new ReviewActionResultDto { Success = false, Message = "Group not found" };
+
+        // Reset group to pending state
+        var previousStatus = group.Status;
+        group.Status = "pending";
+        group.KeptFileId = null;
+        group.ValidatedAt = null;
+        group.LastReviewedAt = DateTime.UtcNow;
+
+        // Reset all files - mark earliest as original
+        var files = group.Files.OrderBy(f => f.CreatedAt).ToList();
+        foreach (var file in files)
+        {
+            file.IsDuplicate = true;
+        }
+        if (files.Count > 0)
+        {
+            files[0].IsDuplicate = false;
+        }
+
+        // Update session progress if there's an active session
+        var session = await _dbContext.SelectionSessions
+            .Where(s => s.Status == "active")
+            .FirstOrDefaultAsync(ct);
+
+        if (session != null)
+        {
+            // Adjust counts based on previous status
+            if (previousStatus == "proposed")
+            {
+                session.GroupsProposed = Math.Max(0, session.GroupsProposed - 1);
+            }
+            else if (previousStatus == "validated")
+            {
+                session.GroupsValidated = Math.Max(0, session.GroupsValidated - 1);
+            }
+            session.LastActivityAt = DateTime.UtcNow;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Undid action on group {GroupId} (was {PreviousStatus})", groupId, previousStatus);
+
+        return new ReviewActionResultDto
+        {
+            Success = true,
+            NextGroupId = null, // Stay on current group
+            Message = $"Reverted from {previousStatus} to pending"
+        };
+    }
+
+    public async Task<SessionProgressDto> GetSessionProgressAsync(Guid sessionId, CancellationToken ct)
+    {
+        var session = await _dbContext.SelectionSessions.FindAsync([sessionId], ct);
+
+        if (session is null)
+        {
+            return new SessionProgressDto
+            {
+                Proposed = 0,
+                Validated = 0,
+                Skipped = 0,
+                Remaining = 0,
+                ProgressPercent = 0
+            };
+        }
+
+        var remaining = await _dbContext.DuplicateGroups
+            .CountAsync(g => g.Status == "pending", ct);
+
+        var total = session.TotalGroups > 0 ? session.TotalGroups : 1;
+        var processed = session.GroupsProposed + session.GroupsValidated + session.GroupsSkipped;
+        var progressPercent = Math.Min(100.0, (double)processed / total * 100);
+
+        // Get next group
+        var nextGroupId = session.CurrentGroupId.HasValue
+            ? await GetNextUnreviewedGroupIdAsync(session.CurrentGroupId.Value, ct)
+            : await _dbContext.DuplicateGroups
+                .Where(g => g.Status == "pending")
+                .OrderByDescending(g => g.TotalSize)
+                .Select(g => g.Id)
+                .FirstOrDefaultAsync(ct);
+
+        return new SessionProgressDto
+        {
+            Proposed = session.GroupsProposed,
+            Validated = session.GroupsValidated,
+            Skipped = session.GroupsSkipped,
+            Remaining = remaining,
+            ProgressPercent = progressPercent,
+            NextGroupId = nextGroupId != Guid.Empty ? nextGroupId : null
+        };
+    }
+
+    private async Task<Guid?> GetNextUnreviewedGroupIdAsync(Guid currentGroupId, CancellationToken ct)
+    {
+        // Get ordered list of pending/proposed groups
+        var orderedGroupIds = await _dbContext.DuplicateGroups
+            .Where(g => g.Status == "pending" || g.Status == "proposed")
+            .OrderByDescending(g => g.TotalSize)
+            .Select(g => g.Id)
+            .ToListAsync(ct);
+
+        var currentIndex = orderedGroupIds.IndexOf(currentGroupId);
+
+        // Return next group in list, or first if current not found
+        if (currentIndex >= 0 && currentIndex < orderedGroupIds.Count - 1)
+        {
+            return orderedGroupIds[currentIndex + 1];
+        }
+
+        // Return first pending group if available
+        return orderedGroupIds.FirstOrDefault(id => id != currentGroupId);
+    }
+
+    private static SelectionSessionDto MapToSessionDto(Database.Entities.SelectionSession session)
+    {
+        return new SelectionSessionDto
+        {
+            Id = session.Id,
+            CreatedAt = session.CreatedAt,
+            ResumedAt = session.ResumedAt,
+            CompletedAt = session.CompletedAt,
+            Status = session.Status,
+            TotalGroups = session.TotalGroups,
+            GroupsProposed = session.GroupsProposed,
+            GroupsValidated = session.GroupsValidated,
+            GroupsSkipped = session.GroupsSkipped,
+            CurrentGroupId = session.CurrentGroupId,
+            LastReviewedGroupId = session.LastReviewedGroupId,
+            LastActivityAt = session.LastActivityAt
+        };
+    }
 }

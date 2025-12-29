@@ -1509,4 +1509,398 @@ public class DuplicateServiceTests : IDisposable
     }
 
     #endregion
+
+    #region Session Tests
+
+    [Fact]
+    public async Task StartOrResumeSessionAsync_CreatesNewSession_WhenNoExistingSession()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.StartOrResumeSessionAsync(true, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Status.Should().Be("active");
+        result.TotalGroups.Should().Be(1);
+        result.GroupsProposed.Should().Be(0);
+        result.GroupsValidated.Should().Be(0);
+        result.GroupsSkipped.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task StartOrResumeSessionAsync_ResumesExistingSession_WhenResumeIsTrue()
+    {
+        // Arrange
+        var existingSession = new SelectionSession
+        {
+            Id = Guid.NewGuid(),
+            Status = "paused",
+            TotalGroups = 10,
+            GroupsProposed = 3,
+            GroupsValidated = 2,
+            GroupsSkipped = 1,
+            CreatedAt = DateTime.UtcNow.AddHours(-1),
+            LastActivityAt = DateTime.UtcNow.AddMinutes(-30)
+        };
+
+        await _dbContext.SelectionSessions.AddAsync(existingSession);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.StartOrResumeSessionAsync(true, CancellationToken.None);
+
+        // Assert
+        result.Id.Should().Be(existingSession.Id);
+        result.Status.Should().Be("active");
+        result.GroupsProposed.Should().Be(3);
+        result.GroupsValidated.Should().Be(2);
+        result.GroupsSkipped.Should().Be(1);
+        result.ResumedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task StartOrResumeSessionAsync_CreatesNewSession_WhenResumeIsFalse()
+    {
+        // Arrange
+        var existingSession = new SelectionSession
+        {
+            Id = Guid.NewGuid(),
+            Status = "active",
+            TotalGroups = 10,
+            CreatedAt = DateTime.UtcNow.AddHours(-1)
+        };
+
+        await _dbContext.SelectionSessions.AddAsync(existingSession);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.StartOrResumeSessionAsync(false, CancellationToken.None);
+
+        // Assert
+        result.Id.Should().NotBe(existingSession.Id);
+        result.Status.Should().Be("active");
+    }
+
+    [Fact]
+    public async Task GetCurrentSessionAsync_ReturnsNull_WhenNoActiveSession()
+    {
+        // Act
+        var result = await _service.GetCurrentSessionAsync(CancellationToken.None);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetCurrentSessionAsync_ReturnsSession_WhenActiveSessionExists()
+    {
+        // Arrange
+        var session = new SelectionSession
+        {
+            Id = Guid.NewGuid(),
+            Status = "active",
+            TotalGroups = 5,
+            GroupsProposed = 2,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.SelectionSessions.AddAsync(session);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetCurrentSessionAsync(CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(session.Id);
+        result.Status.Should().Be("active");
+    }
+
+    [Fact]
+    public async Task PauseSessionAsync_SetsStatusToPaused()
+    {
+        // Arrange
+        var session = new SelectionSession
+        {
+            Id = Guid.NewGuid(),
+            Status = "active",
+            TotalGroups = 5,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.SelectionSessions.AddAsync(session);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.PauseSessionAsync(session.Id, CancellationToken.None);
+
+        // Assert
+        result.Status.Should().Be("paused");
+        result.LastActivityAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ProposeOriginalAsync_SetsFileAsOriginal_AndUpdatesGroupStatus()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var file1 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folder/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = true,
+            DuplicateGroup = group
+        };
+        var file2 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folder/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = true,
+            DuplicateGroup = group
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.IndexedFiles.AddRangeAsync(file1, file2);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.ProposeOriginalAsync(group.Id, file1.Id, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("File proposed as original");
+
+        var updatedFile1 = await _dbContext.IndexedFiles.FindAsync(file1.Id);
+        var updatedFile2 = await _dbContext.IndexedFiles.FindAsync(file2.Id);
+        updatedFile1!.IsDuplicate.Should().BeFalse();
+        updatedFile2!.IsDuplicate.Should().BeTrue();
+
+        var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group.Id);
+        updatedGroup!.Status.Should().Be("proposed");
+        updatedGroup.KeptFileId.Should().Be(file1.Id);
+    }
+
+    [Fact]
+    public async Task ValidateGroupAsync_SetsStatusToValidated()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "proposed",
+            KeptFileId = Guid.NewGuid(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.ValidateGroupAsync(group.Id, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Group validated");
+
+        var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group.Id);
+        updatedGroup!.Status.Should().Be("validated");
+        updatedGroup.ValidatedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ValidateGroupAsync_Fails_WhenNoProposedOriginal()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            KeptFileId = null,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.ValidateGroupAsync(group.Id, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Group has no proposed original");
+    }
+
+    [Fact]
+    public async Task SkipGroupAsync_UpdatesLastReviewedAt_AndReturnsNextGroup()
+    {
+        // Arrange
+        var group1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 1000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(group1, group2);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.SkipGroupAsync(group1.Id, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.NextGroupId.Should().Be(group2.Id);
+
+        var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group1.Id);
+        updatedGroup!.LastReviewedAt.Should().NotBeNull();
+        updatedGroup.Status.Should().Be("pending"); // Status unchanged
+    }
+
+    [Fact]
+    public async Task UndoLastActionAsync_ResetsToPending()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "proposed",
+            KeptFileId = Guid.NewGuid(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var file1 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folder/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-1),
+            DuplicateGroup = group
+        };
+        var file2 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folder/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = true,
+            CreatedAt = DateTime.UtcNow,
+            DuplicateGroup = group
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.IndexedFiles.AddRangeAsync(file1, file2);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.UndoLastActionAsync(group.Id, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.Message.Should().Contain("Reverted from proposed to pending");
+
+        var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group.Id);
+        updatedGroup!.Status.Should().Be("pending");
+        updatedGroup.KeptFileId.Should().BeNull();
+        updatedGroup.ValidatedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSessionProgressAsync_ReturnsCorrectProgress()
+    {
+        // Arrange
+        var session = new SelectionSession
+        {
+            Id = Guid.NewGuid(),
+            Status = "active",
+            TotalGroups = 10,
+            GroupsProposed = 3,
+            GroupsValidated = 2,
+            GroupsSkipped = 1,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var pendingGroup = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.SelectionSessions.AddAsync(session);
+        await _dbContext.DuplicateGroups.AddAsync(pendingGroup);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetSessionProgressAsync(session.Id, CancellationToken.None);
+
+        // Assert
+        result.Proposed.Should().Be(3);
+        result.Validated.Should().Be(2);
+        result.Skipped.Should().Be(1);
+        result.Remaining.Should().Be(1);
+        result.ProgressPercent.Should().Be(60); // 6 out of 10
+    }
+
+    #endregion
 }

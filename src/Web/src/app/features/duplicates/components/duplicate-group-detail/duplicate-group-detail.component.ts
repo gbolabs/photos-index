@@ -7,6 +7,7 @@ import {
   computed,
   OnChanges,
   SimpleChanges,
+  HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
@@ -17,11 +18,13 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { DuplicateService, DirectoryPatternDto, GroupNavigationDto } from '../../../../services/duplicate.service';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { DuplicateService, DirectoryPatternDto, GroupNavigationDto, SelectionSessionDto } from '../../../../services/duplicate.service';
 import { DuplicateGroupDto, IndexedFileDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
 import { ImageComparisonComponent } from '../image-comparison/image-comparison.component';
 import { FileMetadataTableComponent } from '../file-metadata-table/file-metadata-table.component';
+import { KeyboardHelpDialogComponent } from '../keyboard-help-dialog/keyboard-help-dialog.component';
 
 @Component({
   selector: 'app-duplicate-group-detail',
@@ -36,9 +39,11 @@ import { FileMetadataTableComponent } from '../file-metadata-table/file-metadata
     MatProgressSpinnerModule,
     MatDialogModule,
     MatSnackBarModule,
+    MatProgressBarModule,
     FileSizePipe,
     ImageComparisonComponent,
     FileMetadataTableComponent,
+    KeyboardHelpDialogComponent,
   ],
   templateUrl: './duplicate-group-detail.component.html',
   styleUrl: './duplicate-group-detail.component.scss',
@@ -70,6 +75,11 @@ export class DuplicateGroupDetailComponent implements OnChanges {
 
   // Navigation state
   navigation = signal<GroupNavigationDto | null>(null);
+
+  // Keyboard navigation state
+  focusedFileIndex = signal(0);
+  keyboardMode = signal(true); // Show keyboard hints
+  session = signal<SelectionSessionDto | null>(null);
 
   // Computed
   files = computed(() => this.group()?.files || []);
@@ -325,5 +335,252 @@ export class DuplicateGroupDetailComponent implements OnChanges {
     const parts = path.split('/');
     parts.pop();
     return parts.join('/') || '/';
+  }
+
+  // Keyboard navigation
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent): void {
+    // Ignore if typing in input
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+
+    switch (event.key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        this.goToPrevious();
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        this.goToNext();
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        this.focusPreviousFile();
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        this.focusNextFile();
+        break;
+      case ' ': // Space
+        event.preventDefault();
+        this.selectFocusedFile();
+        break;
+      case 'Enter':
+        event.preventDefault();
+        this.applyFocusedDirectoryPattern();
+        break;
+      case 'a':
+      case 'A':
+        this.autoSelectOriginal();
+        break;
+      case 's':
+      case 'S':
+        this.skipGroup();
+        break;
+      case 'u':
+      case 'U':
+        this.undoAction();
+        break;
+      case 'Escape':
+        this.goBack();
+        break;
+      case '?':
+        this.showKeyboardHelp();
+        break;
+      case 'Home':
+        event.preventDefault();
+        this.goToFirst();
+        break;
+      case 'End':
+        event.preventDefault();
+        this.goToLast();
+        break;
+      default:
+        // Handle 1-9 for quick select
+        if (/^[1-9]$/.test(event.key)) {
+          this.selectFileByIndex(parseInt(event.key) - 1);
+        }
+    }
+  }
+
+  focusPreviousFile(): void {
+    const current = this.focusedFileIndex();
+    if (current > 0) {
+      this.focusedFileIndex.set(current - 1);
+    }
+  }
+
+  focusNextFile(): void {
+    const current = this.focusedFileIndex();
+    const maxIndex = this.files().length - 1;
+    if (current < maxIndex) {
+      this.focusedFileIndex.set(current + 1);
+    }
+  }
+
+  selectFocusedFile(): void {
+    const fileList = this.files();
+    const index = this.focusedFileIndex();
+    if (index >= 0 && index < fileList.length) {
+      const file = fileList[index];
+      this.proposeAsOriginal(file);
+    }
+  }
+
+  selectFileByIndex(index: number): void {
+    const fileList = this.files();
+    if (index >= 0 && index < fileList.length) {
+      this.focusedFileIndex.set(index);
+      this.proposeAsOriginal(fileList[index]);
+    }
+  }
+
+  proposeAsOriginal(file: IndexedFileDto): void {
+    const g = this.group();
+    if (!g) return;
+
+    this.duplicateService.proposeOriginal(g.id, file.id).subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.loadGroup();
+          this.snackBar.open('File proposed as original', 'OK', { duration: 2000 });
+        } else {
+          this.snackBar.open(result.message || 'Failed to propose file', 'Dismiss', { duration: 3000 });
+        }
+      },
+      error: (err) => {
+        console.error('Failed to propose original:', err);
+        this.snackBar.open('Failed to propose file as original', 'Dismiss', { duration: 3000 });
+      },
+    });
+  }
+
+  /**
+   * Apply the focused file's directory as the preferred folder for all
+   * duplicate groups with the same directory pattern.
+   */
+  applyFocusedDirectoryPattern(): void {
+    const fileList = this.files();
+    const index = this.focusedFileIndex();
+    const pattern = this.patternInfo();
+
+    if (index < 0 || index >= fileList.length) {
+      this.snackBar.open('No file focused', 'Dismiss', { duration: 2000 });
+      return;
+    }
+
+    if (!pattern || pattern.matchingGroupCount <= 1) {
+      // No pattern or only one group - just propose the file as original
+      this.selectFocusedFile();
+      return;
+    }
+
+    const file = fileList[index];
+    const preferredDirectory = this.getDirectory(file.filePath);
+
+    this.applyPatternRule(preferredDirectory);
+  }
+
+  validateAndAdvance(): void {
+    const g = this.group();
+    if (!g) return;
+
+    this.duplicateService.validateSelection(g.id).subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.snackBar.open('Selection validated', 'OK', { duration: 2000 });
+          if (result.nextGroupId) {
+            this.navigateToGroup.emit(result.nextGroupId);
+          } else {
+            this.snackBar.open('All groups reviewed!', 'OK', { duration: 3000 });
+            this.back.emit();
+          }
+        } else {
+          this.snackBar.open(result.message || 'No selection to validate', 'Dismiss', { duration: 3000 });
+        }
+      },
+      error: (err) => {
+        console.error('Failed to validate:', err);
+        this.snackBar.open('Failed to validate selection', 'Dismiss', { duration: 3000 });
+      },
+    });
+  }
+
+  skipGroup(): void {
+    const g = this.group();
+    if (!g) return;
+
+    this.duplicateService.skipGroup(g.id).subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.snackBar.open('Group skipped', 'OK', { duration: 2000 });
+          if (result.nextGroupId) {
+            this.navigateToGroup.emit(result.nextGroupId);
+          } else {
+            this.snackBar.open('All groups reviewed!', 'OK', { duration: 3000 });
+            this.back.emit();
+          }
+        }
+      },
+      error: (err) => {
+        console.error('Failed to skip group:', err);
+        this.snackBar.open('Failed to skip group', 'Dismiss', { duration: 3000 });
+      },
+    });
+  }
+
+  undoAction(): void {
+    const g = this.group();
+    if (!g) return;
+
+    this.duplicateService.undoAction(g.id).subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.loadGroup();
+          this.snackBar.open(result.message || 'Action undone', 'OK', { duration: 2000 });
+        }
+      },
+      error: (err) => {
+        console.error('Failed to undo:', err);
+        this.snackBar.open('Failed to undo action', 'Dismiss', { duration: 3000 });
+      },
+    });
+  }
+
+  goToFirst(): void {
+    // Navigate to first group in list
+    const nav = this.navigation();
+    if (nav && nav.currentPosition > 1) {
+      // We'd need to fetch the first group ID - for now just go back
+      this.back.emit();
+    }
+  }
+
+  goToLast(): void {
+    // Navigate to last group in list - requires API support
+    // For now, this is a placeholder
+  }
+
+  showKeyboardHelp(): void {
+    this.dialog.open(KeyboardHelpDialogComponent, {
+      width: '400px',
+    });
+  }
+
+  isFocused(index: number): boolean {
+    return this.focusedFileIndex() === index;
+  }
+
+  loadSession(): void {
+    this.duplicateService.getCurrentSession().subscribe({
+      next: (session) => {
+        this.session.set(session);
+      },
+      error: () => {
+        // No session active, that's fine
+      },
+    });
   }
 }

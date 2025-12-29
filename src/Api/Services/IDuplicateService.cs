@@ -31,4 +31,14 @@ public interface IDuplicateService
 
     // Navigation methods
     Task<GroupNavigationDto> GetNavigationAsync(Guid groupId, string? statusFilter, CancellationToken ct);
+
+    // Session methods for keyboard-driven review
+    Task<SelectionSessionDto> StartOrResumeSessionAsync(bool resumeExisting, CancellationToken ct);
+    Task<SelectionSessionDto?> GetCurrentSessionAsync(CancellationToken ct);
+    Task<SelectionSessionDto> PauseSessionAsync(Guid sessionId, CancellationToken ct);
+    Task<ReviewActionResultDto> ProposeOriginalAsync(Guid groupId, Guid fileId, CancellationToken ct);
+    Task<ReviewActionResultDto> ValidateGroupAsync(Guid groupId, CancellationToken ct);
+    Task<ReviewActionResultDto> SkipGroupAsync(Guid groupId, CancellationToken ct);
+    Task<ReviewActionResultDto> UndoLastActionAsync(Guid groupId, CancellationToken ct);
+    Task<SessionProgressDto> GetSessionProgressAsync(Guid sessionId, CancellationToken ct);
 }
