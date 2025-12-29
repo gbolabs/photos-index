@@ -16,6 +16,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
     private readonly IHashComputer _hashComputer;
     private readonly IMetadataExtractor _metadataExtractor;
     private readonly IScanSessionService _scanSession;
+    private readonly IIndexerStatusService _statusService;
     private readonly ILogger<IndexingOrchestrator> _logger;
     private readonly IndexingOptions _options;
     private readonly bool _isDistributedMode;
@@ -42,6 +43,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         IHashComputer hashComputer,
         IMetadataExtractor metadataExtractor,
         IScanSessionService scanSession,
+        IIndexerStatusService statusService,
         ILogger<IndexingOrchestrator> logger,
         IOptions<IndexingOptions> options)
     {
@@ -50,6 +52,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         _hashComputer = hashComputer ?? throw new ArgumentNullException(nameof(hashComputer));
         _metadataExtractor = metadataExtractor ?? throw new ArgumentNullException(nameof(metadataExtractor));
         _scanSession = scanSession ?? throw new ArgumentNullException(nameof(scanSession));
+        _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? new IndexingOptions();
 
@@ -148,11 +151,17 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                 return job.Fail($"Directory does not exist: {directoryPath}");
             }
 
+            // Update status with current directory
+            _statusService.SetCurrentDirectory(directoryPath);
+            _statusService.SetActivity($"Scanning: {Path.GetFileName(directoryPath)}");
+
             var totalScanned = 0;
             var totalSkipped = 0;
             var totalProcessed = 0;
             var totalIngested = 0;
             var totalFailed = 0;
+            long totalBytesScanned = 0;
+            long totalBytesProcessed = 0;
             var currentBatch = new List<ScannedFile>(_options.BatchSize);
 
             // Progressive scan and ingest - process files in batches as we scan
@@ -160,10 +169,17 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             {
                 currentBatch.Add(file);
                 totalScanned++;
+                totalBytesScanned += file.FileSizeBytes;
+
+                // Update progress as we scan
+                _statusService.SetProgress(totalIngested + totalFailed, totalScanned);
 
                 // Process batch when full
                 if (currentBatch.Count >= _options.BatchSize)
                 {
+                    _statusService.SetActivity($"Processing batch ({totalIngested} ingested)");
+
+                    var batchBytes = currentBatch.Sum(f => f.FileSizeBytes);
                     var (processed, ingested, failed, skipped) = await ProcessAndIngestBatchAsync(
                         directoryId, currentBatch, cancellationToken);
 
@@ -171,6 +187,11 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                     totalIngested += ingested;
                     totalFailed += failed;
                     totalSkipped += skipped;
+                    totalBytesProcessed += batchBytes;
+
+                    // Update progress after batch completes
+                    _statusService.SetProgress(totalIngested + totalFailed, totalScanned);
+                    _statusService.SetBytesProgress(totalBytesProcessed, totalBytesScanned);
 
                     _logger.LogInformation(
                         "Progress: {Scanned} scanned, {Skipped} unchanged, {Ingested} ingested so far in {Path}",
@@ -183,6 +204,9 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             // Process remaining files in last batch
             if (currentBatch.Count > 0)
             {
+                _statusService.SetActivity($"Processing final batch ({currentBatch.Count} files)");
+
+                var batchBytes = currentBatch.Sum(f => f.FileSizeBytes);
                 var (processed, ingested, failed, skipped) = await ProcessAndIngestBatchAsync(
                     directoryId, currentBatch, cancellationToken);
 
@@ -190,6 +214,11 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                 totalIngested += ingested;
                 totalFailed += failed;
                 totalSkipped += skipped;
+                totalBytesProcessed += batchBytes;
+
+                // Final progress update
+                _statusService.SetProgress(totalIngested + totalFailed, totalScanned);
+                _statusService.SetBytesProgress(totalBytesProcessed, totalBytesScanned);
             }
 
             await _apiClient.UpdateLastScannedAsync(directoryId, cancellationToken);

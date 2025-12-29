@@ -21,6 +21,7 @@ public class IndexingOrchestratorTests : IDisposable
     private readonly Mock<IHashComputer> _mockHashComputer;
     private readonly Mock<IMetadataExtractor> _mockMetadataExtractor;
     private readonly ScanSessionService _scanSession;
+    private readonly Mock<IIndexerStatusService> _mockStatusService;
     private readonly Mock<ILogger<IndexingOrchestrator>> _mockLogger;
     private readonly IndexingOptions _options;
 
@@ -32,6 +33,7 @@ public class IndexingOrchestratorTests : IDisposable
         _mockHashComputer = new Mock<IHashComputer>();
         _mockMetadataExtractor = new Mock<IMetadataExtractor>();
         _scanSession = new ScanSessionService(); // Use real session service
+        _mockStatusService = new Mock<IIndexerStatusService>();
         _mockLogger = new Mock<ILogger<IndexingOrchestrator>>();
         _options = new IndexingOptions
         {
@@ -52,6 +54,7 @@ public class IndexingOrchestratorTests : IDisposable
             _mockHashComputer.Object,
             _mockMetadataExtractor.Object,
             _scanSession,
+            _mockStatusService.Object,
             _mockLogger.Object,
             Options.Create(options ?? _options));
     }
