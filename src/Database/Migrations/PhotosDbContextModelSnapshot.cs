@@ -247,6 +247,9 @@ namespace Database.Migrations
                     b.Property<string>("LastError")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("MetadataProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -259,6 +262,9 @@ namespace Database.Migrations
                     b.Property<string>("ThumbnailPath")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ThumbnailProcessedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("Width")
                         .HasColumnType("integer");

@@ -11,6 +11,7 @@ import {
   PagedResponse,
   BuildInfoDto,
   IndexingStatusDto,
+  SystemVersionsDto,
 } from './models';
 
 @Injectable({
@@ -21,9 +22,13 @@ export class ApiService {
 
   constructor(private http: HttpClient) {}
 
-  // Version endpoint
+  // Version endpoints
   getVersion(): Observable<BuildInfoDto> {
     return this.http.get<BuildInfoDto>(`${this.apiUrl}/api/version`);
+  }
+
+  getSystemVersions(): Observable<SystemVersionsDto> {
+    return this.http.get<SystemVersionsDto>(`${this.apiUrl}/api/system/versions`);
   }
 
   // Statistics endpoints

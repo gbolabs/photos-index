@@ -1,0 +1,8 @@
+.gallery-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+  min-height: 0; // Required for flexbox scroll containers
+  overflow: hidden;
+}

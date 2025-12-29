@@ -100,7 +100,7 @@ pull_images() {
     echo "Note: This requires access to the GitHub Container Registry"
     echo ""
 
-    SERVICES=("api" "web" "indexing-service" "cleaner-service")
+    SERVICES=("api" "web" "indexing-service" "cleaner-service" "metadata-service" "thumbnail-service")
 
     for service in "${SERVICES[@]}"; do
         echo "Pulling $service..."
@@ -122,10 +122,10 @@ start_services() {
     mkdir -p "$HOME_PICTURES_PATH"
 
     # Generate manifest with paths substituted
-    # Note: ./traefik must be converted to absolute path for podman kube play
+    TRAEFIK_CONFIG_PATH="$SCRIPT_DIR/traefik"
     sed -e "s|path: /tmp/photos|path: $PHOTOS_PATH|g" \
         -e "s|path: /tmp/home-pictures|path: $HOME_PICTURES_PATH|g" \
-        -e "s|path: ./traefik|path: $SCRIPT_DIR/traefik|g" \
+        -e "s|path: /tmp/traefik-config|path: $TRAEFIK_CONFIG_PATH|g" \
         "$MANIFEST" | podman kube play -
 
     echo ""
@@ -133,7 +133,7 @@ start_services() {
     echo "  Application:      http://localhost:8080 (via Traefik)"
     echo "  API:              http://localhost:8080/api (via Traefik)"
     echo "  Traefik Dashboard: http://localhost:8081"
-    echo "  Aspire Dashboard: http://localhost:18888"
+    echo "  Jaeger UI:        http://localhost:16686"
     echo "  PostgreSQL:       localhost:5432"
     echo ""
     echo "Mounted directories:"

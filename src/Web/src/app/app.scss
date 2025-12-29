@@ -8,6 +8,9 @@
 
 .drawer-content {
   padding: 20px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: auto;
 }
 
 .active-link {
@@ -26,5 +29,7 @@
 
   .drawer-content {
     padding: 12px; // Reduce padding on mobile
+    height: 100%;
+    box-sizing: border-box;
   }
 }

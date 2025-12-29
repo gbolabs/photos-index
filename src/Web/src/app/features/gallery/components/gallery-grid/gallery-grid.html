@@ -1,0 +1,46 @@
+<div class="gallery-grid-container">
+  @if (loading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading photos...</p>
+    </div>
+  } @else if (files().length === 0) {
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
+        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+      </svg>
+      <h3>No photos found</h3>
+      <p>Try adjusting your filters or adding photos to your collection.</p>
+    </div>
+  } @else {
+    <cdk-virtual-scroll-viewport
+      [itemSize]="rowHeight"
+      (scrolledIndexChange)="onScroll()"
+      class="gallery-viewport"
+    >
+      <div
+        *cdkVirtualFor="let row of rows; trackBy: trackByRow"
+        class="gallery-row"
+        [style.height.px]="rowHeight"
+        [style.gap.px]="4"
+      >
+        @for (file of row; track file.id) {
+          <app-gallery-tile
+            [file]="file"
+            [thumbnailUrl]="getThumbnailUrl(file)"
+            [size]="tileSize()"
+            (click)="onTileClick(file)"
+            (select)="onTileSelect(file)"
+          />
+        }
+      </div>
+    </cdk-virtual-scroll-viewport>
+
+    @if (loadingMore()) {
+      <div class="loading-more">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading more...</span>
+      </div>
+    }
+  }
+</div>

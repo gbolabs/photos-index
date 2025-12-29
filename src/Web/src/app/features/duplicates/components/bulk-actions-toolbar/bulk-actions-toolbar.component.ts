@@ -1,14 +1,18 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, inject, input, output, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
-import { DuplicateService } from '../../../../services/duplicate.service';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { DuplicateService, DuplicateScanJob } from '../../../../services/duplicate.service';
 import { FileStatisticsDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
+import { SelectionPreferencesDialogComponent } from '../selection-preferences-dialog/selection-preferences-dialog.component';
+import { interval, Subscription, takeWhile } from 'rxjs';
 
 @Component({
   selector: 'app-bulk-actions-toolbar',
@@ -19,15 +23,19 @@ import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatProgressBarModule,
     MatTooltipModule,
     MatChipsModule,
+    MatDialogModule,
     FileSizePipe,
   ],
   templateUrl: './bulk-actions-toolbar.component.html',
   styleUrl: './bulk-actions-toolbar.component.scss',
 })
-export class BulkActionsToolbarComponent {
+export class BulkActionsToolbarComponent implements OnDestroy {
   private duplicateService = inject(DuplicateService);
+  private dialog = inject(MatDialog);
+  private pollSubscription?: Subscription;
 
   // Inputs
   selectedGroupIds = input<string[]>([]);
@@ -39,9 +47,15 @@ export class BulkActionsToolbarComponent {
   // State
   loading = signal(false);
   stats = signal<FileStatisticsDto | null>(null);
+  scanJob = signal<DuplicateScanJob | null>(null);
+  scanning = signal(false);
 
   ngOnInit(): void {
     this.loadStats();
+  }
+
+  ngOnDestroy(): void {
+    this.pollSubscription?.unsubscribe();
   }
 
   loadStats(): void {
@@ -86,5 +100,67 @@ export class BulkActionsToolbarComponent {
   refresh(): void {
     this.loadStats();
     this.refreshRequested.emit();
+  }
+
+  startScan(): void {
+    if (this.scanning()) return;
+
+    this.scanning.set(true);
+    this.scanJob.set(null);
+
+    this.duplicateService.queueScanJob().subscribe({
+      next: (response) => {
+        console.log('Scan job queued:', response.jobId);
+        this.pollJobStatus(response.jobId);
+      },
+      error: (err) => {
+        console.error('Failed to start scan:', err);
+        this.scanning.set(false);
+      },
+    });
+  }
+
+  private pollJobStatus(jobId: string): void {
+    this.pollSubscription?.unsubscribe();
+
+    this.pollSubscription = interval(2000)
+      .pipe(
+        takeWhile(() => this.scanning())
+      )
+      .subscribe(() => {
+        this.duplicateService.getScanJobStatus(jobId).subscribe({
+          next: (job) => {
+            this.scanJob.set(job);
+
+            if (job.status === 'completed' || job.status === 'failed') {
+              this.scanning.set(false);
+              this.pollSubscription?.unsubscribe();
+              this.loadStats();
+              this.actionCompleted.emit();
+            }
+          },
+          error: (err) => {
+            console.error('Failed to get job status:', err);
+          },
+        });
+      });
+  }
+
+  get scanProgress(): number {
+    const job = this.scanJob();
+    if (!job || job.totalDuplicateHashes === 0) return 0;
+    return Math.round((job.processedHashes / job.totalDuplicateHashes) * 100);
+  }
+
+  openSettings(): void {
+    const dialogRef = this.dialog.open(SelectionPreferencesDialogComponent, {
+      width: '600px',
+      maxHeight: '90vh',
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadStats();
+      this.actionCompleted.emit();
+    });
   }
 }

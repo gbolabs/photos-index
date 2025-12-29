@@ -23,10 +23,12 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `05-005` Duplicate Viewer | ✅ Complete | [#10](https://github.com/gbolabs/photos-index/pull/10) | A4 |
 | `06-001` API Integration Tests | ✅ Complete | [#18](https://github.com/gbolabs/photos-index/pull/18) | A5 |
 | `06-002` Service Integration Tests | 🔲 Not Started | - | A5 |
+| `06-003` Distributed Service Tests | 🔲 Not Started | - | A5 |
 | `07-001` Playwright Setup | ✅ Complete | [#16](https://github.com/gbolabs/photos-index/pull/16) | A6 |
 | `07-002` User Workflows | 🔲 Not Started | - | A6 |
 | `07-003` Playwright CI Integration | ✅ Complete | [#87](https://github.com/gbolabs/photos-index/pull/87) | A6 |
 | `06-008` Claude API Traffic Logging | 🔲 Not Started | - | - |
+| `06-009` Parallel Release Pipelines | 🔲 Not Started | - | - |
 | `08-001` Swagger in Production | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A1 |
 | `08-002` API TraceId in Responses | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A1 |
 | `08-003` Traefik OTEL Integration | ✅ Complete | [#14](https://github.com/gbolabs/photos-index/pull/14) | A4 |
@@ -38,12 +40,16 @@ Ordered backlog for Photos Index application. Designed for parallel agent develo
 | `09-004` Thumbnail Offload to MPC | 🔲 Not Started | - | A1/A2 |
 | `03-004` Indexing Performance Optimizations | 🔲 Not Started | - | A2 |
 | `05-006` File Detail Page | 🔲 Not Started | - | A4 |
+| `05-007` Tile View with Details | 🔲 Not Started | - | A4 |
+| `03-005` Camera Model Lookup | 🔲 Not Started | - | A2 |
 | `11-001` TrueNAS + Synology Split | 🔲 Not Started | - | A4 |
 | `12-001` Duplicate Table View | ✅ Complete | [#71](https://github.com/gbolabs/photos-index/pull/71) | A4 |
 | `12-002` Batch Validation & Undo | ✅ Complete | [#72](https://github.com/gbolabs/photos-index/pull/72) | A1/A4 |
 | `12-003` Selection Algorithm | ✅ Complete | [#74](https://github.com/gbolabs/photos-index/pull/74) | A1/A4 |
 | `12-004` Bulk Override by Pattern | 🔲 Not Started | - | A1/A4 |
 | `12-005` Cleanup History View | 🔲 Not Started | - | A1/A3/A4 |
+| `02-006` Reprocess Files Endpoint | ✅ Complete | [#110](https://github.com/gbolabs/photos-index/pull/110) | A1/A2/A4 |
+| `10-001` Real-time Scan Communication | ✅ Complete | [#110](https://github.com/gbolabs/photos-index/pull/110) | A2/A4 |
 
 **Infrastructure & Developer Experience:**
 | Task | Status | PR |

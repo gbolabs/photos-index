@@ -1,0 +1,13 @@
+# Traefik Dynamic Configuration - TLS Certificates
+# Place this file in /mnt/photos-index/traefik/tls.yml on TrueNAS
+
+tls:
+  certificates:
+    - certFile: /certs/isago.ch.crt
+      keyFile: /certs/isago.ch.key
+
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/isago.ch.crt
+        keyFile: /certs/isago.ch.key

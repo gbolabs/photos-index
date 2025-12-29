@@ -166,7 +166,7 @@ describe('FileDetailComponent', () => {
 
       const url = component.getThumbnailUrl();
       expect(url).toContain('/thumbnail');
-      expect(mockFileService.getThumbnailUrl).toHaveBeenCalledWith(mockFile.id, mockFile.thumbnailPath);
+      expect(mockFileService.getThumbnailUrl).toHaveBeenCalledWith(mockFile.id, mockFile.thumbnailPath, mockFile.fileHash);
     });
 
     it('should return empty string when file is not loaded', () => {

@@ -26,6 +26,9 @@ export interface IndexedFileDto {
   shutterSpeed: string | null;
   lastError: string | null;
   retryCount: number;
+  isHidden: boolean;
+  hiddenCategory?: 'Manual' | 'FolderRule';
+  hiddenAt?: string;
 }
 
 /**
@@ -42,6 +45,7 @@ export interface FileQueryParameters {
   search?: string;
   sortBy?: FileSortBy;
   sortDescending?: boolean;
+  includeHidden?: boolean;
 }
 
 /**

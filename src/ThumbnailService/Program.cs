@@ -1,8 +1,15 @@
+using HeyRed.ImageSharp.Heif.Formats.Avif;
+using HeyRed.ImageSharp.Heif.Formats.Heif;
 using MassTransit;
 using Minio;
 using Shared.Extensions;
 using Shared.Storage;
+using SixLabors.ImageSharp;
 using ThumbnailService;
+
+// Register HEIC/HEIF and AVIF decoders for Apple photos
+Configuration.Default.Configure(new HeifConfigurationModule());
+Configuration.Default.Configure(new AvifConfigurationModule());
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -45,7 +52,11 @@ builder.Services.AddMassTransit(x =>
             h.Password(rabbitMqPass);
         });
 
-        cfg.ConfigureEndpoints(context);
+        // Use unique queue name so thumbnail-service gets its own copy of FileDiscoveredMessage
+        cfg.ReceiveEndpoint("thumbnail-file-discovered", e =>
+        {
+            e.ConfigureConsumer<FileDiscoveredConsumer>(context);
+        });
     });
 });
 

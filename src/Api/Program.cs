@@ -20,8 +20,20 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add SignalR
+// Add SignalR for real-time communication with indexers
 builder.Services.AddSignalR();
+
+// Add CORS for SignalR from web UI
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true) // Allow any origin in development
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Required for SignalR
+    });
+});
 
 // Add DbContext - connection string will be configured in appsettings.json
 builder.Services.AddDbContext<PhotosDbContext>(options =>
@@ -76,6 +88,9 @@ builder.Services.AddScoped<IOriginalSelectionService, OriginalSelectionService>(
 builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 builder.Services.AddScoped<IFileIngestService, FileIngestService>();
+builder.Services.AddScoped<IReprocessService, ReprocessService>();
+builder.Services.AddSingleton<DuplicateScanBackgroundService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DuplicateScanBackgroundService>());
 
 // Register cleaner services
 builder.Services.Configure<CleanerOptions>(builder.Configuration.GetSection(CleanerOptions.ConfigSection));
@@ -91,6 +106,7 @@ var buildInfoService = app.Services.GetRequiredService<IBuildInfoService>();
 buildInfoService.LogStartupInfo(app.Logger);
 
 // Apply pending database migrations at startup (skip in Testing environment)
+// Retry with exponential backoff to handle container startup race conditions
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
@@ -183,6 +199,9 @@ if (!app.Environment.IsEnvironment("Testing"))
 
 // Add TraceId header to all responses for telemetry correlation
 app.UseTraceId();
+
+// Enable CORS for SignalR WebSocket connections
+app.UseCors();
 
 // Enable Swagger in all environments for API documentation
 app.UseSwagger(c =>

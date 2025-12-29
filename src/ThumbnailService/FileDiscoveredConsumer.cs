@@ -38,12 +38,13 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
             message.IndexedFileId,
             message.CorrelationId);
 
+        var imagesBucket = _configuration["Minio:ImagesBucket"] ?? "images";
+        var thumbnailsBucket = _configuration["Minio:ThumbnailsBucket"] ?? "thumbnails";
+        var sourceObjectKey = message.ThumbnailObjectKey;
+
         try
         {
-            var imagesBucket = _configuration["Minio:ImagesBucket"] ?? "images";
-            var thumbnailsBucket = _configuration["Minio:ThumbnailsBucket"] ?? "thumbnails";
-
-            await using var imageStream = await _objectStorage.DownloadAsync(imagesBucket, message.ObjectKey, ct);
+            await using var imageStream = await _objectStorage.DownloadAsync(imagesBucket, sourceObjectKey, ct);
 
             using var image = await Image.LoadAsync(imageStream, ct);
 
@@ -82,6 +83,9 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
                 "Published ThumbnailGeneratedMessage for file {FileId}: {ThumbnailKey}",
                 message.IndexedFileId,
                 thumbnailKey);
+
+            // Delete our copy from MinIO after successful processing
+            await DeleteSourceFileAsync(imagesBucket, sourceObjectKey, ct);
         }
         catch (Exception ex)
         {
@@ -96,6 +100,22 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
             };
 
             await _publishEndpoint.Publish(errorResult, ct);
+
+            // Delete our copy even on failure - file can't be reprocessed anyway
+            await DeleteSourceFileAsync(imagesBucket, sourceObjectKey, ct);
+        }
+    }
+
+    private async Task DeleteSourceFileAsync(string bucket, string objectKey, CancellationToken ct)
+    {
+        try
+        {
+            await _objectStorage.DeleteAsync(bucket, objectKey, ct);
+            _logger.LogInformation("Deleted source file from MinIO: {Bucket}/{Key}", bucket, objectKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete source file {Key} - may already be deleted", objectKey);
         }
     }
 

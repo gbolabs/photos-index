@@ -1,0 +1,129 @@
+name: Create Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0 or v1.0.0)'
+        required: true
+        type: string
+      message:
+        description: 'Tag message (optional)'
+        required: false
+        type: string
+        default: ''
+      force:
+        description: 'Force overwrite existing tag'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  create-tag:
+    name: Create and Push Tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate version format
+        id: validate
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          
+          # Normalize version (ensure it starts with 'v')
+          if [[ ! "$VERSION" =~ ^v ]]; then
+            VERSION="v$VERSION"
+          fi
+          
+          # Validate semantic version format
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Invalid version format. Expected: v<major>.<minor>.<patch> (e.g., v1.2.3)"
+            exit 1
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Validated version: $VERSION"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          VERSION="${{ steps.validate.outputs.version }}"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $VERSION already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $VERSION does not exist"
+          fi
+
+      - name: Abort if tag exists and force is false
+        if: steps.check_tag.outputs.exists == 'true' && github.event.inputs.force == 'false'
+        run: |
+          echo "Error: Tag ${{ steps.validate.outputs.version }} already exists"
+          echo "Use 'force' option to overwrite the existing tag"
+          exit 1
+
+      - name: Prepare tag message
+        id: message
+        run: |
+          VERSION="${{ steps.validate.outputs.version }}"
+          MESSAGE="${{ github.event.inputs.message }}"
+          
+          if [ -z "$MESSAGE" ]; then
+            MESSAGE="Release $VERSION"
+          fi
+          
+          echo "message=$MESSAGE" >> $GITHUB_OUTPUT
+          echo "Tag message: $MESSAGE"
+
+      - name: Create tag
+        run: |
+          VERSION="${{ steps.validate.outputs.version }}"
+          MESSAGE="${{ steps.message.outputs.message }}"
+          FORCE="${{ github.event.inputs.force }}"
+          
+          if [ "$FORCE" == "true" ]; then
+            echo "Force mode enabled - will overwrite existing tag"
+            git tag -a "$VERSION" -m "$MESSAGE" -f
+          else
+            git tag -a "$VERSION" -m "$MESSAGE"
+          fi
+          
+          echo "✓ Created tag $VERSION"
+
+      - name: Push tag
+        run: |
+          VERSION="${{ steps.validate.outputs.version }}"
+          FORCE="${{ github.event.inputs.force }}"
+          
+          if [ "$FORCE" == "true" ]; then
+            git push origin "$VERSION" --force
+          else
+            git push origin "$VERSION"
+          fi
+          
+          echo "✓ Pushed tag $VERSION to remote"
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.validate.outputs.version }}"
+          echo "### ✓ Tag Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "**Message:** ${{ steps.message.outputs.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The release pipeline should now be triggered automatically." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release Workflow](https://github.com/${{ github.repository }}/actions/workflows/release.yml)" >> $GITHUB_STEP_SUMMARY

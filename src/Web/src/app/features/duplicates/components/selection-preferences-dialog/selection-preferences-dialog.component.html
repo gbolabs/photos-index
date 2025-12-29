@@ -1,0 +1,161 @@
+<h2 mat-dialog-title>
+  <mat-icon>tune</mat-icon>
+  Selection Preferences
+</h2>
+
+<mat-dialog-content>
+  @if (loading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading preferences...</p>
+    </div>
+  } @else {
+    <div class="preferences-content">
+      <section class="info-section">
+        <p class="info-text">
+          Configure how originals are selected in duplicate groups. Higher priority paths are preferred when auto-selecting originals.
+        </p>
+      </section>
+
+      <mat-divider></mat-divider>
+
+      <section class="path-priorities">
+        <h3>Path Priorities</h3>
+        <p class="section-description">
+          Files in paths with higher priority scores will be preferred as originals.
+        </p>
+
+        @if (preferences().length === 0) {
+          <div class="empty-state">
+            <mat-icon>folder_off</mat-icon>
+            <p>No path priorities configured. Add paths below to customize selection behavior.</p>
+          </div>
+        } @else {
+          <mat-list class="preferences-list">
+            @for (pref of preferences(); track pref.id) {
+              <mat-list-item>
+                <div class="preference-item">
+                  <div class="path-info">
+                    <span class="path-prefix">{{ pref.pathPrefix }}</span>
+                    <span class="priority-badge" [class]="'priority-' + getPriorityLabel(pref.priority).toLowerCase()">
+                      {{ getPriorityLabel(pref.priority) }} ({{ pref.priority }})
+                    </span>
+                  </div>
+                  <div class="priority-controls">
+                    <mat-slider
+                      min="0"
+                      max="100"
+                      step="5"
+                      discrete
+                    >
+                      <input
+                        matSliderThumb
+                        [value]="pref.priority"
+                        (valueChange)="updatePriority(pref, $event)"
+                      />
+                    </mat-slider>
+                    <button
+                      mat-icon-button
+                      color="warn"
+                      (click)="removePreference(pref)"
+                      matTooltip="Remove path priority"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              </mat-list-item>
+            }
+          </mat-list>
+        }
+
+        <div class="add-preference">
+          <mat-form-field appearance="outline" class="path-input">
+            <mat-label>Path prefix</mat-label>
+            <input
+              matInput
+              [ngModel]="newPathPrefix()"
+              (ngModelChange)="newPathPrefix.set($event)"
+              placeholder="/photos/originals"
+            />
+            <mat-hint>e.g., /photos/camera, /backup/raw</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="priority-input">
+            <mat-label>Priority</mat-label>
+            <input
+              matInput
+              type="number"
+              min="0"
+              max="100"
+              [ngModel]="newPriority()"
+              (ngModelChange)="newPriority.set($event)"
+            />
+          </mat-form-field>
+
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="addPreference()"
+            [disabled]="!newPathPrefix()"
+          >
+            <mat-icon>add</mat-icon>
+            Add
+          </button>
+        </div>
+      </section>
+
+      <mat-divider></mat-divider>
+
+      <section class="recalculate-section">
+        <h3>Apply Changes</h3>
+        <p class="section-description">
+          After changing preferences, recalculate to apply new selections to all duplicate groups.
+        </p>
+        <button
+          mat-raised-button
+          color="accent"
+          (click)="recalculateAll()"
+          [disabled]="recalculating() || saving()"
+        >
+          @if (recalculating()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            <mat-icon>autorenew</mat-icon>
+          }
+          Recalculate All Selections
+        </button>
+      </section>
+    </div>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button
+    mat-button
+    (click)="resetToDefaults()"
+    [disabled]="loading() || saving() || recalculating()"
+    matTooltip="Reset all preferences to default values"
+  >
+    <mat-icon>restore</mat-icon>
+    Reset to Defaults
+  </button>
+
+  <span class="spacer"></span>
+
+  <button mat-button (click)="close()">Cancel</button>
+
+  <button
+    mat-raised-button
+    color="primary"
+    (click)="save()"
+    [disabled]="!hasChanges() || saving() || loading()"
+  >
+    @if (saving()) {
+      <mat-spinner diameter="20"></mat-spinner>
+    } @else {
+      <mat-icon>save</mat-icon>
+    }
+    Save
+  </button>
+</mat-dialog-actions>

@@ -1,0 +1,379 @@
+using IndexingService.ApiClient;
+using IndexingService.Models;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Options;
+using Shared.Dtos;
+using Shared.Storage;
+
+namespace IndexingService.Services;
+
+public interface ISignalRClientService : IAsyncDisposable
+{
+    Task StartAsync(CancellationToken ct);
+    Task StopAsync(CancellationToken ct);
+    bool IsConnected { get; }
+}
+
+public class SignalRClientService : ISignalRClientService
+{
+    private readonly HubConnection _hubConnection;
+    private readonly IPhotosApiClient _apiClient;
+    private readonly IIndexerStatusService _statusService;
+    private readonly IScanTriggerService _scanTrigger;
+    private readonly IObjectStorage _objectStorage;
+    private readonly IndexingOptions _options;
+    private readonly ILogger<SignalRClientService> _logger;
+    private readonly string _hostname;
+    private Timer? _heartbeatTimer;
+
+    public bool IsConnected => _hubConnection.State == HubConnectionState.Connected;
+
+    public SignalRClientService(
+        IPhotosApiClient apiClient,
+        IIndexerStatusService statusService,
+        IScanTriggerService scanTrigger,
+        IObjectStorage objectStorage,
+        IOptions<IndexingOptions> options,
+        ILogger<SignalRClientService> logger)
+    {
+        _apiClient = apiClient;
+        _statusService = statusService;
+        _scanTrigger = scanTrigger;
+        _objectStorage = objectStorage;
+        _options = options.Value;
+        _logger = logger;
+        _hostname = Environment.MachineName;
+
+        var baseUrl = _options.ApiBaseUrl.TrimEnd('/');
+        var hubUrl = $"{baseUrl}/hubs/indexer?indexerId={_hostname}&hostname={_hostname}";
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect(new[]
+            {
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(30),
+                TimeSpan.FromMinutes(1)
+            })
+            .Build();
+
+        // Register command handlers
+        _hubConnection.On<Guid, string>("ReprocessFile", HandleReprocessFileAsync);
+        _hubConnection.On<IEnumerable<ReprocessRequest>>("ReprocessFiles", HandleReprocessFilesAsync);
+        _hubConnection.On("RequestStatus", HandleStatusRequestAsync);
+        _hubConnection.On<Guid?>("StartScan", HandleStartScanAsync);
+        _hubConnection.On<Guid, string>("RequestPreview", HandleRequestPreviewAsync);
+        _hubConnection.On("PauseScan", HandlePauseScanAsync);
+        _hubConnection.On("ResumeScan", HandleResumeScanAsync);
+        _hubConnection.On("CancelScan", HandleCancelScanAsync);
+
+        _hubConnection.Reconnecting += error =>
+        {
+            _logger.LogWarning(error, "SignalR reconnecting...");
+            return Task.CompletedTask;
+        };
+
+        _hubConnection.Reconnected += connectionId =>
+        {
+            _logger.LogInformation("SignalR reconnected: {ConnectionId}", connectionId);
+            return Task.CompletedTask;
+        };
+
+        _hubConnection.Closed += error =>
+        {
+            _logger.LogWarning(error, "SignalR connection closed");
+            return Task.CompletedTask;
+        };
+    }
+
+    public async Task StartAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await _hubConnection.StartAsync(ct);
+                _logger.LogInformation("SignalR connected to API hub from {Hostname}", _hostname);
+
+                // Start heartbeat timer to send status every 30 seconds
+                _heartbeatTimer = new Timer(
+                    async _ => await SendStatusAsync(),
+                    null,
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(30));
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to connect to SignalR hub, retrying in 10s...");
+                await Task.Delay(TimeSpan.FromSeconds(10), ct);
+            }
+        }
+    }
+
+    public async Task StopAsync(CancellationToken ct)
+    {
+        if (_heartbeatTimer != null)
+        {
+            await _heartbeatTimer.DisposeAsync();
+            _heartbeatTimer = null;
+        }
+
+        if (_hubConnection.State != HubConnectionState.Disconnected)
+        {
+            await _hubConnection.StopAsync(ct);
+        }
+    }
+
+    private async Task SendStatusAsync()
+    {
+        if (_hubConnection.State != HubConnectionState.Connected)
+            return;
+
+        try
+        {
+            var status = _statusService.GetStatus();
+            await _hubConnection.InvokeAsync("ReportStatus", status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send status to hub");
+        }
+    }
+
+    private async Task HandleStatusRequestAsync()
+    {
+        _logger.LogDebug("Received status request from hub");
+        await SendStatusAsync();
+    }
+
+    private Task HandleStartScanAsync(Guid? directoryId)
+    {
+        _logger.LogInformation("Received StartScan command from hub: DirectoryId={DirectoryId}",
+            directoryId?.ToString() ?? "all");
+        _scanTrigger.TriggerScan(directoryId);
+        return Task.CompletedTask;
+    }
+
+    private Task HandlePauseScanAsync()
+    {
+        _logger.LogInformation("Received PauseScan command from hub");
+        _statusService.Pause();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleResumeScanAsync()
+    {
+        _logger.LogInformation("Received ResumeScan command from hub");
+        _statusService.Resume();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleCancelScanAsync()
+    {
+        _logger.LogInformation("Received CancelScan command from hub");
+        _statusService.RequestCancellation();
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleReprocessFileAsync(Guid fileId, string filePath)
+    {
+        _logger.LogInformation("Received reprocess command: {FileId} -> {Path}", fileId, filePath);
+        _statusService.SetState(IndexerState.Reprocessing);
+        _statusService.SetActivity($"Reprocessing: {Path.GetFileName(filePath)}");
+
+        try
+        {
+            await ReportProgressAsync(fileId, "checking");
+
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("File not found for reprocess: {Path}", filePath);
+                _statusService.RecordError($"File not found: {filePath}");
+                await ReportCompleteAsync(fileId, false, "File not found on disk");
+                return;
+            }
+
+            await ReportProgressAsync(fileId, "reading");
+
+            var fileInfo = new FileInfo(filePath);
+            await using var stream = File.OpenRead(filePath);
+
+            await ReportProgressAsync(fileId, "hashing");
+
+            // Compute hash for the file
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            var hashBytes = await sha256.ComputeHashAsync(stream, CancellationToken.None);
+            var fileHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+
+            // Reset stream for upload
+            stream.Position = 0;
+
+            await ReportProgressAsync(fileId, "uploading");
+
+            // Re-ingest through normal API flow
+            await _apiClient.IngestFileWithContentAsync(
+                new FileIngestRequest
+                {
+                    ScanDirectoryId = Guid.Empty, // Will be resolved by API
+                    FilePath = filePath,
+                    FileName = fileInfo.Name,
+                    FileHash = fileHash,
+                    FileSize = fileInfo.Length,
+                    ModifiedAt = fileInfo.LastWriteTimeUtc
+                },
+                stream,
+                GetContentType(filePath),
+                CancellationToken.None);
+
+            _statusService.IncrementFilesProcessed();
+            await ReportCompleteAsync(fileId, true, null);
+            _logger.LogInformation("Reprocess complete: {FileId}", fileId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Reprocess failed: {FileId}", fileId);
+            _statusService.RecordError(ex.Message);
+            await ReportCompleteAsync(fileId, false, ex.Message);
+        }
+        finally
+        {
+            _statusService.SetState(IndexerState.Idle);
+            _statusService.SetActivity(null);
+        }
+    }
+
+    private async Task HandleReprocessFilesAsync(IEnumerable<ReprocessRequest> files)
+    {
+        var fileList = files.ToList();
+        _statusService.SetProgress(0, fileList.Count);
+
+        foreach (var file in fileList)
+        {
+            await HandleReprocessFileAsync(file.FileId, file.FilePath);
+        }
+
+        _statusService.SetProgress(0, 0);
+    }
+
+    private async Task HandleRequestPreviewAsync(Guid fileId, string filePath)
+    {
+        _logger.LogInformation("Received preview request: {FileId} -> {Path}", fileId, filePath);
+
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("File not found for preview: {Path}", filePath);
+                await ReportPreviewFailedAsync(fileId, "File not found on disk");
+                return;
+            }
+
+            var fileInfo = new FileInfo(filePath);
+            var contentType = GetContentType(filePath);
+
+            // Generate a unique key for the preview
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            var previewKey = $"preview-{fileId}{extension}";
+
+            _logger.LogDebug("Uploading preview to MinIO: {Key}", previewKey);
+
+            // Ensure bucket exists
+            await _objectStorage.EnsureBucketExistsAsync(_options.PreviewsBucket);
+
+            // Upload the file to MinIO previews bucket
+            await using var stream = File.OpenRead(filePath);
+            await _objectStorage.UploadAsync(
+                _options.PreviewsBucket,
+                previewKey,
+                stream,
+                contentType);
+
+            // Generate the URL path for the preview (accessed via Traefik routing)
+            var previewUrl = $"/previews/{previewKey}";
+
+            _logger.LogInformation("Preview uploaded successfully: {FileId} -> {Url}", fileId, previewUrl);
+            await ReportPreviewReadyAsync(fileId, previewUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate preview for {FileId}", fileId);
+            await ReportPreviewFailedAsync(fileId, ex.Message);
+        }
+    }
+
+    private async Task ReportPreviewReadyAsync(Guid fileId, string previewUrl)
+    {
+        try
+        {
+            await _hubConnection.InvokeAsync("ReportPreviewReady", fileId, previewUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to report preview ready for {FileId}", fileId);
+        }
+    }
+
+    private async Task ReportPreviewFailedAsync(Guid fileId, string error)
+    {
+        try
+        {
+            await _hubConnection.InvokeAsync("ReportPreviewFailed", fileId, error);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to report preview failure for {FileId}", fileId);
+        }
+    }
+
+    private async Task ReportProgressAsync(Guid fileId, string status)
+    {
+        try
+        {
+            await _hubConnection.InvokeAsync("ReportProgress", fileId, status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to report progress for {FileId}", fileId);
+        }
+    }
+
+    private async Task ReportCompleteAsync(Guid fileId, bool success, string? error)
+    {
+        try
+        {
+            await _hubConnection.InvokeAsync("ReportComplete", fileId, success, error);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to report completion for {FileId}", fileId);
+        }
+    }
+
+    private static string GetContentType(string filePath)
+    {
+        return Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            ".webp" => "image/webp",
+            ".avif" => "image/avif",
+            ".bmp" => "image/bmp",
+            ".tiff" or ".tif" => "image/tiff",
+            _ => "application/octet-stream"
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _hubConnection.DisposeAsync();
+    }
+}
+
+public record ReprocessRequest(Guid FileId, string FilePath);

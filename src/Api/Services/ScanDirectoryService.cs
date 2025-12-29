@@ -27,12 +27,37 @@ public class ScanDirectoryService : IScanDirectoryService
 
         var totalItems = await query.CountAsync(ct);
 
-        var items = await query
+        // Get directories with their file counts calculated from IndexedFiles
+        var directories = await query
             .OrderByDescending(d => d.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(d => MapToDto(d))
             .ToListAsync(ct);
+
+        // Calculate actual file counts from indexed files by path prefix
+        var items = new List<ScanDirectoryDto>();
+        foreach (var dir in directories)
+        {
+            // Count files whose path starts with this directory path
+            // Ensure we match the directory path as a prefix followed by path separator
+            var pathPrefix = dir.Path.EndsWith('/') || dir.Path.EndsWith('\\')
+                ? dir.Path
+                : dir.Path + '/';
+
+            var fileCount = await _dbContext.IndexedFiles
+                .AsNoTracking()
+                .CountAsync(f => f.FilePath.StartsWith(pathPrefix) || f.FilePath.StartsWith(dir.Path + "\\"), ct);
+
+            items.Add(new ScanDirectoryDto
+            {
+                Id = dir.Id,
+                Path = dir.Path,
+                IsEnabled = dir.IsEnabled,
+                LastScannedAt = dir.LastScannedAt,
+                CreatedAt = dir.CreatedAt,
+                FileCount = fileCount
+            });
+        }
 
         return new PagedResponse<ScanDirectoryDto>
         {
@@ -49,7 +74,27 @@ public class ScanDirectoryService : IScanDirectoryService
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == id, ct);
 
-        return entity is null ? null : MapToDto(entity);
+        if (entity is null)
+            return null;
+
+        // Calculate actual file count from indexed files
+        var pathPrefix = entity.Path.EndsWith('/') || entity.Path.EndsWith('\\')
+            ? entity.Path
+            : entity.Path + '/';
+
+        var fileCount = await _dbContext.IndexedFiles
+            .AsNoTracking()
+            .CountAsync(f => f.FilePath.StartsWith(pathPrefix) || f.FilePath.StartsWith(entity.Path + "\\"), ct);
+
+        return new ScanDirectoryDto
+        {
+            Id = entity.Id,
+            Path = entity.Path,
+            IsEnabled = entity.IsEnabled,
+            LastScannedAt = entity.LastScannedAt,
+            CreatedAt = entity.CreatedAt,
+            FileCount = fileCount
+        };
     }
 
     public async Task<ScanDirectoryDto> CreateAsync(CreateScanDirectoryRequest request, CancellationToken ct)

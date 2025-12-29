@@ -1,6 +1,6 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,6 +12,7 @@ import { IndexedFileService } from '../../../services/indexed-file.service';
 import { NotificationService } from '../../../services/notification.service';
 import { IndexedFileDto } from '../../../models';
 import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
+import { CameraNamePipe } from '../../../shared/pipes/camera-name.pipe';
 
 @Component({
   selector: 'app-file-detail',
@@ -27,12 +28,14 @@ import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
     MatChipsModule,
     MatTooltipModule,
     FileSizePipe,
+    CameraNamePipe,
   ],
   templateUrl: './file-detail.component.html',
   styleUrl: './file-detail.scss',
 })
 export class FileDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private fileService = inject(IndexedFileService);
   private notificationService = inject(NotificationService);
   private location = inject(Location);
@@ -70,7 +73,7 @@ export class FileDetailComponent implements OnInit {
 
   getThumbnailUrl(): string {
     const fileData = this.file();
-    return fileData ? this.fileService.getThumbnailUrl(fileData.id, fileData.thumbnailPath) : '';
+    return fileData ? this.fileService.getThumbnailUrl(fileData.id, fileData.thumbnailPath, fileData.fileHash) : '';
   }
 
   async copyPath(): Promise<void> {
@@ -143,5 +146,74 @@ export class FileDetailComponent implements OnInit {
     if (fileData) {
       window.open(this.fileService.getFileUrl(fileData.id), '_blank');
     }
+  }
+
+  /**
+   * Navigate to gallery filtered by parent directory path
+   */
+  filterByPath(): void {
+    const fileData = this.file();
+    if (fileData) {
+      // Get parent directory path
+      const lastSlash = fileData.filePath.lastIndexOf('/');
+      const parentPath = lastSlash > 0 ? fileData.filePath.substring(0, lastSlash) : '/';
+      this.router.navigate(['/gallery'], {
+        queryParams: { search: `path:${parentPath}` }
+      });
+    }
+  }
+
+  /**
+   * Navigate to gallery filtered by date taken
+   */
+  filterByDateTaken(): void {
+    const fileData = this.file();
+    if (fileData?.dateTaken) {
+      const date = new Date(fileData.dateTaken);
+      const dateStr = date.toISOString().split('T')[0]; // yyyy-MM-dd
+      this.router.navigate(['/gallery'], {
+        queryParams: { search: `taken:${dateStr}` }
+      });
+    }
+  }
+
+  /**
+   * Navigate to gallery filtered by created date
+   */
+  filterByCreatedDate(): void {
+    const fileData = this.file();
+    if (fileData?.createdAt) {
+      const date = new Date(fileData.createdAt);
+      const dateStr = date.toISOString().split('T')[0]; // yyyy-MM-dd
+      this.router.navigate(['/gallery'], {
+        queryParams: { search: `created:${dateStr}` }
+      });
+    }
+  }
+
+  /**
+   * Navigate to gallery filtered by modified date
+   */
+  filterByModifiedDate(): void {
+    const fileData = this.file();
+    if (fileData?.modifiedAt) {
+      const date = new Date(fileData.modifiedAt);
+      const dateStr = date.toISOString().split('T')[0]; // yyyy-MM-dd
+      this.router.navigate(['/gallery'], {
+        queryParams: { search: `modified:${dateStr}` }
+      });
+    }
+  }
+
+  /**
+   * Get parent directory path for display
+   */
+  getParentPath(): string {
+    const fileData = this.file();
+    if (fileData) {
+      const lastSlash = fileData.filePath.lastIndexOf('/');
+      return lastSlash > 0 ? fileData.filePath.substring(0, lastSlash) : '/';
+    }
+    return '-';
   }
 }

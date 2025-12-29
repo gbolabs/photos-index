@@ -16,8 +16,12 @@
         <mat-icon matListItemIcon>sync</mat-icon>
         <span matListItemTitle>Indexing</span>
       </a>
-      <a mat-list-item routerLink="/files" routerLinkActive="active-link" (click)="isMobile && drawer.close()">
+      <a mat-list-item routerLink="/gallery" routerLinkActive="active-link" (click)="isMobile && drawer.close()">
         <mat-icon matListItemIcon>photo_library</mat-icon>
+        <span matListItemTitle>Gallery</span>
+      </a>
+      <a mat-list-item routerLink="/files" routerLinkActive="active-link" (click)="isMobile && drawer.close()">
+        <mat-icon matListItemIcon>list</mat-icon>
         <span matListItemTitle>Files</span>
       </a>
       <a mat-list-item routerLink="/duplicates" routerLinkActive="active-link" (click)="isMobile && drawer.close()">
@@ -27,6 +31,10 @@
       <a mat-list-item routerLink="/settings" routerLinkActive="active-link" (click)="isMobile && drawer.close()">
         <mat-icon matListItemIcon>settings</mat-icon>
         <span matListItemTitle>Settings</span>
+      </a>
+      <a mat-list-item routerLink="/admin" routerLinkActive="active-link" (click)="isMobile && drawer.close()">
+        <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+        <span matListItemTitle>Admin</span>
       </a>
     </mat-nav-list>
   </mat-drawer>

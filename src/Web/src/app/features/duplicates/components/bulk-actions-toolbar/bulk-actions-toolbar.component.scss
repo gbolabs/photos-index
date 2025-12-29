@@ -74,3 +74,21 @@
     justify-content: flex-end;
   }
 }
+
+.scan-progress {
+  background: white;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+
+  mat-progress-bar {
+    margin-bottom: 0.5rem;
+  }
+
+  .scan-status {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}

@@ -75,3 +75,30 @@ export interface IndexingStatusDto {
   startedAt: string | null;
   lastUpdatedAt: string | null;
 }
+
+/**
+ * Version information for a single service.
+ * Matches backend: src/Shared/Dtos/SystemVersionsDto.cs
+ */
+export interface ServiceVersionDto {
+  serviceName: string;
+  version: string;
+  commitHash: string | null;
+  branch: string | null;
+  buildTime: string | null;
+  isAvailable: boolean;
+  uptime: string | null;
+  instanceId: string | null;
+}
+
+/**
+ * Aggregated version information for all services.
+ * Matches backend: src/Shared/Dtos/SystemVersionsDto.cs
+ */
+export interface SystemVersionsDto {
+  api: ServiceVersionDto;
+  web: ServiceVersionDto | null;
+  indexers: ServiceVersionDto[];
+  thumbnailService: ServiceVersionDto | null;
+  metadataService: ServiceVersionDto | null;
+}

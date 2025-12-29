@@ -45,6 +45,11 @@ public class IndexedFile
 
     public string? ShutterSpeed { get; set; }  // e.g., "1/125"
 
+    // Processing timestamps for tracking metadata/thumbnail completion
+    public DateTime? MetadataProcessedAt { get; set; }
+
+    public DateTime? ThumbnailProcessedAt { get; set; }
+
     // Retry tracking for failed files
     public string? LastError { get; set; }
 
@@ -57,6 +62,17 @@ public class IndexedFile
 
     public string? ArchivePath { get; set; }
 
-    // Navigation property
+    // Hidden file properties
+    public bool IsHidden { get; set; } = false;
+
+    public HiddenCategory? HiddenCategory { get; set; }
+
+    public DateTime? HiddenAt { get; set; }
+
+    public Guid? HiddenByFolderId { get; set; }
+
+    // Navigation properties
     public DuplicateGroup? DuplicateGroup { get; set; }
+
+    public HiddenFolder? HiddenByFolder { get; set; }
 }

@@ -112,15 +112,21 @@ export class DuplicateService {
 
   /**
    * Gets the thumbnail URL for a file.
-   * If the file has a thumbnailPath (stored in MinIO), returns direct MinIO URL via Traefik.
-   * Otherwise falls back to the API endpoint for backward compatibility.
+   * Priority:
+   * 1. If thumbnailPath exists, use direct MinIO URL via Traefik
+   * 2. If fileHash exists, construct MinIO URL (thumbnails are stored as thumbs/{hash}.jpg)
+   * 3. Fall back to API endpoint (legacy, usually returns 404)
    */
-  getThumbnailUrl(fileId: string, thumbnailPath?: string | null): string {
+  getThumbnailUrl(fileId: string, thumbnailPath?: string | null, fileHash?: string | null): string {
     if (thumbnailPath) {
       // Direct access to MinIO via Traefik route
       return `/thumbnails/${thumbnailPath}`;
     }
-    // Fallback to API endpoint
+    if (fileHash) {
+      // Construct MinIO URL from file hash - thumbnails are stored as thumbs/{hash}.jpg
+      return `/thumbnails/thumbs/${fileHash}.jpg`;
+    }
+    // Fallback to API endpoint (legacy)
     return `${environment.apiUrl}/api/files/${fileId}/thumbnail`;
   }
 
@@ -130,4 +136,83 @@ export class DuplicateService {
   getDownloadUrl(fileId: string): string {
     return `${environment.apiUrl}/api/files/${fileId}/download`;
   }
+
+  /**
+   * Queue an async duplicate scan job.
+   * Returns job ID immediately. Monitor via SignalR or polling.
+   */
+  queueScanJob(): Observable<ScanJobResponse> {
+    return this.http
+      .post<ScanJobResponse>(`${this.apiUrl}/scan`, {})
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Get status of a scan job.
+   */
+  getScanJobStatus(jobId: string): Observable<DuplicateScanJob> {
+    return this.http
+      .get<DuplicateScanJob>(`${this.apiUrl}/scan/${jobId}`)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Get recent scan jobs.
+   */
+  getRecentScanJobs(): Observable<DuplicateScanJob[]> {
+    return this.http
+      .get<DuplicateScanJob[]>(`${this.apiUrl}/scan/jobs`)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Synchronous scan (for small collections).
+   */
+  scanForDuplicatesSync(): Observable<DuplicateScanResult> {
+    return this.http
+      .post<DuplicateScanResult>(`${this.apiUrl}/scan/sync`, {})
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+}
+
+/**
+ * Response from queueing a scan job.
+ */
+export interface ScanJobResponse {
+  jobId: string;
+  message: string;
+}
+
+/**
+ * Duplicate scan job status.
+ */
+export interface DuplicateScanJob {
+  id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  queuedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs: number;
+  errorMessage?: string;
+  totalFiles: number;
+  totalDuplicateHashes: number;
+  processedHashes: number;
+  newGroupsCreated: number;
+  groupsUpdated: number;
+  totalGroups: number;
+  totalDuplicateFiles: number;
+  potentialSavingsBytes: number;
+}
+
+/**
+ * Result of a synchronous duplicate scan operation.
+ */
+export interface DuplicateScanResult {
+  totalFilesScanned: number;
+  newGroupsCreated: number;
+  groupsUpdated: number;
+  totalGroups: number;
+  totalDuplicateFiles: number;
+  potentialSavingsBytes: number;
+  scanDurationMs: number;
 }

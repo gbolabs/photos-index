@@ -1,0 +1,150 @@
+.gallery-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #f0f0f0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+    .overlay {
+      opacity: 1;
+    }
+  }
+
+  &:focus {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+  }
+
+  &.selected {
+    outline: 3px solid #1976d2;
+    outline-offset: 0;
+
+    .selection-indicator {
+      opacity: 1;
+    }
+  }
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.filename {
+  color: white;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.selection-indicator {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  background: #1976d2;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.duplicate-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: #ff9800;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
+  color: #666;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.placeholder-icon {
+  width: 48px;
+  height: 48px;
+  color: #999;
+  margin-bottom: 8px;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.placeholder-ext {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.placeholder-name {
+  font-size: 11px;
+  color: #888;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.has-error {
+  .overlay {
+    &.always-visible {
+      opacity: 1;
+      background: rgba(0, 0, 0, 0.6);
+    }
+  }
+}

@@ -5,3 +5,4 @@ export * from './duplicate-group.dto';
 export * from './file-statistics.dto';
 export * from './paged-response';
 export * from './api-error';
+export * from './hidden-folder.model';

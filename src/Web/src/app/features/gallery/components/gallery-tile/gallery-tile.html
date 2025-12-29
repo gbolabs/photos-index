@@ -1,0 +1,52 @@
+<div
+  class="gallery-tile"
+  [class.selected]="selected()"
+  [class.has-error]="imageError()"
+  [style.width.px]="size()"
+  [style.height.px]="size()"
+  (click)="onTileClick($event)"
+  (keydown)="onKeydown($event)"
+  tabindex="0"
+  role="button"
+  [attr.aria-label]="file().fileName"
+>
+  @if (!imageError()) {
+    <img
+      [src]="thumbnailUrl()"
+      [alt]="file().fileName"
+      loading="lazy"
+      class="thumbnail"
+      (error)="onImageError()"
+    />
+  } @else {
+    <div class="placeholder">
+      <div class="placeholder-icon">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+        </svg>
+      </div>
+      <span class="placeholder-ext">{{ fileExtension }}</span>
+      <span class="placeholder-name">{{ file().fileName }}</span>
+    </div>
+  }
+
+  <div class="overlay" [class.always-visible]="imageError()">
+    <span class="filename">{{ file().fileName }}</span>
+  </div>
+
+  @if (selected()) {
+    <div class="selection-indicator">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+      </svg>
+    </div>
+  }
+
+  @if (file().isDuplicate) {
+    <div class="duplicate-badge" title="Has duplicates">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+      </svg>
+    </div>
+  }
+</div>

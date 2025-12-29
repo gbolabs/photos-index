@@ -13,7 +13,7 @@ data:
   RABBITMQ_USER: "photos"
   MINIO_ROOT_USER: "minioadmin"
   # In a pod, all containers share localhost
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:18889"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   API_BASE_URL: "http://localhost:5080"
   RABBITMQ_HOST: "localhost"
@@ -84,7 +84,14 @@ spec:
 
     # RabbitMQ Message Broker
     - name: rabbitmq
-      image: docker.io/library/rabbitmq:3-management-alpine
+      image: docker.io/library/rabbitmq:4-management-alpine
+      command:
+        - /bin/sh
+        - -c
+        - |
+          # Enable OpenTelemetry plugin before starting
+          echo '[rabbitmq_management,rabbitmq_prometheus,rabbitmq_opentelemetry].' > /etc/rabbitmq/enabled_plugins
+          exec docker-entrypoint.sh rabbitmq-server
       ports:
         - containerPort: 5672
           hostPort: 5672
@@ -101,6 +108,11 @@ spec:
             secretKeyRef:
               name: photos-index-secrets
               key: RABBITMQ_PASSWORD
+        # OpenTelemetry configuration for RabbitMQ
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://localhost:4317"
+        - name: OTEL_SERVICE_NAME
+          value: "rabbitmq"
       volumeMounts:
         - name: rabbitmq-data
           mountPath: /var/lib/rabbitmq
@@ -129,16 +141,16 @@ spec:
         - name: minio-data
           mountPath: /data
 
-    # Aspire Dashboard for observability
-    - name: aspire-dashboard
-      image: mcr.microsoft.com/dotnet/aspire-dashboard:9.1
+    # Jaeger for distributed tracing
+    - name: jaeger
+      image: jaegertracing/all-in-one:1.54
       ports:
-        - containerPort: 18888
-          hostPort: 18888
-        - containerPort: 18889
-          hostPort: 18889
+        - containerPort: 16686
+          hostPort: 16686
+        - containerPort: 4317
+          hostPort: 4317
       env:
-        - name: DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS
+        - name: COLLECTOR_OTLP_ENABLED
           value: "true"
 
     # API Service (accessed via Traefik at /api)
@@ -427,7 +439,7 @@ spec:
   volumes:
     - name: traefik-config
       hostPath:
-        path: ./traefik
+        path: /tmp/traefik-config
         type: Directory
     - name: postgres-data
       persistentVolumeClaim:

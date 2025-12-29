@@ -11,7 +11,7 @@ Photo indexing and deduplication application designed for Synology NAS deploymen
 - **Backend**: .NET 10 (ASP.NET Core API, Console apps)
 - **Frontend**: Angular 21
 - **Database**: PostgreSQL with EF Core migrations
-- **Observability**: Aspire Dashboard (standalone container) for logs, traces, metrics
+- **Observability**: Jaeger for distributed tracing, OpenTelemetry for metrics
 - **Deployment**: Docker Compose (production/NAS), Podman/Kubernetes (local dev), Traefik reverse proxy
 - **Testing**: xUnit, TestContainers, Playwright, BenchmarkDotNet
 
@@ -90,7 +90,7 @@ Access points (via Traefik):
 - Application: http://localhost:8080 (Podman uses 8080 for rootless)
 - API: http://localhost:8080/api
 - Traefik Dashboard: http://localhost:8081
-- Aspire Dashboard: http://localhost:18888
+- Jaeger UI: http://localhost:16686
 - PostgreSQL: localhost:5432
 
 ### Synology NAS (Docker Compose)
@@ -158,9 +158,9 @@ For patch releases (e.g., v0.1.1):
 6. **Cleaner Service**: Safe file removal with soft delete, dry-run, transaction logging
 
 ### Observability
-- Aspire Dashboard at `http://localhost:18888` receives OpenTelemetry data
+- Jaeger at `http://localhost:16686` receives OpenTelemetry traces
 - All .NET services configured with OTLP exporter
-- Environment: `OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889`
+- Environment: `OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317`
 
 ### Key Patterns
 - Local dev: All services in one Pod, communicate via localhost

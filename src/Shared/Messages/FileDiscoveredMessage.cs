@@ -37,7 +37,12 @@ public record FileDiscoveredMessage
     public long FileSize { get; init; }
 
     /// <summary>
-    /// Object storage key where the file is stored (e.g., "files/{hash}").
+    /// Object storage key for MetadataService to read and delete (e.g., "metadata/{hash}").
     /// </summary>
-    public string ObjectKey { get; init; } = string.Empty;
+    public string MetadataObjectKey { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Object storage key for ThumbnailService to read and delete (e.g., "thumbnail/{hash}").
+    /// </summary>
+    public string ThumbnailObjectKey { get; init; } = string.Empty;
 }

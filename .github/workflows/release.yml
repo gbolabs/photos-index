@@ -22,16 +22,28 @@ jobs:
         include:
           - name: api
             dockerfile: deploy/docker/api/Dockerfile
+            context: .
             image: api
           - name: web
             dockerfile: deploy/docker/web/Dockerfile
+            context: .
             image: web
           - name: indexing-service
             dockerfile: deploy/docker/indexing-service/Dockerfile
+            context: .
             image: indexing-service
           - name: cleaner-service
             dockerfile: deploy/docker/cleaner-service/Dockerfile
+            context: .
             image: cleaner-service
+          - name: metadata-service
+            dockerfile: deploy/docker/metadata-service/Dockerfile
+            context: .
+            image: metadata-service
+          - name: thumbnail-service
+            dockerfile: deploy/docker/thumbnail-service/Dockerfile
+            context: .
+            image: thumbnail-service
 
     steps:
       - name: Checkout code
@@ -66,12 +78,12 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
@@ -135,6 +147,8 @@ jobs:
             docker pull ghcr.io/${{ github.repository }}/web:${{ steps.version.outputs.version }}
             docker pull ghcr.io/${{ github.repository }}/indexing-service:${{ steps.version.outputs.version }}
             docker pull ghcr.io/${{ github.repository }}/cleaner-service:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}/metadata-service:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}/thumbnail-service:${{ steps.version.outputs.version }}
             ```
 
             ## Deployment

@@ -64,6 +64,9 @@
                 <button mat-icon-button (click)="copyPath()" matTooltip="Copy path">
                   <mat-icon>content_copy</mat-icon>
                 </button>
+                <button mat-icon-button (click)="filterByPath()" matTooltip="Show files in same folder">
+                  <mat-icon>folder_open</mat-icon>
+                </button>
               </span>
             </div>
             <div class="info-row">
@@ -80,11 +83,21 @@
             </div>
             <div class="info-row">
               <span class="info-label">Created:</span>
-              <span class="info-value">{{ formatDate(file()!.createdAt) }}</span>
+              <span class="info-value">
+                {{ formatDate(file()!.createdAt) }}
+                <button mat-icon-button (click)="filterByCreatedDate()" matTooltip="Show files from same day">
+                  <mat-icon>filter_list</mat-icon>
+                </button>
+              </span>
             </div>
             <div class="info-row">
               <span class="info-label">Modified:</span>
-              <span class="info-value">{{ formatDate(file()!.modifiedAt) }}</span>
+              <span class="info-value">
+                {{ formatDate(file()!.modifiedAt) }}
+                <button mat-icon-button (click)="filterByModifiedDate()" matTooltip="Show files modified same day">
+                  <mat-icon>filter_list</mat-icon>
+                </button>
+              </span>
             </div>
             <div class="info-row">
               <span class="info-label">Indexed:</span>
@@ -108,19 +121,18 @@
               @if (file()!.dateTaken) {
                 <div class="info-row">
                   <span class="info-label">Date Taken:</span>
-                  <span class="info-value">{{ formatDate(file()!.dateTaken) }}</span>
+                  <span class="info-value">
+                    {{ formatDate(file()!.dateTaken) }}
+                    <button mat-icon-button (click)="filterByDateTaken()" matTooltip="Show photos from same day">
+                      <mat-icon>filter_list</mat-icon>
+                    </button>
+                  </span>
                 </div>
               }
-              @if (file()!.cameraMake) {
+              @if (file()!.cameraMake || file()!.cameraModel) {
                 <div class="info-row">
-                  <span class="info-label">Camera Make:</span>
-                  <span class="info-value">{{ file()!.cameraMake }}</span>
-                </div>
-              }
-              @if (file()!.cameraModel) {
-                <div class="info-row">
-                  <span class="info-label">Camera Model:</span>
-                  <span class="info-value">{{ file()!.cameraModel }}</span>
+                  <span class="info-label">Camera:</span>
+                  <span class="info-value">{{ file()!.cameraModel | cameraName:file()!.cameraMake }}</span>
                 </div>
               }
               @if (file()!.iso) {

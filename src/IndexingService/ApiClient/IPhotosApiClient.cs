@@ -79,4 +79,14 @@ public interface IPhotosApiClient
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Task representing the operation.</returns>
     Task UpdateLastScannedAsync(Guid directoryId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks which files need to be reindexed based on their modification times.
+    /// </summary>
+    /// <param name="request">Request containing file paths and modification times.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of files with their reindex status.</returns>
+    Task<IReadOnlyList<FileNeedsReindexDto>> CheckFilesNeedReindexAsync(
+        CheckFilesNeedReindexRequest request,
+        CancellationToken cancellationToken);
 }
