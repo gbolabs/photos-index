@@ -54,15 +54,21 @@ export class IndexedFileService {
 
   /**
    * Gets the thumbnail URL for a file.
-   * If the file has a thumbnailPath (stored in MinIO), returns direct MinIO URL via Traefik.
-   * Otherwise falls back to the API endpoint for backward compatibility.
+   * Priority:
+   * 1. If thumbnailPath exists, use direct MinIO URL via Traefik
+   * 2. If fileHash exists, construct MinIO URL (thumbnails are stored as thumbs/{hash}.jpg)
+   * 3. Fall back to API endpoint (legacy, usually returns 404)
    */
-  getThumbnailUrl(fileId: string, thumbnailPath?: string | null): string {
+  getThumbnailUrl(fileId: string, thumbnailPath?: string | null, fileHash?: string | null): string {
     if (thumbnailPath) {
       // Direct access to MinIO via Traefik route
       return `/thumbnails/${thumbnailPath}`;
     }
-    // Fallback to API endpoint
+    if (fileHash) {
+      // Construct MinIO URL from file hash - thumbnails are stored as thumbs/{hash}.jpg
+      return `/thumbnails/thumbs/${fileHash}.jpg`;
+    }
+    // Fallback to API endpoint (legacy)
     return `${this.apiUrl}/${fileId}/thumbnail`;
   }
 
