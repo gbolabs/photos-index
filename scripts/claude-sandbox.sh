@@ -77,6 +77,13 @@ Volumes:
   claude-workspace   Workspace for clone mode (survives crashes)
   claude-config      Claude config and plugins (~/.claude, persists across runs)
   seq-data           Seq logs (with --otel, unless --no-persist)
+  ~/.claude-sandbox-share  Shared directory with host (mounted at /share)
+
+File Upload:
+  A web upload server runs at http://localhost:8888 allowing you to:
+  - Drag & drop files to upload them to the container
+  - Paste images from clipboard (Ctrl+V / Cmd+V)
+  Files are saved to /share in the container (~/.claude-sandbox-share on host)
 
 Clean mode options (use with 'clean'):
   --containers       Remove sandbox containers (claude-sandbox, seq-otel, claude-api-logger)
@@ -154,6 +161,7 @@ CONTAINER_NAME="claude-sandbox"
 IMAGE_NAME="claude-sandbox:latest"
 WORKSPACE_VOLUME="claude-workspace"  # Volume for clone mode workspace
 CLAUDE_CONFIG_VOLUME="claude-config"  # Volume for ~/.claude (plugins, settings)
+SHARE_DIR="${HOME}/.claude-sandbox-share"  # Shared directory with host for file exchange
 
 # Colors
 RED='\033[0;31m'
@@ -392,6 +400,14 @@ run_mount_mode() {
         podman volume create "$CLAUDE_CONFIG_VOLUME"
     fi
 
+    # Create share directory if it doesn't exist
+    if [[ ! -d "$SHARE_DIR" ]]; then
+        log "Creating share directory: $SHARE_DIR"
+        mkdir -p "$SHARE_DIR"
+    fi
+    log "Share directory: $SHARE_DIR (mounted at /share in container)"
+    log "Upload server: http://localhost:8888 (drag & drop files)"
+
     # shellcheck disable=SC2086
     podman run -it $rm_flag \
         --name "$CONTAINER_NAME" \
@@ -401,8 +417,10 @@ run_mount_mode() {
         -e GIT_COMMITTER_NAME="$git_name" \
         -e GIT_COMMITTER_EMAIL="$git_email" \
         -p 8443:8443 \
+        -p 8888:8888 \
         -v "$(pwd):/workspace:Z" \
         -v "$CLAUDE_CONFIG_VOLUME:/home/claude/.claude:Z" \
+        -v "$SHARE_DIR:/share:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
@@ -450,6 +468,14 @@ run_clone_mode() {
         podman volume create "$CLAUDE_CONFIG_VOLUME"
     fi
 
+    # Create share directory if it doesn't exist
+    if [[ ! -d "$SHARE_DIR" ]]; then
+        log "Creating share directory: $SHARE_DIR"
+        mkdir -p "$SHARE_DIR"
+    fi
+    log "Share directory: $SHARE_DIR (mounted at /share in container)"
+    log "Upload server: http://localhost:8888 (drag & drop files)"
+
     # Remove existing container if it exists (can't reuse name otherwise)
     podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
@@ -464,8 +490,10 @@ run_clone_mode() {
         -e REPO_URL="$REPO_URL" \
         -e BRANCH="$branch" \
         -p 8443:8443 \
+        -p 8888:8888 \
         -v "$WORKSPACE_VOLUME:/workspace:Z" \
         -v "$CLAUDE_CONFIG_VOLUME:/home/claude/.claude:Z" \
+        -v "$SHARE_DIR:/share:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
