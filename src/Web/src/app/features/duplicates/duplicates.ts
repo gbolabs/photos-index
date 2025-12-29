@@ -58,6 +58,11 @@ export class Duplicates implements OnInit {
     this.viewMode.set('detail');
   }
 
+  onNavigateToGroup(groupId: string): void {
+    this.selectedGroupId.set(groupId);
+    // viewMode is already 'detail'
+  }
+
   onBackToList(): void {
     this.selectedGroupId.set(null);
     this.viewMode.set('list');

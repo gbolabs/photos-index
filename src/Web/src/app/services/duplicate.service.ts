@@ -173,6 +173,42 @@ export class DuplicateService {
       .post<DuplicateScanResult>(`${this.apiUrl}/scan/sync`, {})
       .pipe(catchError((error) => this.errorHandler.handleError(error)));
   }
+
+  /**
+   * Gets the directory pattern for a duplicate group.
+   * Returns information about which other groups share the same directory pattern.
+   */
+  getPatternForGroup(groupId: string): Observable<DirectoryPatternDto> {
+    return this.http
+      .get<DirectoryPatternDto>(`${this.apiUrl}/${groupId}/pattern`)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Applies a pattern rule to all duplicate groups matching the directory pattern.
+   * Sets the original file to be from the preferred directory.
+   * Returns the next unresolved group with a different pattern for navigation.
+   */
+  applyPatternRule(request: ApplyPatternRuleRequest): Observable<ApplyPatternRuleResultDto> {
+    return this.http
+      .post<ApplyPatternRuleResultDto>(`${this.apiUrl}/patterns/apply`, request)
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
+
+  /**
+   * Gets navigation info for moving between duplicate groups.
+   * Returns previous/next group IDs and position information.
+   */
+  getNavigation(groupId: string, statusFilter?: string): Observable<GroupNavigationDto> {
+    let params = new HttpParams();
+    if (statusFilter) {
+      params = params.set('status', statusFilter);
+    }
+
+    return this.http
+      .get<GroupNavigationDto>(`${this.apiUrl}/${groupId}/navigation`, { params })
+      .pipe(catchError((error) => this.errorHandler.handleError(error)));
+  }
 }
 
 /**
@@ -215,4 +251,51 @@ export interface DuplicateScanResult {
   totalDuplicateFiles: number;
   potentialSavingsBytes: number;
   scanDurationMs: number;
+}
+
+/**
+ * Information about a directory pattern shared across duplicate groups.
+ */
+export interface DirectoryPatternDto {
+  directories: string[];
+  matchingGroupCount: number;
+  groupIds: string[];
+  patternHash: string;
+  totalPotentialSavings: number;
+}
+
+/**
+ * Strategy for selecting among multiple files in the preferred directory.
+ */
+export type PatternTieBreaker = 'earliestDate' | 'shortestPath' | 'largestFile' | 'firstIndexed';
+
+/**
+ * Request to apply a selection rule to all duplicate groups matching a directory pattern.
+ */
+export interface ApplyPatternRuleRequest {
+  directories: string[];
+  preferredDirectory: string;
+  tieBreaker?: PatternTieBreaker;
+  preview?: boolean;
+}
+
+/**
+ * Result of applying a pattern rule to multiple duplicate groups.
+ */
+export interface ApplyPatternRuleResultDto {
+  groupsUpdated: number;
+  groupsSkipped: number;
+  filesMarkedAsOriginal: number;
+  nextUnresolvedGroupId?: string;
+  skippedGroupReasons?: string[];
+}
+
+/**
+ * Navigation information for moving between duplicate groups.
+ */
+export interface GroupNavigationDto {
+  previousGroupId?: string;
+  nextGroupId?: string;
+  currentPosition: number;
+  totalGroups: number;
 }

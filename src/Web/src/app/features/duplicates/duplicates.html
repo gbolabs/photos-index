@@ -48,6 +48,7 @@
     <app-duplicate-group-detail
       [groupId]="selectedGroupId()!"
       (back)="onBackToList()"
+      (navigateToGroup)="onNavigateToGroup($event)"
     ></app-duplicate-group-detail>
   }
 </div>
