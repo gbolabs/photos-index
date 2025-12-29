@@ -30,7 +30,8 @@ describe('GalleryTileComponent', () => {
     aperture: null,
     shutterSpeed: null,
     lastError: null,
-    retryCount: 0
+    retryCount: 0,
+    isHidden: false
   };
 
   beforeEach(async () => {

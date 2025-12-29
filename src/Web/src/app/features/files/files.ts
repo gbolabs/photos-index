@@ -13,8 +13,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatBadgeModule } from '@angular/material/badge';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { IndexedFileService } from '../../services/indexed-file.service';
+import { HiddenStateService } from '../../services/hidden-state.service';
 import { IndexedFileDto, FileQueryParameters, PagedResponse, FileSortBy } from '../../models';
 import { FileSizePipe } from '../../shared/pipes/file-size.pipe';
 import {
@@ -40,6 +42,7 @@ import {
     MatSelectModule,
     MatChipsModule,
     MatTooltipModule,
+    MatBadgeModule,
     MatDialogModule,
     FileSizePipe,
   ],
@@ -50,6 +53,7 @@ export class Files implements OnInit {
   private fileService = inject(IndexedFileService);
   private router = inject(Router);
   private dialog = inject(MatDialog);
+  readonly hiddenStateService = inject(HiddenStateService);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -80,6 +84,7 @@ export class Files implements OnInit {
       pageSize: this.pageSize,
       sortBy: this.sortBy,
       sortDescending: this.sortDescending,
+      includeHidden: this.hiddenStateService.showHidden() || undefined,
     };
 
     if (this.searchQuery) {
@@ -188,5 +193,37 @@ export class Files implements OnInit {
   getFolderPath(filePath: string): string {
     const lastSlash = filePath.lastIndexOf('/');
     return lastSlash > 0 ? filePath.substring(0, lastSlash) : filePath;
+  }
+
+  onShowHiddenToggle(): void {
+    this.hiddenStateService.toggleShowHidden();
+    this.pageIndex = 0;
+    this.loadFiles();
+  }
+
+  onHideFile(file: IndexedFileDto, event: Event): void {
+    event.stopPropagation();
+    this.fileService.hideFiles([file.id]).subscribe({
+      next: () => {
+        this.hiddenStateService.refreshHiddenFilesCount();
+        this.loadFiles();
+      },
+      error: (err) => {
+        console.error('Failed to hide file:', err);
+      },
+    });
+  }
+
+  onUnhideFile(file: IndexedFileDto, event: Event): void {
+    event.stopPropagation();
+    this.fileService.unhideFiles([file.id]).subscribe({
+      next: () => {
+        this.hiddenStateService.refreshHiddenFilesCount();
+        this.loadFiles();
+      },
+      error: (err) => {
+        console.error('Failed to unhide file:', err);
+      },
+    });
   }
 }

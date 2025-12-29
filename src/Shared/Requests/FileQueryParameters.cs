@@ -27,6 +27,11 @@ public record FileQueryParameters
     public FileSortBy SortBy { get; init; } = FileSortBy.IndexedAt;
 
     public bool SortDescending { get; init; } = true;
+
+    /// <summary>
+    /// Whether to include hidden files in the results. Defaults to false.
+    /// </summary>
+    public bool IncludeHidden { get; init; } = false;
 }
 
 public enum FileSortBy

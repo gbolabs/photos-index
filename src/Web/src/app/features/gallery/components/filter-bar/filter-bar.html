@@ -33,6 +33,19 @@
       <mat-icon>content_copy</mat-icon>
       Duplicates only
     </button>
+
+    <button
+      mat-stroked-button
+      [class.active]="hiddenStateService.showHidden()"
+      (click)="onShowHiddenToggle()"
+      [matBadge]="hiddenStateService.hiddenFilesCount()"
+      [matBadgeHidden]="hiddenStateService.hiddenFilesCount() === 0"
+      matBadgeColor="accent"
+      matBadgeSize="small"
+    >
+      <mat-icon>{{ hiddenStateService.showHidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
+      Show Hidden
+    </button>
   </div>
 
   <div class="view-controls">

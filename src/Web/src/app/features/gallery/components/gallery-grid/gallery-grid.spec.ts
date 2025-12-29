@@ -33,7 +33,8 @@ describe('GalleryGridComponent', () => {
       aperture: null,
       shutterSpeed: null,
       lastError: null,
-      retryCount: 0
+      retryCount: 0,
+      isHidden: false
     },
     {
       id: '2',
@@ -58,7 +59,8 @@ describe('GalleryGridComponent', () => {
       aperture: null,
       shutterSpeed: null,
       lastError: null,
-      retryCount: 0
+      retryCount: 0,
+      isHidden: false
     }
   ];
 

@@ -1,0 +1,74 @@
+<h2 mat-dialog-title>Add Hidden Folder</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" class="hide-folder-form">
+    <p class="form-description">
+      Files in the specified folder path will be hidden from the default view.
+      Use "Show Hidden" toggle to see hidden files.
+    </p>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Folder Path</mat-label>
+      <input
+        matInput
+        formControlName="folderPath"
+        placeholder="/photos/private"
+        [matAutocomplete]="autoComplete"
+      />
+      <mat-icon matPrefix>folder</mat-icon>
+      @if (loading()) {
+        <mat-spinner matSuffix diameter="20"></mat-spinner>
+      }
+      <mat-autocomplete
+        #autoComplete="matAutocomplete"
+        [displayWith]="displayFolderPath"
+        (optionSelected)="onFolderSelected($event.option.value)"
+      >
+        @for (folder of folderSuggestions(); track folder.path) {
+          <mat-option [value]="folder">
+            <div class="folder-option">
+              <span class="folder-path">{{ folder.path }}</span>
+              <span class="folder-count">{{ folder.fileCount }} files</span>
+            </div>
+          </mat-option>
+        }
+      </mat-autocomplete>
+      @if (form.get('folderPath')?.hasError('required') && form.get('folderPath')?.touched) {
+        <mat-error>Folder path is required</mat-error>
+      }
+      @if (form.get('folderPath')?.hasError('pattern')) {
+        <mat-error>Path must start with /</mat-error>
+      }
+      <mat-hint>Enter an absolute folder path (e.g., /photos/private)</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Description (optional)</mat-label>
+      <input
+        matInput
+        formControlName="description"
+        placeholder="Reason for hiding this folder"
+      />
+      <mat-hint>Optional note about why this folder is hidden</mat-hint>
+    </mat-form-field>
+
+    @if (previewCount > 0) {
+      <div class="preview-info">
+        <mat-icon>info</mat-icon>
+        <span>{{ previewCount }} files will be hidden</span>
+      </div>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button
+    mat-raised-button
+    color="primary"
+    [disabled]="!form.valid"
+    (click)="onSubmit()"
+  >
+    Add Hidden Folder
+  </button>
+</mat-dialog-actions>

@@ -6,10 +6,24 @@
           <h1>Duplicate Photos</h1>
           <p class="subtitle">Review and manage duplicate files in your collection</p>
         </div>
-        <app-view-mode-toggle
-          [displayMode]="displayMode()"
-          (displayModeChange)="onDisplayModeChange($event)"
-        ></app-view-mode-toggle>
+        <div class="header-actions">
+          <button
+            mat-stroked-button
+            [class.active]="hiddenStateService.showHidden()"
+            (click)="onShowHiddenToggle()"
+            [matBadge]="hiddenStateService.hiddenFilesCount()"
+            [matBadgeHidden]="hiddenStateService.hiddenFilesCount() === 0"
+            matBadgeColor="accent"
+            matBadgeSize="small"
+          >
+            <mat-icon>{{ hiddenStateService.showHidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
+            Show Hidden
+          </button>
+          <app-view-mode-toggle
+            [displayMode]="displayMode()"
+            (displayModeChange)="onDisplayModeChange($event)"
+          ></app-view-mode-toggle>
+        </div>
       </div>
     </div>
 

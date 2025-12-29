@@ -89,6 +89,7 @@ builder.Services.AddSingleton<IBuildInfoService, BuildInfoService>();
 builder.Services.AddSingleton<IIndexingStatusService, IndexingStatusService>();
 builder.Services.AddScoped<IFileIngestService, FileIngestService>();
 builder.Services.AddScoped<IReprocessService, ReprocessService>();
+builder.Services.AddScoped<IHiddenFolderService, HiddenFolderService>();
 builder.Services.AddSingleton<DuplicateScanBackgroundService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DuplicateScanBackgroundService>());
 

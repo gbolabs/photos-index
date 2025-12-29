@@ -49,6 +49,7 @@ describe('DuplicateTableViewComponent', () => {
     shutterSpeed: '1/250',
     lastError: null,
     retryCount: 0,
+    isHidden: false,
   };
 
   const mockFile2: IndexedFileDto = {

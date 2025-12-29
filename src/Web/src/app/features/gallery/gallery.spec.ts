@@ -12,6 +12,7 @@ describe('GalleryComponent', () => {
   let fixture: ComponentFixture<GalleryComponent>;
   let httpMock: HttpTestingController;
   const apiUrl = 'http://localhost:5000/api/files';
+  const hiddenCountUrl = 'http://localhost:5000/api/hidden-folders/hidden-count';
 
   const mockFile: IndexedFileDto = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -36,7 +37,8 @@ describe('GalleryComponent', () => {
     aperture: null,
     shutterSpeed: null,
     lastError: null,
-    retryCount: 0
+    retryCount: 0,
+    isHidden: false
   };
 
   const mockPagedResponse: PagedResponse<IndexedFileDto> = {
@@ -79,18 +81,26 @@ describe('GalleryComponent', () => {
     httpMock.verify();
   });
 
+  // Helper to handle initial HTTP requests after detectChanges
+  function handleInitialRequests(): void {
+    // Handle hidden count request from HiddenStateService
+    const hiddenReq = httpMock.expectOne(hiddenCountUrl);
+    hiddenReq.flush({ count: 0 });
+    // Handle files request from GalleryComponent ngOnInit
+    const filesReq = httpMock.expectOne((request) => request.url === apiUrl);
+    filesReq.flush(mockPagedResponse);
+  }
+
   it('should create', async () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne((request) => request.url === apiUrl);
-    req.flush(mockPagedResponse);
+    handleInitialRequests();
 
     expect(component).toBeTruthy();
   });
 
   it('should expose state service signals', async () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne((request) => request.url === apiUrl);
-    req.flush(mockPagedResponse);
+    handleInitialRequests();
 
     expect(component.files).toBeDefined();
     expect(component.loading).toBeDefined();
@@ -103,8 +113,7 @@ describe('GalleryComponent', () => {
 
   it('should change tile size through state service', async () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne((request) => request.url === apiUrl);
-    req.flush(mockPagedResponse);
+    handleInitialRequests();
 
     component.onTileSizeChange('large');
 
@@ -114,8 +123,7 @@ describe('GalleryComponent', () => {
 
   it('should have directories signal', async () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne((request) => request.url === apiUrl);
-    req.flush(mockPagedResponse);
+    handleInitialRequests();
 
     expect(component.directories()).toEqual([]);
   });

@@ -29,6 +29,12 @@ public class IndexedFileService : IIndexedFileService
     {
         var dbQuery = _dbContext.IndexedFiles.AsNoTracking();
 
+        // Filter hidden files unless explicitly requested
+        if (!query.IncludeHidden)
+        {
+            dbQuery = dbQuery.Where(f => !f.IsHidden);
+        }
+
         // Apply filters
         if (query.DirectoryId.HasValue)
         {
@@ -580,7 +586,10 @@ public class IndexedFileService : IIndexedFileService
         Aperture = entity.Aperture,
         ShutterSpeed = entity.ShutterSpeed,
         LastError = entity.LastError,
-        RetryCount = entity.RetryCount
+        RetryCount = entity.RetryCount,
+        IsHidden = entity.IsHidden,
+        HiddenCategory = entity.HiddenCategory?.ToString(),
+        HiddenAt = entity.HiddenAt
     };
 
     /// <summary>

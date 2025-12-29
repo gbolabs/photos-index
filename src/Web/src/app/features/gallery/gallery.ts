@@ -57,6 +57,11 @@ export class GalleryComponent implements OnInit {
     this.stateService.loadFiles();
   }
 
+  onShowHiddenChange(): void {
+    // Reload files when show hidden toggle changes
+    this.stateService.loadFiles();
+  }
+
   onLoadMore(): void {
     this.stateService.loadMore();
   }

@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { IndexedFileDto, FileQueryParameters, FileSortBy } from '../../../models';
 import { IndexedFileService } from '../../../services/indexed-file.service';
+import { HiddenStateService } from '../../../services/hidden-state.service';
 import { firstValueFrom } from 'rxjs';
 
 export interface GalleryFilters {
@@ -20,6 +21,7 @@ export type TileSize = 'small' | 'medium' | 'large';
 export class GalleryStateService {
   private readonly fileService = inject(IndexedFileService);
   private readonly router = inject(Router);
+  private readonly hiddenStateService = inject(HiddenStateService);
 
   // View state
   readonly tileSize = signal<TileSize>('medium');
@@ -191,6 +193,7 @@ export class GalleryStateService {
       minDate: filters.minDate || undefined,
       maxDate: filters.maxDate || undefined,
       hasDuplicates: filters.duplicatesOnly || undefined,
+      includeHidden: this.hiddenStateService.showHidden() || undefined,
       sortBy: FileSortBy.CreatedAt,
       sortDescending: true
     };

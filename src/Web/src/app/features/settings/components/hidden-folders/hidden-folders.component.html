@@ -1,0 +1,87 @@
+<div class="hidden-folders">
+  <div class="hidden-folders__header">
+    <div>
+      <h2>Hidden Folders</h2>
+      <p class="hidden-folders__subtitle">Manage folder rules to hide files from the default view</p>
+    </div>
+    <div class="hidden-folders__actions">
+      <button mat-icon-button (click)="loadHiddenFolders()" [disabled]="loading()" matTooltip="Refresh">
+        <mat-icon>refresh</mat-icon>
+      </button>
+      <button mat-raised-button color="primary" (click)="onAddFolder()" [disabled]="loading()">
+        <mat-icon>add</mat-icon>
+        Add Folder
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="hidden-folders__error">
+      <p>{{ error() }}</p>
+      <button mat-raised-button color="primary" (click)="loadHiddenFolders()">Retry</button>
+    </div>
+  }
+
+  @if (loading() && hiddenFolders().length === 0) {
+    <div class="hidden-folders__loading">
+      <mat-spinner diameter="32"></mat-spinner>
+      <p>Loading hidden folders...</p>
+    </div>
+  } @else if (hiddenFolders().length === 0) {
+    <div class="hidden-folders__empty">
+      <mat-icon>folder_off</mat-icon>
+      <p>No hidden folder rules configured</p>
+      <p class="hidden-folders__empty-hint">Add a folder path to hide all files within it from the default view</p>
+    </div>
+  } @else {
+    <table mat-table [dataSource]="hiddenFolders()" class="mat-elevation-z2">
+      <!-- Folder Path Column -->
+      <ng-container matColumnDef="folderPath">
+        <th mat-header-cell *matHeaderCellDef>Folder Path</th>
+        <td mat-cell *matCellDef="let folder">
+          <div class="folder-path-cell">
+            <mat-icon>folder</mat-icon>
+            <span>{{ folder.folderPath }}</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Description Column -->
+      <ng-container matColumnDef="description">
+        <th mat-header-cell *matHeaderCellDef>Description</th>
+        <td mat-cell *matCellDef="let folder">{{ folder.description || '-' }}</td>
+      </ng-container>
+
+      <!-- Affected Files Column -->
+      <ng-container matColumnDef="affectedFileCount">
+        <th mat-header-cell *matHeaderCellDef>Hidden Files</th>
+        <td mat-cell *matCellDef="let folder">{{ folder.affectedFileCount }}</td>
+      </ng-container>
+
+      <!-- Created At Column -->
+      <ng-container matColumnDef="createdAt">
+        <th mat-header-cell *matHeaderCellDef>Created</th>
+        <td mat-cell *matCellDef="let folder">{{ formatDate(folder.createdAt) }}</td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let folder">
+          <button
+            mat-icon-button
+            color="warn"
+            (click)="onDeleteFolder(folder)"
+            [disabled]="loading()"
+            matTooltip="Remove hidden folder rule"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+  }
+</div>

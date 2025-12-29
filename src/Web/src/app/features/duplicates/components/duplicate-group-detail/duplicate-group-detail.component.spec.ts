@@ -37,6 +37,7 @@ describe('DuplicateGroupDetailComponent', () => {
     shutterSpeed: null,
     lastError: null,
     retryCount: 0,
+    isHidden: false,
   };
 
   const mockFile2: IndexedFileDto = {
@@ -63,6 +64,7 @@ describe('DuplicateGroupDetailComponent', () => {
     shutterSpeed: null,
     lastError: null,
     retryCount: 0,
+    isHidden: false,
   };
 
   const mockGroup: DuplicateGroupDto = {

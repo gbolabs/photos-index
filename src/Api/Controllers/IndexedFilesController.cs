@@ -18,17 +18,20 @@ public class IndexedFilesController : ControllerBase
 {
     private readonly IIndexedFileService _service;
     private readonly IFileIngestService _ingestService;
+    private readonly IHiddenFolderService _hiddenFolderService;
     private readonly IHubContext<IndexerHub> _hubContext;
     private readonly ILogger<IndexedFilesController> _logger;
 
     public IndexedFilesController(
         IIndexedFileService service,
         IFileIngestService ingestService,
+        IHiddenFolderService hiddenFolderService,
         IHubContext<IndexerHub> hubContext,
         ILogger<IndexedFilesController> logger)
     {
         _service = service;
         _ingestService = ingestService;
+        _hiddenFolderService = hiddenFolderService;
         _hubContext = hubContext;
         _logger = logger;
     }
@@ -303,5 +306,43 @@ public class IndexedFilesController : ControllerBase
 
         var result = await _service.CheckNeedsReindexAsync(request, ct);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Hide specific files manually.
+    /// </summary>
+    [HttpPost("hide")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> HideFiles(
+        [FromBody] HideFilesRequest request,
+        CancellationToken ct = default)
+    {
+        if (request.FileIds.Count == 0)
+        {
+            return BadRequest(ApiErrorResponse.BadRequest("At least one file ID is required"));
+        }
+
+        var count = await _hiddenFolderService.HideFilesAsync(request, ct);
+        return Ok(new { message = $"Successfully hid {count} files", count });
+    }
+
+    /// <summary>
+    /// Unhide specific files.
+    /// </summary>
+    [HttpPost("unhide")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UnhideFiles(
+        [FromBody] HideFilesRequest request,
+        CancellationToken ct = default)
+    {
+        if (request.FileIds.Count == 0)
+        {
+            return BadRequest(ApiErrorResponse.BadRequest("At least one file ID is required"));
+        }
+
+        var count = await _hiddenFolderService.UnhideFilesAsync(request, ct);
+        return Ok(new { message = $"Successfully unhid {count} files", count });
     }
 }
