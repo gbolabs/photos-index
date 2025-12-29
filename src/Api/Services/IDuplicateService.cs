@@ -24,4 +24,11 @@ public interface IDuplicateService
 
     // Scan methods
     Task<DuplicateScanResultDto> ScanForDuplicatesAsync(CancellationToken ct);
+
+    // Pattern rule methods
+    Task<DirectoryPatternDto?> GetPatternForGroupAsync(Guid groupId, CancellationToken ct);
+    Task<ApplyPatternRuleResultDto> ApplyPatternRuleAsync(ApplyPatternRuleRequest request, CancellationToken ct);
+
+    // Navigation methods
+    Task<GroupNavigationDto> GetNavigationAsync(Guid groupId, string? statusFilter, CancellationToken ct);
 }

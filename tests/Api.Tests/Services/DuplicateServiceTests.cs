@@ -838,4 +838,675 @@ public class DuplicateServiceTests : IDisposable
     }
 
     #endregion
+
+    #region GetPatternForGroupAsync Tests
+
+    [Fact]
+    public async Task GetPatternForGroupAsync_ReturnsNull_WhenGroupNotFound()
+    {
+        // Act
+        var result = await _service.GetPatternForGroupAsync(Guid.NewGuid(), CancellationToken.None);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetPatternForGroupAsync_ReturnsPatternInfo_WithCorrectDirectories()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 3,
+            TotalSize = 3000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var file1 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/photos/2024/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group
+        };
+        var file2 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/photos/backup/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.IndexedFiles.AddRangeAsync(file1, file2);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetPatternForGroupAsync(group.Id, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Directories.Should().HaveCount(2);
+        result.Directories.Should().Contain("/photos/2024");
+        result.Directories.Should().Contain("/photos/backup");
+    }
+
+    [Fact]
+    public async Task GetPatternForGroupAsync_FindsMatchingGroups_WithSamePattern()
+    {
+        // Arrange
+        var group1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group3 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash3",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Group1 files: /folderA, /folderB
+        var file1a = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderA/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group1
+        };
+        var file1b = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderB/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group1
+        };
+
+        // Group2 files: /folderA, /folderB (same pattern)
+        var file2a = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderA/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash2",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group2
+        };
+        var file2b = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderB/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash2",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group2
+        };
+
+        // Group3 files: /folderC, /folderD (different pattern)
+        var file3a = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderC/img3.jpg",
+            FileName = "img3.jpg",
+            FileHash = "hash3",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group3
+        };
+        var file3b = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderD/img3.jpg",
+            FileName = "img3.jpg",
+            FileHash = "hash3",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group3
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(group1, group2, group3);
+        await _dbContext.IndexedFiles.AddRangeAsync(file1a, file1b, file2a, file2b, file3a, file3b);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetPatternForGroupAsync(group1.Id, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.MatchingGroupCount.Should().Be(2); // group1 and group2
+        result.GroupIds.Should().Contain(group1.Id);
+        result.GroupIds.Should().Contain(group2.Id);
+        result.GroupIds.Should().NotContain(group3.Id);
+    }
+
+    [Fact]
+    public async Task GetPatternForGroupAsync_ExcludesHiddenFiles()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 3,
+            TotalSize = 3000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var visibleFile = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/photos/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsHidden = false,
+            DuplicateGroup = group
+        };
+        var hiddenFile = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/hidden/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsHidden = true,
+            DuplicateGroup = group
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.IndexedFiles.AddRangeAsync(visibleFile, hiddenFile);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetPatternForGroupAsync(group.Id, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Directories.Should().HaveCount(1);
+        result.Directories.Should().Contain("/photos");
+        result.Directories.Should().NotContain("/hidden");
+    }
+
+    #endregion
+
+    #region ApplyPatternRuleAsync Tests
+
+    [Fact]
+    public async Task ApplyPatternRuleAsync_UpdatesMatchingGroups()
+    {
+        // Arrange
+        var group1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Group1 files: /original, /backup
+        var file1a = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/original/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = true,
+            DuplicateGroup = group1
+        };
+        var file1b = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/backup/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = true,
+            DuplicateGroup = group1
+        };
+
+        // Group2 files: /original, /backup (same pattern)
+        var file2a = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/original/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash2",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = true,
+            DuplicateGroup = group2
+        };
+        var file2b = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/backup/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash2",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            IsDuplicate = true,
+            DuplicateGroup = group2
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(group1, group2);
+        await _dbContext.IndexedFiles.AddRangeAsync(file1a, file1b, file2a, file2b);
+        await _dbContext.SaveChangesAsync();
+
+        var request = new ApplyPatternRuleRequest
+        {
+            Directories = new List<string> { "/backup", "/original" },
+            PreferredDirectory = "/original"
+        };
+
+        // Act
+        var result = await _service.ApplyPatternRuleAsync(request, CancellationToken.None);
+
+        // Assert
+        result.GroupsUpdated.Should().Be(2);
+        result.FilesMarkedAsOriginal.Should().Be(2);
+
+        // Verify files in /original are marked as not duplicate
+        var updatedFile1a = await _dbContext.IndexedFiles.FindAsync(file1a.Id);
+        var updatedFile2a = await _dbContext.IndexedFiles.FindAsync(file2a.Id);
+        updatedFile1a!.IsDuplicate.Should().BeFalse();
+        updatedFile2a!.IsDuplicate.Should().BeFalse();
+
+        // Verify files in /backup are still marked as duplicate
+        var updatedFile1b = await _dbContext.IndexedFiles.FindAsync(file1b.Id);
+        var updatedFile2b = await _dbContext.IndexedFiles.FindAsync(file2b.Id);
+        updatedFile1b!.IsDuplicate.Should().BeTrue();
+        updatedFile2b!.IsDuplicate.Should().BeTrue();
+
+        // Verify groups are auto-selected with kept file set
+        var updatedGroup1 = await _dbContext.DuplicateGroups.FindAsync(group1.Id);
+        var updatedGroup2 = await _dbContext.DuplicateGroups.FindAsync(group2.Id);
+        updatedGroup1!.Status.Should().Be("auto-selected");
+        updatedGroup1.KeptFileId.Should().Be(file1a.Id);
+        updatedGroup2!.Status.Should().Be("auto-selected");
+        updatedGroup2.KeptFileId.Should().Be(file2a.Id);
+    }
+
+    [Fact]
+    public async Task ApplyPatternRuleAsync_SkipsGroupsWithNoFileInPreferredDirectory()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Group files: /folderA, /folderB (no file in preferred /folderC)
+        var file1 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderA/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group
+        };
+        var file2 = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderB/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.IndexedFiles.AddRangeAsync(file1, file2);
+        await _dbContext.SaveChangesAsync();
+
+        var request = new ApplyPatternRuleRequest
+        {
+            Directories = new List<string> { "/folderA", "/folderB" },
+            PreferredDirectory = "/folderC" // No files in this directory
+        };
+
+        // Act
+        var result = await _service.ApplyPatternRuleAsync(request, CancellationToken.None);
+
+        // Assert
+        result.GroupsUpdated.Should().Be(0);
+        result.GroupsSkipped.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ApplyPatternRuleAsync_ReturnsNextUnresolvedGroupWithDifferentPattern()
+    {
+        // Arrange
+        var group1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow.AddMinutes(-10)
+        };
+        var group2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5) // Created later
+        };
+
+        // Group1: /folderA, /folderB
+        var file1a = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderA/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group1
+        };
+        var file1b = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderB/img1.jpg",
+            FileName = "img1.jpg",
+            FileHash = "hash1",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group1
+        };
+
+        // Group2: /folderC, /folderD (different pattern)
+        var file2a = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderC/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash2",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group2
+        };
+        var file2b = new IndexedFile
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/folderD/img2.jpg",
+            FileName = "img2.jpg",
+            FileHash = "hash2",
+            FileSize = 1000,
+            IndexedAt = DateTime.UtcNow,
+            DuplicateGroup = group2
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(group1, group2);
+        await _dbContext.IndexedFiles.AddRangeAsync(file1a, file1b, file2a, file2b);
+        await _dbContext.SaveChangesAsync();
+
+        var request = new ApplyPatternRuleRequest
+        {
+            Directories = new List<string> { "/folderA", "/folderB" },
+            PreferredDirectory = "/folderA"
+        };
+
+        // Act
+        var result = await _service.ApplyPatternRuleAsync(request, CancellationToken.None);
+
+        // Assert
+        result.NextUnresolvedGroupId.Should().Be(group2.Id);
+    }
+
+    #endregion
+
+    #region GetNavigationAsync Tests
+
+    [Fact]
+    public async Task GetNavigationAsync_ReturnsCorrectNavigation_ForMiddleGroup()
+    {
+        // Arrange - Groups ordered by TotalSize descending
+        var group1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 1000, // Smallest
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 2000, // Middle
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group3 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash3",
+            FileCount = 2,
+            TotalSize = 3000, // Largest
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(group1, group2, group3);
+        await _dbContext.SaveChangesAsync();
+
+        // Act - Get navigation for middle group
+        var result = await _service.GetNavigationAsync(group2.Id, null, CancellationToken.None);
+
+        // Assert
+        result.PreviousGroupId.Should().Be(group3.Id); // Larger group comes before
+        result.NextGroupId.Should().Be(group1.Id); // Smaller group comes after
+        result.CurrentPosition.Should().Be(2);
+        result.TotalGroups.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetNavigationAsync_ReturnsNullPrevious_ForFirstGroup()
+    {
+        // Arrange
+        var group1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 1000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 2000, // Largest - first in order
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(group1, group2);
+        await _dbContext.SaveChangesAsync();
+
+        // Act - Get navigation for first group (largest)
+        var result = await _service.GetNavigationAsync(group2.Id, null, CancellationToken.None);
+
+        // Assert
+        result.PreviousGroupId.Should().BeNull();
+        result.NextGroupId.Should().Be(group1.Id);
+        result.CurrentPosition.Should().Be(1);
+        result.TotalGroups.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetNavigationAsync_ReturnsNullNext_ForLastGroup()
+    {
+        // Arrange
+        var group1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 1000, // Smallest - last in order
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var group2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(group1, group2);
+        await _dbContext.SaveChangesAsync();
+
+        // Act - Get navigation for last group (smallest)
+        var result = await _service.GetNavigationAsync(group1.Id, null, CancellationToken.None);
+
+        // Assert
+        result.PreviousGroupId.Should().Be(group2.Id);
+        result.NextGroupId.Should().BeNull();
+        result.CurrentPosition.Should().Be(2);
+        result.TotalGroups.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetNavigationAsync_AppliesStatusFilter()
+    {
+        // Arrange
+        var pendingGroup1 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 1000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var pendingGroup2 = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash2",
+            FileCount = 2,
+            TotalSize = 2000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        var validatedGroup = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash3",
+            FileCount = 2,
+            TotalSize = 3000, // Largest but validated
+            Status = "validated",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddRangeAsync(pendingGroup1, pendingGroup2, validatedGroup);
+        await _dbContext.SaveChangesAsync();
+
+        // Act - Get navigation with pending filter
+        var result = await _service.GetNavigationAsync(pendingGroup2.Id, "pending", CancellationToken.None);
+
+        // Assert
+        result.PreviousGroupId.Should().BeNull(); // pendingGroup2 is first among pending
+        result.NextGroupId.Should().Be(pendingGroup1.Id);
+        result.CurrentPosition.Should().Be(1);
+        result.TotalGroups.Should().Be(2); // Only pending groups
+    }
+
+    [Fact]
+    public async Task GetNavigationAsync_ReturnsZeroPosition_WhenGroupNotFound()
+    {
+        // Arrange
+        var group = new DuplicateGroup
+        {
+            Id = Guid.NewGuid(),
+            Hash = "hash1",
+            FileCount = 2,
+            TotalSize = 1000,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.DuplicateGroups.AddAsync(group);
+        await _dbContext.SaveChangesAsync();
+
+        // Act - Get navigation for non-existent group
+        var result = await _service.GetNavigationAsync(Guid.NewGuid(), null, CancellationToken.None);
+
+        // Assert
+        result.PreviousGroupId.Should().BeNull();
+        result.NextGroupId.Should().BeNull();
+        result.CurrentPosition.Should().Be(0);
+        result.TotalGroups.Should().Be(1);
+    }
+
+    #endregion
 }

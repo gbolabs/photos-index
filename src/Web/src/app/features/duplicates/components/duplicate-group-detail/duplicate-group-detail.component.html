@@ -4,6 +4,31 @@
       <mat-icon>arrow_back</mat-icon>
     </button>
     <h2>Duplicate Group</h2>
+
+    <!-- Navigation buttons -->
+    @if (navigation()) {
+      <div class="navigation-controls">
+        <button
+          mat-icon-button
+          (click)="goToPrevious()"
+          [disabled]="!navigation()?.previousGroupId"
+          matTooltip="Previous group"
+        >
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="nav-position">
+          {{ navigation()!.currentPosition }} / {{ navigation()!.totalGroups }}
+        </span>
+        <button
+          mat-icon-button
+          (click)="goToNext()"
+          [disabled]="!navigation()?.nextGroupId"
+          matTooltip="Next group"
+        >
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    }
     @if (group()) {
       <div class="header-info">
         <mat-chip>{{ files().length }} files</mat-chip>
@@ -11,6 +36,12 @@
           <mat-icon>savings</mat-icon>
           {{ group()!.potentialSavings | fileSize }} potential savings
         </mat-chip>
+        @if (patternInfo() && patternInfo()!.matchingGroupCount > 1) {
+          <mat-chip class="pattern-badge" matTooltip="Groups with same directory pattern">
+            <mat-icon>folder_copy</mat-icon>
+            {{ patternInfo()!.matchingGroupCount }} groups with same pattern
+          </mat-chip>
+        }
         @if (isResolved()) {
           <mat-chip class="resolved" highlighted>
             <mat-icon>check_circle</mat-icon>
@@ -63,6 +94,39 @@
         </button>
       }
     </div>
+
+    <!-- Directory Pattern Section -->
+    @if (patternInfo() && patternInfo()!.matchingGroupCount > 1 && uniqueDirectories().length > 1) {
+      <div class="pattern-section">
+        <h3>
+          <mat-icon>folder_copy</mat-icon>
+          Apply to {{ patternInfo()!.matchingGroupCount }} groups with same pattern
+        </h3>
+        <p class="pattern-description">
+          Select a preferred directory below to mark files from that folder as original across all matching groups.
+        </p>
+        <div class="directory-list">
+          @for (dir of uniqueDirectories(); track dir) {
+            <div class="directory-row">
+              <span class="directory-path" [matTooltip]="dir">{{ dir }}</span>
+              <button
+                mat-stroked-button
+                color="primary"
+                (click)="applyPatternRule(dir)"
+                [disabled]="applyingPattern()"
+              >
+                @if (applyingPattern()) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                } @else {
+                  <mat-icon>auto_fix_high</mat-icon>
+                }
+                Apply to all
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
 
     <!-- Comparison View -->
     @if (comparisonMode()) {

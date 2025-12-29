@@ -240,4 +240,63 @@ public class DuplicateGroupsController : ControllerBase
         var result = await _service.ScanForDuplicatesAsync(ct);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Get the directory pattern for a duplicate group.
+    /// </summary>
+    /// <remarks>
+    /// Returns information about the directory pattern (unique set of parent directories)
+    /// and how many other groups share the same pattern. Useful for batch operations.
+    /// </remarks>
+    [HttpGet("{id:guid}/pattern")]
+    [ProducesResponseType(typeof(DirectoryPatternDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DirectoryPatternDto>> GetPattern(
+        Guid id,
+        CancellationToken ct = default)
+    {
+        var pattern = await _service.GetPatternForGroupAsync(id, ct);
+
+        if (pattern is null)
+            return NotFound(ApiErrorResponse.NotFound($"Duplicate group with ID {id} not found"));
+
+        return Ok(pattern);
+    }
+
+    /// <summary>
+    /// Apply a pattern rule to select originals across all matching groups.
+    /// </summary>
+    /// <remarks>
+    /// Finds all duplicate groups that share the exact same directory pattern
+    /// and sets the original file to be from the specified preferred directory.
+    /// Returns the ID of the next unresolved group with a different pattern
+    /// for easy navigation.
+    /// </remarks>
+    [HttpPost("patterns/apply")]
+    [ProducesResponseType(typeof(ApplyPatternRuleResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApplyPatternRuleResultDto>> ApplyPatternRule(
+        [FromBody] ApplyPatternRuleRequest request,
+        CancellationToken ct = default)
+    {
+        var result = await _service.ApplyPatternRuleAsync(request, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get navigation info for moving between duplicate groups.
+    /// </summary>
+    /// <remarks>
+    /// Returns the IDs of the previous and next groups in the list,
+    /// as well as the current position and total count.
+    /// </remarks>
+    [HttpGet("{id:guid}/navigation")]
+    [ProducesResponseType(typeof(GroupNavigationDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<GroupNavigationDto>> GetNavigation(
+        Guid id,
+        [FromQuery] string? status = null,
+        CancellationToken ct = default)
+    {
+        var result = await _service.GetNavigationAsync(id, status, ct);
+        return Ok(result);
+    }
 }

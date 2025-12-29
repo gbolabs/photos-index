@@ -16,7 +16,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { DuplicateService } from '../../../../services/duplicate.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { DuplicateService, DirectoryPatternDto, GroupNavigationDto } from '../../../../services/duplicate.service';
 import { DuplicateGroupDto, IndexedFileDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
 import { ImageComparisonComponent } from '../image-comparison/image-comparison.component';
@@ -34,6 +35,7 @@ import { FileMetadataTableComponent } from '../file-metadata-table/file-metadata
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatDialogModule,
+    MatSnackBarModule,
     FileSizePipe,
     ImageComparisonComponent,
     FileMetadataTableComponent,
@@ -44,6 +46,7 @@ import { FileMetadataTableComponent } from '../file-metadata-table/file-metadata
 export class DuplicateGroupDetailComponent implements OnChanges {
   private duplicateService = inject(DuplicateService);
   private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
 
   // Input
   groupId = input<string>();
@@ -51,6 +54,7 @@ export class DuplicateGroupDetailComponent implements OnChanges {
   // Output
   back = output<void>();
   groupUpdated = output<DuplicateGroupDto>();
+  navigateToGroup = output<string>();
 
   // State
   loading = signal(true);
@@ -59,6 +63,13 @@ export class DuplicateGroupDetailComponent implements OnChanges {
   selectedFileId = signal<string | null>(null);
   comparisonMode = signal(false);
   comparisonFiles = signal<IndexedFileDto[]>([]);
+
+  // Pattern-related state
+  patternInfo = signal<DirectoryPatternDto | null>(null);
+  applyingPattern = signal(false);
+
+  // Navigation state
+  navigation = signal<GroupNavigationDto | null>(null);
 
   // Computed
   files = computed(() => this.group()?.files || []);
@@ -72,9 +83,21 @@ export class DuplicateGroupDetailComponent implements OnChanges {
     return g?.resolvedAt !== null && g?.originalFileId !== null;
   });
 
+  /** Unique directories from the files in this group */
+  uniqueDirectories = computed(() => {
+    const fileList = this.files();
+    const dirs = new Set<string>();
+    for (const file of fileList) {
+      dirs.add(this.getDirectory(file.filePath));
+    }
+    return Array.from(dirs).sort();
+  });
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['groupId'] && this.groupId()) {
       this.loadGroup();
+      this.loadPatternInfo();
+      this.loadNavigation();
     }
   }
 
@@ -96,6 +119,92 @@ export class DuplicateGroupDetailComponent implements OnChanges {
         this.loading.set(false);
       },
     });
+  }
+
+  loadPatternInfo(): void {
+    const id = this.groupId();
+    if (!id) return;
+
+    this.patternInfo.set(null);
+
+    this.duplicateService.getPatternForGroup(id).subscribe({
+      next: (pattern) => {
+        this.patternInfo.set(pattern);
+      },
+      error: (err) => {
+        console.error('Failed to load pattern info:', err);
+        // Pattern info is optional, don't show error
+      },
+    });
+  }
+
+  /**
+   * Apply a pattern rule to all groups with the same directory pattern.
+   * Selects files from the preferred directory as original.
+   */
+  applyPatternRule(preferredDirectory: string): void {
+    const pattern = this.patternInfo();
+    if (!pattern) return;
+
+    this.applyingPattern.set(true);
+
+    this.duplicateService.applyPatternRule({
+      directories: pattern.directories,
+      preferredDirectory,
+      tieBreaker: 'earliestDate',
+    }).subscribe({
+      next: (result) => {
+        this.applyingPattern.set(false);
+
+        const message = `Updated ${result.groupsUpdated} group${result.groupsUpdated !== 1 ? 's' : ''}`;
+        this.snackBar.open(message, 'OK', { duration: 3000 });
+
+        if (result.nextUnresolvedGroupId) {
+          // Navigate to next group with different pattern
+          this.navigateToGroup.emit(result.nextUnresolvedGroupId);
+        } else {
+          // All groups resolved, go back to list
+          this.snackBar.open('All duplicate groups resolved!', 'OK', { duration: 5000 });
+          this.back.emit();
+        }
+      },
+      error: (err) => {
+        this.applyingPattern.set(false);
+        console.error('Failed to apply pattern rule:', err);
+        this.snackBar.open('Failed to apply pattern rule', 'Dismiss', { duration: 5000 });
+      },
+    });
+  }
+
+  loadNavigation(): void {
+    const id = this.groupId();
+    if (!id) return;
+
+    this.navigation.set(null);
+
+    this.duplicateService.getNavigation(id).subscribe({
+      next: (nav) => {
+        this.navigation.set(nav);
+      },
+      error: (err) => {
+        console.error('Failed to load navigation:', err);
+        // Navigation is optional, don't show error
+      },
+    });
+  }
+
+  goToPrevious(): void {
+    const nav = this.navigation();
+    if (nav?.previousGroupId) {
+      this.navigateToGroup.emit(nav.previousGroupId);
+    }
+  }
+
+  goToNext(): void {
+    const nav = this.navigation();
+    if (nav?.nextGroupId) {
+      this.navigateToGroup.emit(nav.nextGroupId);
+    }
   }
 
   goBack(): void {

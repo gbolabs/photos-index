@@ -495,4 +495,226 @@ public class DuplicateService : IDuplicateService
             ScanDurationMs = stopwatch.ElapsedMilliseconds
         };
     }
+
+    public async Task<DirectoryPatternDto?> GetPatternForGroupAsync(Guid groupId, CancellationToken ct)
+    {
+        var group = await _dbContext.DuplicateGroups
+            .AsNoTracking()
+            .Include(g => g.Files)
+            .FirstOrDefaultAsync(g => g.Id == groupId, ct);
+
+        if (group is null)
+            return null;
+
+        // Extract unique parent directories, sorted
+        var directories = group.Files
+            .Where(f => !f.IsHidden)
+            .Select(f => Path.GetDirectoryName(f.FilePath) ?? "/")
+            .Distinct()
+            .OrderBy(d => d)
+            .ToList();
+
+        var patternHash = ComputePatternHash(directories);
+
+        // Find all groups with same pattern
+        var matchingGroupIds = await FindGroupsWithPatternAsync(directories, ct);
+
+        // Calculate total potential savings
+        var totalSavings = await _dbContext.DuplicateGroups
+            .Where(g => matchingGroupIds.Contains(g.Id) && g.FileCount > 0)
+            .Select(g => g.TotalSize - (g.TotalSize / g.FileCount))
+            .SumAsync(ct);
+
+        return new DirectoryPatternDto
+        {
+            Directories = directories,
+            MatchingGroupCount = matchingGroupIds.Count,
+            GroupIds = matchingGroupIds,
+            PatternHash = patternHash,
+            TotalPotentialSavings = totalSavings
+        };
+    }
+
+    public async Task<ApplyPatternRuleResultDto> ApplyPatternRuleAsync(ApplyPatternRuleRequest request, CancellationToken ct)
+    {
+        var matchingGroupIds = await FindGroupsWithPatternAsync(request.Directories, ct);
+        var currentPatternHash = ComputePatternHash(request.Directories);
+
+        if (request.Preview)
+        {
+            // Preview mode: return counts without making changes
+            return new ApplyPatternRuleResultDto
+            {
+                GroupsUpdated = matchingGroupIds.Count,
+                GroupsSkipped = 0,
+                FilesMarkedAsOriginal = matchingGroupIds.Count,
+                NextUnresolvedGroupId = null
+            };
+        }
+
+        var groups = await _dbContext.DuplicateGroups
+            .Include(g => g.Files)
+            .Where(g => matchingGroupIds.Contains(g.Id))
+            .ToListAsync(ct);
+
+        var updated = 0;
+        var skipped = 0;
+        var skippedReasons = new List<string>();
+
+        foreach (var group in groups)
+        {
+            // Find files in the preferred directory (excluding hidden)
+            var candidates = group.Files
+                .Where(f => !f.IsHidden)
+                .Where(f => (Path.GetDirectoryName(f.FilePath) ?? "/") == request.PreferredDirectory)
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                skipped++;
+                skippedReasons.Add($"Group {group.Id}: No file in preferred directory");
+                continue;
+            }
+
+            // Select the best file based on tie-breaker
+            var selectedFile = request.TieBreaker switch
+            {
+                PatternTieBreaker.EarliestDate => candidates.OrderBy(f => f.CreatedAt).First(),
+                PatternTieBreaker.ShortestPath => candidates.OrderBy(f => f.FilePath.Length).First(),
+                PatternTieBreaker.LargestFile => candidates.OrderByDescending(f => f.FileSize).First(),
+                PatternTieBreaker.FirstIndexed => candidates.OrderBy(f => f.IndexedAt).First(),
+                _ => candidates.First()
+            };
+
+            // Update all files in group
+            foreach (var file in group.Files)
+            {
+                file.IsDuplicate = file.Id != selectedFile.Id;
+            }
+
+            group.KeptFileId = selectedFile.Id;
+            group.Status = "auto-selected";
+            updated++;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        // Find next unresolved group with a DIFFERENT pattern
+        var nextGroup = await FindNextUnresolvedGroupWithDifferentPatternAsync(currentPatternHash, ct);
+
+        _logger.LogInformation(
+            "Applied pattern rule to preferred directory '{PreferredDir}': {Updated} groups updated, {Skipped} skipped",
+            request.PreferredDirectory, updated, skipped);
+
+        return new ApplyPatternRuleResultDto
+        {
+            GroupsUpdated = updated,
+            GroupsSkipped = skipped,
+            FilesMarkedAsOriginal = updated,
+            NextUnresolvedGroupId = nextGroup,
+            SkippedGroupReasons = skippedReasons.Count > 0 ? skippedReasons : null
+        };
+    }
+
+    private async Task<List<Guid>> FindGroupsWithPatternAsync(IReadOnlyList<string> targetDirectories, CancellationToken ct)
+    {
+        var targetSet = new HashSet<string>(targetDirectories);
+
+        // Load all unresolved groups with files
+        var groups = await _dbContext.DuplicateGroups
+            .AsNoTracking()
+            .Include(g => g.Files)
+            .Where(g => g.Status != "cleaned")
+            .ToListAsync(ct);
+
+        return groups
+            .Where(g =>
+            {
+                var groupDirs = g.Files
+                    .Where(f => !f.IsHidden)
+                    .Select(f => Path.GetDirectoryName(f.FilePath) ?? "/")
+                    .Distinct()
+                    .ToHashSet();
+                return groupDirs.SetEquals(targetSet);
+            })
+            .Select(g => g.Id)
+            .ToList();
+    }
+
+    private async Task<Guid?> FindNextUnresolvedGroupWithDifferentPatternAsync(string currentPatternHash, CancellationToken ct)
+    {
+        // Load all unresolved groups
+        var groups = await _dbContext.DuplicateGroups
+            .AsNoTracking()
+            .Include(g => g.Files)
+            .Where(g => g.Status == "pending" || g.Status == "conflict")
+            .OrderBy(g => g.CreatedAt)
+            .ToListAsync(ct);
+
+        foreach (var group in groups)
+        {
+            var directories = group.Files
+                .Where(f => !f.IsHidden)
+                .Select(f => Path.GetDirectoryName(f.FilePath) ?? "/")
+                .Distinct()
+                .OrderBy(d => d)
+                .ToList();
+
+            var patternHash = ComputePatternHash(directories);
+
+            if (patternHash != currentPatternHash)
+            {
+                return group.Id;
+            }
+        }
+
+        return null;
+    }
+
+    private static string ComputePatternHash(IEnumerable<string> directories)
+    {
+        var combined = string.Join("|", directories.OrderBy(d => d));
+        using var md5 = System.Security.Cryptography.MD5.Create();
+        var hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(combined));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    public async Task<GroupNavigationDto> GetNavigationAsync(Guid groupId, string? statusFilter, CancellationToken ct)
+    {
+        var query = _dbContext.DuplicateGroups.AsNoTracking();
+
+        // Apply status filter if provided
+        if (!string.IsNullOrWhiteSpace(statusFilter))
+        {
+            query = query.Where(g => g.Status == statusFilter);
+        }
+
+        // Get ordered list of group IDs (same ordering as GetGroupsAsync)
+        var orderedGroupIds = await query
+            .OrderByDescending(g => g.TotalSize)
+            .Select(g => g.Id)
+            .ToListAsync(ct);
+
+        var currentIndex = orderedGroupIds.IndexOf(groupId);
+
+        if (currentIndex == -1)
+        {
+            // Group not found in filtered list
+            return new GroupNavigationDto
+            {
+                PreviousGroupId = null,
+                NextGroupId = null,
+                CurrentPosition = 0,
+                TotalGroups = orderedGroupIds.Count
+            };
+        }
+
+        return new GroupNavigationDto
+        {
+            PreviousGroupId = currentIndex > 0 ? orderedGroupIds[currentIndex - 1] : null,
+            NextGroupId = currentIndex < orderedGroupIds.Count - 1 ? orderedGroupIds[currentIndex + 1] : null,
+            CurrentPosition = currentIndex + 1,
+            TotalGroups = orderedGroupIds.Count
+        };
+    }
 }

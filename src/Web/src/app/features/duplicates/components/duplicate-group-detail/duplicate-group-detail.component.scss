@@ -14,6 +14,28 @@
     flex: 0 0 auto;
   }
 
+  .navigation-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 24px;
+    padding: 0 0.25rem;
+
+    .nav-position {
+      font-size: 0.875rem;
+      color: rgba(0, 0, 0, 0.6);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    button {
+      &:disabled {
+        opacity: 0.3;
+      }
+    }
+  }
+
   .header-info {
     display: flex;
     gap: 0.5rem;
@@ -36,6 +58,18 @@
   .resolved {
     --mdc-chip-elevated-container-color: #e3f2fd;
     --mdc-chip-label-text-color: #1565c0;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+    }
+  }
+
+  .pattern-badge {
+    --mdc-chip-elevated-container-color: #fff3e0;
+    --mdc-chip-label-text-color: #e65100;
 
     mat-icon {
       font-size: 16px;
@@ -74,6 +108,71 @@
   gap: 1rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
+}
+
+.pattern-section {
+  background: #fff8e1;
+  border: 1px solid #ffcc80;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+
+  h3 {
+    margin: 0 0 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    color: #e65100;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .pattern-description {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .directory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .directory-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+
+    .directory-path {
+      flex: 1;
+      font-family: monospace;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    button {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+
+      mat-spinner {
+        margin-right: 4px;
+      }
+    }
+  }
 }
 
 .files-grid {
