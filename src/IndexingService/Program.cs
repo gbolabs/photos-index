@@ -91,6 +91,9 @@ builder.Services.Configure<IndexingOptions>(options =>
 // Add indexer status tracking
 builder.Services.AddSingleton<IIndexerStatusService, IndexerStatusService>();
 
+// Add scan session tracking for incremental indexing
+builder.Services.AddSingleton<IScanSessionService, ScanSessionService>();
+
 // Add scan trigger service for manual scans
 builder.Services.AddSingleton<IScanTriggerService, ScanTriggerService>();
 

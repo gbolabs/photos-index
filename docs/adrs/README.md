@@ -45,6 +45,7 @@ An ADR is a short document that captures an important architectural decision alo
 | [009](./009-watchtower-auto-deployment.md) | Watchtower for Automated Container Updates | Accepted | 2025-12-28 |
 | [010](./010-image-preview-architecture.md) | Image Preview Architecture | Accepted | 2025-12-28 |
 | [011](./011-gallery-view-architecture.md) | Gallery View Architecture | Proposed | 2025-12-29 |
+| [012](./012-incremental-indexing.md) | Incremental Indexing with Scan Sessions | Accepted | 2025-12-29 |
 
 ## References
 

@@ -4,6 +4,7 @@ using IndexingService.ApiClient;
 using IndexingService.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Shared.Dtos;
 using Shared.Requests;
 
 namespace IndexingService.Services;
@@ -14,6 +15,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
     private readonly IFileScanner _fileScanner;
     private readonly IHashComputer _hashComputer;
     private readonly IMetadataExtractor _metadataExtractor;
+    private readonly IScanSessionService _scanSession;
     private readonly ILogger<IndexingOrchestrator> _logger;
     private readonly IndexingOptions _options;
     private readonly bool _isDistributedMode;
@@ -39,6 +41,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         IFileScanner fileScanner,
         IHashComputer hashComputer,
         IMetadataExtractor metadataExtractor,
+        IScanSessionService scanSession,
         ILogger<IndexingOrchestrator> logger,
         IOptions<IndexingOptions> options)
     {
@@ -46,6 +49,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         _fileScanner = fileScanner ?? throw new ArgumentNullException(nameof(fileScanner));
         _hashComputer = hashComputer ?? throw new ArgumentNullException(nameof(hashComputer));
         _metadataExtractor = metadataExtractor ?? throw new ArgumentNullException(nameof(metadataExtractor));
+        _scanSession = scanSession ?? throw new ArgumentNullException(nameof(scanSession));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? new IndexingOptions();
 
@@ -62,7 +66,9 @@ public class IndexingOrchestrator : IIndexingOrchestrator
 
         try
         {
-            _logger.LogInformation("Starting indexing cycle");
+            // Start a new scan session for this cycle
+            _scanSession.StartNewSession();
+            _logger.LogInformation("Starting indexing cycle (Session: {SessionId})", _scanSession.SessionId);
 
             var directories = await _apiClient.GetEnabledScanDirectoriesAsync(cancellationToken);
 
@@ -124,8 +130,17 @@ public class IndexingOrchestrator : IIndexingOrchestrator
 
         try
         {
-            _logger.LogInformation("Starting progressive indexing for directory {Path} (batch size: {BatchSize})",
-                directoryPath, _options.BatchSize);
+            // Check if this directory or a parent has already been scanned in this session
+            if (_scanSession.IsPathCoveredByScannedDirectory(directoryPath))
+            {
+                _logger.LogInformation(
+                    "Skipping directory {Path} - already covered by scanned parent in session {SessionId}",
+                    directoryPath, _scanSession.SessionId);
+                return job.Complete(0, 0, 0, 0);
+            }
+
+            _logger.LogInformation("Starting progressive indexing for directory {Path} (batch size: {BatchSize}, session: {SessionId})",
+                directoryPath, _options.BatchSize, _scanSession.SessionId);
 
             if (!Directory.Exists(directoryPath))
             {
@@ -134,6 +149,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             }
 
             var totalScanned = 0;
+            var totalSkipped = 0;
             var totalProcessed = 0;
             var totalIngested = 0;
             var totalFailed = 0;
@@ -148,16 +164,17 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                 // Process batch when full
                 if (currentBatch.Count >= _options.BatchSize)
                 {
-                    var (processed, ingested, failed) = await ProcessAndIngestBatchAsync(
+                    var (processed, ingested, failed, skipped) = await ProcessAndIngestBatchAsync(
                         directoryId, currentBatch, cancellationToken);
 
                     totalProcessed += processed;
                     totalIngested += ingested;
                     totalFailed += failed;
+                    totalSkipped += skipped;
 
                     _logger.LogInformation(
-                        "Progress: {Scanned} scanned, {Ingested} ingested so far in {Path}",
-                        totalScanned, totalIngested, directoryPath);
+                        "Progress: {Scanned} scanned, {Skipped} unchanged, {Ingested} ingested so far in {Path}",
+                        totalScanned, totalSkipped, totalIngested, directoryPath);
 
                     currentBatch.Clear();
                 }
@@ -166,21 +183,26 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             // Process remaining files in last batch
             if (currentBatch.Count > 0)
             {
-                var (processed, ingested, failed) = await ProcessAndIngestBatchAsync(
+                var (processed, ingested, failed, skipped) = await ProcessAndIngestBatchAsync(
                     directoryId, currentBatch, cancellationToken);
 
                 totalProcessed += processed;
                 totalIngested += ingested;
                 totalFailed += failed;
+                totalSkipped += skipped;
             }
 
             await _apiClient.UpdateLastScannedAsync(directoryId, cancellationToken);
 
+            // Mark this directory as fully scanned in the current session
+            _scanSession.MarkDirectoryScanned(directoryPath);
+
             _logger.LogInformation(
-                "Completed indexing for directory {Path}: {Scanned} scanned, {Processed} processed, {Ingested} ingested, {Failed} failed",
-                directoryPath, totalScanned, totalProcessed, totalIngested, totalFailed);
+                "Completed indexing for directory {Path}: {Scanned} scanned, {Skipped} unchanged, {Processed} processed, {Ingested} ingested, {Failed} failed (session: {SessionId})",
+                directoryPath, totalScanned, totalSkipped, totalProcessed, totalIngested, totalFailed, _scanSession.SessionId);
 
             activity?.SetTag("files.scanned", totalScanned);
+            activity?.SetTag("files.skipped", totalSkipped);
             activity?.SetTag("files.processed", totalProcessed);
             activity?.SetTag("files.ingested", totalIngested);
             activity?.SetTag("files.failed", totalFailed);
@@ -195,10 +217,72 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         }
     }
 
-    private async Task<(int processed, int ingested, int failed)> ProcessAndIngestBatchAsync(
+    private async Task<(int processed, int ingested, int failed, int skipped)> ProcessAndIngestBatchAsync(
         Guid directoryId, List<ScannedFile> batch, CancellationToken cancellationToken)
     {
-        var filePaths = batch.Select(f => f.FullPath).ToList();
+        // Filter out files already processed in this session
+        var sessionFilteredBatch = batch.Where(f => !_scanSession.IsFileProcessed(f.FullPath)).ToList();
+        var sessionSkipped = batch.Count - sessionFilteredBatch.Count;
+
+        if (sessionSkipped > 0)
+        {
+            _logger.LogDebug("Skipping {Count} files already processed in session {SessionId}",
+                sessionSkipped, _scanSession.SessionId);
+        }
+
+        if (sessionFilteredBatch.Count == 0)
+        {
+            return (0, 0, 0, batch.Count);
+        }
+
+        // First, check which files need reindexing (skip unchanged files)
+        var checkRequest = new CheckFilesNeedReindexRequest
+        {
+            DirectoryId = directoryId,
+            Files = sessionFilteredBatch.Select(f => new FileModificationInfo
+            {
+                FilePath = f.FullPath,
+                ModifiedAt = f.LastModifiedUtc
+            }).ToList()
+        };
+
+        IReadOnlyList<FileNeedsReindexDto> reindexStatus;
+        try
+        {
+            reindexStatus = await _apiClient.CheckFilesNeedReindexAsync(checkRequest, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // If the API call fails, fall back to processing all files
+            _logger.LogWarning(ex, "Failed to check reindex status, processing all files in batch");
+            reindexStatus = sessionFilteredBatch.Select(f => new FileNeedsReindexDto
+            {
+                FilePath = f.FullPath,
+                LastModifiedAt = f.LastModifiedUtc,
+                NeedsReindex = true
+            }).ToList();
+        }
+
+        var filesToReindex = new HashSet<string>(
+            reindexStatus.Where(r => r.NeedsReindex).Select(r => r.FilePath));
+
+        var skippedCount = sessionSkipped + (sessionFilteredBatch.Count - filesToReindex.Count);
+
+        if (skippedCount > 0)
+        {
+            _logger.LogDebug("Skipping {Count} unchanged files in batch", skippedCount);
+        }
+
+        // Filter batch to only include files that need reindexing
+        var filteredBatch = sessionFilteredBatch.Where(f => filesToReindex.Contains(f.FullPath)).ToList();
+
+        if (filteredBatch.Count == 0)
+        {
+            _logger.LogDebug("All files in batch are unchanged, skipping processing");
+            return (0, 0, 0, skippedCount);
+        }
+
+        var filePaths = filteredBatch.Select(f => f.FullPath).ToList();
 
         // Compute hashes for batch (already parallel)
         var hashResults = new ConcurrentDictionary<string, HashResult>();
@@ -207,18 +291,22 @@ public class IndexingOrchestrator : IIndexingOrchestrator
             hashResults[hashResult.FilePath] = hashResult;
         }
 
-        var filesToProcess = batch
+        var filesToProcess = filteredBatch
             .Where(f => hashResults.TryGetValue(f.FullPath, out var hr) && hr.Success)
             .ToList();
 
         // In distributed mode, upload file content for each file
         if (_isDistributedMode)
         {
-            return await ProcessAndIngestDistributedAsync(directoryId, filesToProcess, hashResults, cancellationToken);
+            var (processed, ingested, failed) = await ProcessAndIngestDistributedAsync(directoryId, filesToProcess, hashResults, cancellationToken);
+            return (processed, ingested, failed, skippedCount);
         }
 
         // Local processing mode: extract metadata/thumbnails locally
-        return await ProcessAndIngestLocalAsync(directoryId, filesToProcess, hashResults, cancellationToken);
+        {
+            var (processed, ingested, failed) = await ProcessAndIngestLocalAsync(directoryId, filesToProcess, hashResults, cancellationToken);
+            return (processed, ingested, failed, skippedCount);
+        }
     }
 
     private async Task<(int processed, int ingested, int failed)> ProcessAndIngestDistributedAsync(
@@ -267,6 +355,7 @@ public class IndexingOrchestrator : IIndexingOrchestrator
                 if (result.Success)
                 {
                     Interlocked.Increment(ref ingested);
+                    _scanSession.MarkFileProcessed(scannedFile.FullPath);
                     _logger.LogDebug("Uploaded file {Path} for distributed processing", scannedFile.FullPath);
                 }
                 else
@@ -288,7 +377,8 @@ public class IndexingOrchestrator : IIndexingOrchestrator
 
         await Task.WhenAll(tasks);
 
-        _logger.LogInformation("Distributed upload completed: {Ingested} succeeded, {Failed} failed", ingested, failed);
+        _logger.LogInformation("Distributed upload completed: {Ingested} succeeded, {Failed} failed (session files: {SessionFiles})",
+            ingested, failed, _scanSession.ProcessedFileCount);
         return (filesToProcess.Count, ingested, failed);
     }
 
@@ -377,6 +467,13 @@ public class IndexingOrchestrator : IIndexingOrchestrator
         try
         {
             var response = await _apiClient.BatchIngestFilesAsync(request, cancellationToken);
+
+            // Mark successfully processed files in session
+            foreach (var file in processedFiles)
+            {
+                _scanSession.MarkFileProcessed(file.ScannedFile.FullPath);
+            }
+
             return (processedFiles.Count, response.Succeeded, response.Failed);
         }
         catch (Exception ex)
