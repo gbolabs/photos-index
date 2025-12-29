@@ -16,6 +16,7 @@ public class PhotosDbContext : DbContext
     public DbSet<CleanerJob> CleanerJobs { get; set; }
     public DbSet<CleanerJobFile> CleanerJobFiles { get; set; }
     public DbSet<HiddenFolder> HiddenFolders { get; set; }
+    public DbSet<SelectionSession> SelectionSessions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -102,6 +103,29 @@ public class PhotosDbContext : DbContext
             // Indexes
             entity.HasIndex(e => e.Hash);
             entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ReviewOrder);
+            entity.HasIndex(e => e.ReviewSessionId);
+
+            // Relationship with SelectionSession
+            entity.HasOne(e => e.ReviewSession)
+                .WithMany(s => s.ReviewedGroups)
+                .HasForeignKey(e => e.ReviewSessionId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configure SelectionSession entity
+        modelBuilder.Entity<SelectionSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue("active");
+
+            // Indexes
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // Configure SelectionPreference entity

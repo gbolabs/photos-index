@@ -15,12 +15,21 @@ public class DuplicateGroup
     public DateTime CreatedAt { get; set; }
 
     // Validation fields for batch processing
-    public string Status { get; set; } = "pending"; // pending, auto-selected, conflict, validated, cleaned
+    public string Status { get; set; } = "pending"; // pending, proposed, auto-selected, conflict, validated, cleaned
 
     public DateTime? ValidatedAt { get; set; }
 
     public Guid? KeptFileId { get; set; }
 
-    // Navigation property
+    // Keyboard review session fields
+    public DateTime? LastReviewedAt { get; set; }
+
+    public int? ReviewOrder { get; set; }
+
+    public Guid? ReviewSessionId { get; set; }
+
+    // Navigation properties
     public ICollection<IndexedFile> Files { get; set; } = new List<IndexedFile>();
+
+    public SelectionSession? ReviewSession { get; set; }
 }

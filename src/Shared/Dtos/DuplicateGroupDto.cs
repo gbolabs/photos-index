@@ -19,4 +19,9 @@ public record DuplicateGroupDto
     public string Status { get; init; } = "pending";
     public DateTime? ValidatedAt { get; init; }
     public Guid? KeptFileId { get; init; }
+
+    // Review session fields
+    public DateTime? LastReviewedAt { get; init; }
+    public int? ReviewOrder { get; init; }
+    public Guid? ReviewSessionId { get; init; }
 }

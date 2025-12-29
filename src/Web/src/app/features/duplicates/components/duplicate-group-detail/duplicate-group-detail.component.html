@@ -66,6 +66,20 @@
       </mat-card-content>
     </mat-card>
   } @else if (group()) {
+    <!-- Keyboard Shortcuts Bar -->
+    @if (keyboardMode()) {
+      <div class="shortcuts-bar">
+        <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> Files</span>
+        <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> Groups</span>
+        <span><kbd>Space</kbd> Select</span>
+        <span><kbd>Enter</kbd> Apply Pattern</span>
+        <span><kbd>A</kbd> Auto</span>
+        <span><kbd>S</kbd> Skip</span>
+        <span><kbd>U</kbd> Undo</span>
+        <span><kbd>?</kbd> Help</span>
+      </div>
+    }
+
     <!-- Action Toolbar -->
     <div class="action-toolbar">
       <button
@@ -140,14 +154,20 @@
 
     <!-- Files Grid -->
     <div class="files-grid">
-      @for (file of files(); track file.id) {
+      @for (file of files(); track file.id; let i = $index) {
         <mat-card
           class="file-card"
           [class.selected]="isFileSelected(file)"
           [class.original]="isOriginal(file)"
           [class.in-comparison]="isInComparison(file)"
+          [class.keyboard-focused]="isFocused(i)"
           (click)="selectFile(file)"
         >
+          <!-- Position number for keyboard selection -->
+          @if (keyboardMode() && i < 9) {
+            <div class="keyboard-hint">{{ i + 1 }}</div>
+          }
+
           @if (isOriginal(file)) {
             <div class="original-badge">
               <mat-icon>star</mat-icon>

@@ -103,6 +103,31 @@
   }
 }
 
+// Keyboard shortcuts bar
+.shortcuts-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: rgba(0, 0, 0, 0.7);
+
+  kbd {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    font-family: monospace;
+    font-size: 0.75rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+    margin-right: 0.15rem;
+  }
+}
+
 .action-toolbar {
   display: flex;
   gap: 1rem;
@@ -211,6 +236,28 @@
   &.in-comparison {
     outline: 2px dashed #ff9800;
     outline-offset: 2px;
+  }
+
+  &.keyboard-focused {
+    outline: 3px solid #ff9800;
+    outline-offset: 2px;
+    box-shadow: 0 0 20px rgba(255, 152, 0, 0.3);
+  }
+
+  .keyboard-hint {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: monospace;
+    z-index: 2;
+    min-width: 20px;
+    text-align: center;
   }
 
   .original-badge {
