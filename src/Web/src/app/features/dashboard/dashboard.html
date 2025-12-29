@@ -127,27 +127,98 @@
       </div>
     }
 
-    <!-- Version Info -->
-    @if (versionInfo()) {
-      <div class="version-info">
+    <!-- System Versions -->
+    @if (systemVersions()) {
+      <div class="system-versions">
         <mat-divider></mat-divider>
-        <div class="version-details">
-          <span class="version-badge">
-            <mat-icon>info</mat-icon>
-            v{{ versionInfo()?.version }}
-          </span>
-          <span class="version-meta">
-            {{ versionInfo()?.commitHash }}
-            @if (versionInfo()?.branch && versionInfo()?.branch !== 'local') {
-              ({{ versionInfo()?.branch }})
+        <h2>Service Versions</h2>
+        <div class="versions-grid">
+          <!-- API Service -->
+          <div class="version-item" [class.available]="systemVersions()?.api?.isAvailable" [class.unavailable]="!systemVersions()?.api?.isAvailable">
+            <div class="service-header">
+              <mat-icon>api</mat-icon>
+              <span class="service-name">API</span>
+              <span class="version-badge">v{{ systemVersions()?.api?.version }}</span>
+            </div>
+            <div class="service-details">
+              @if (systemVersions()?.api?.commitHash) {
+                <span class="detail">{{ systemVersions()?.api?.commitHash }}</span>
+              }
+              @if (systemVersions()?.api?.uptime) {
+                <span class="detail">Uptime: {{ systemVersions()?.api?.uptime }}</span>
+              }
+            </div>
+          </div>
+
+          <!-- Indexers -->
+          @if (systemVersions()?.indexers && systemVersions()!.indexers.length > 0) {
+            @for (indexer of systemVersions()!.indexers; track indexer.instanceId) {
+              <div class="version-item" [class.available]="indexer.isAvailable" [class.unavailable]="!indexer.isAvailable">
+                <div class="service-header">
+                  <mat-icon>memory</mat-icon>
+                  <span class="service-name">Indexer</span>
+                  <span class="version-badge">v{{ indexer.version }}</span>
+                </div>
+                <div class="service-details">
+                  @if (indexer.instanceId) {
+                    <span class="detail instance-id">{{ indexer.instanceId.substring(0, 8) }}</span>
+                  }
+                  @if (indexer.commitHash) {
+                    <span class="detail">{{ indexer.commitHash }}</span>
+                  }
+                  @if (indexer.uptime) {
+                    <span class="detail">Uptime: {{ indexer.uptime }}</span>
+                  }
+                </div>
+              </div>
             }
-          </span>
-          <span class="version-meta">
-            {{ versionInfo()?.environment }}
-          </span>
-          <span class="version-meta uptime">
-            Uptime: {{ versionInfo()?.uptime }}
-          </span>
+          } @else {
+            <div class="version-item unavailable">
+              <div class="service-header">
+                <mat-icon>memory</mat-icon>
+                <span class="service-name">Indexer</span>
+                <span class="status-badge">Disconnected</span>
+              </div>
+            </div>
+          }
+
+          <!-- Web App (future) -->
+          @if (systemVersions()?.web) {
+            <div class="version-item" [class.available]="systemVersions()?.web?.isAvailable">
+              <div class="service-header">
+                <mat-icon>web</mat-icon>
+                <span class="service-name">Web</span>
+                <span class="version-badge">v{{ systemVersions()?.web?.version }}</span>
+              </div>
+              <div class="service-details">
+                @if (systemVersions()?.web?.commitHash) {
+                  <span class="detail">{{ systemVersions()?.web?.commitHash }}</span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Thumbnail Service (future) -->
+          @if (systemVersions()?.thumbnailService) {
+            <div class="version-item" [class.available]="systemVersions()?.thumbnailService?.isAvailable">
+              <div class="service-header">
+                <mat-icon>image</mat-icon>
+                <span class="service-name">Thumbnails</span>
+                <span class="version-badge">v{{ systemVersions()?.thumbnailService?.version }}</span>
+              </div>
+            </div>
+          }
+
+          <!-- Metadata Service (future) -->
+          @if (systemVersions()?.metadataService) {
+            <div class="version-item" [class.available]="systemVersions()?.metadataService?.isAvailable">
+              <div class="service-header">
+                <mat-icon>description</mat-icon>
+                <span class="service-name">Metadata</span>
+                <span class="version-badge">v{{ systemVersions()?.metadataService?.version }}</span>
+              </div>
+            </div>
+          }
         </div>
       </div>
     }
