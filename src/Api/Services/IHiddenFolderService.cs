@@ -41,4 +41,26 @@ public interface IHiddenFolderService
     /// Gets the count of hidden files.
     /// </summary>
     Task<int> GetHiddenCountAsync(CancellationToken ct);
+
+    // Size rule methods
+
+    /// <summary>
+    /// Gets all size rules with affected file counts.
+    /// </summary>
+    Task<IReadOnlyList<HiddenSizeRuleDto>> GetAllSizeRulesAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Previews files that would be hidden by a size rule without applying it.
+    /// </summary>
+    Task<SizeRulePreviewDto> PreviewSizeRuleAsync(int maxWidth, int maxHeight, CancellationToken ct);
+
+    /// <summary>
+    /// Creates a size rule and hides matching files.
+    /// </summary>
+    Task<HiddenSizeRuleDto> CreateSizeRuleAsync(CreateHiddenSizeRuleRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes a size rule and unhides files hidden by it.
+    /// </summary>
+    Task<bool> DeleteSizeRuleAsync(Guid id, CancellationToken ct);
 }

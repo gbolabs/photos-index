@@ -12,6 +12,7 @@ import { ScanDirectoryDto, CreateScanDirectoryRequest, UpdateScanDirectoryReques
 import { DirectoryListComponent } from './components/directory-list/directory-list.component';
 import { DirectoryFormDialogComponent, DirectoryFormDialogData } from './components/directory-form-dialog/directory-form-dialog.component';
 import { ConfirmDialogComponent, ConfirmDialogData } from './components/confirm-dialog/confirm-dialog.component';
+import { HiddenFoldersComponent } from './components/hidden-folders/hidden-folders.component';
 
 @Component({
   selector: 'app-settings',
@@ -25,6 +26,7 @@ import { ConfirmDialogComponent, ConfirmDialogData } from './components/confirm-
     MatDialogModule,
     MatTooltipModule,
     DirectoryListComponent,
+    HiddenFoldersComponent,
   ],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',

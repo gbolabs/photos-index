@@ -71,8 +71,12 @@ public class IndexedFile
 
     public Guid? HiddenByFolderId { get; set; }
 
+    public Guid? HiddenBySizeRuleId { get; set; }
+
     // Navigation properties
     public DuplicateGroup? DuplicateGroup { get; set; }
 
     public HiddenFolder? HiddenByFolder { get; set; }
+
+    public HiddenSizeRule? HiddenBySizeRule { get; set; }
 }

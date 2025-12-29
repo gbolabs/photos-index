@@ -13,5 +13,10 @@ public enum HiddenCategory
     /// <summary>
     /// Hidden due to folder path rule.
     /// </summary>
-    FolderRule
+    FolderRule,
+
+    /// <summary>
+    /// Hidden due to size rule (small images like icons).
+    /// </summary>
+    SizeRule
 }
