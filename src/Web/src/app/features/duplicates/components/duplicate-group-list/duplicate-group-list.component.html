@@ -11,16 +11,8 @@
       <button mat-button color="primary" (click)="loadGroups()">Retry</button>
     </mat-card-content>
   </mat-card>
-} @else if (groups().length === 0) {
-  <mat-card class="empty-card">
-    <mat-card-content>
-      <mat-icon>check_circle</mat-icon>
-      <h3>No Duplicates Found</h3>
-      <p>Your photo collection has no duplicate files.</p>
-    </mat-card-content>
-  </mat-card>
 } @else {
-  <!-- Filter Bar -->
+  <!-- Filter Bar - always visible when not loading/error -->
   <div class="filter-bar">
     <mat-form-field appearance="outline" class="status-filter">
       <mat-label>Status</mat-label>
@@ -33,7 +25,22 @@
     <span class="result-count">{{ totalItems() }} groups</span>
   </div>
 
-  <div class="table-container">
+  @if (groups().length === 0) {
+    <mat-card class="empty-card">
+      <mat-card-content>
+        @if (statusFilter()) {
+          <mat-icon>filter_list_off</mat-icon>
+          <h3>No Matching Groups</h3>
+          <p>No duplicate groups match the selected filter. Try changing the status filter.</p>
+        } @else {
+          <mat-icon>check_circle</mat-icon>
+          <h3>No Duplicates Found</h3>
+          <p>Your photo collection has no duplicate files.</p>
+        }
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <div class="table-container">
     <table mat-table [dataSource]="groups()" matSort (matSortChange)="onSortChange($event)">
       <!-- Checkbox Column -->
       <ng-container matColumnDef="select">
@@ -165,4 +172,5 @@
     showFirstLastButtons
   >
   </mat-paginator>
+  }
 }
