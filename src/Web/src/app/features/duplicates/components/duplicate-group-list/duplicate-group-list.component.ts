@@ -16,9 +16,15 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { DuplicateService } from '../../../../services/duplicate.service';
 import { DuplicateGroupDto, PagedResponse } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
+
+type SortColumn = 'fileCount' | 'totalSize' | 'potentialSavings' | 'status';
+type SortDirection = 'asc' | 'desc' | '';
 
 @Component({
   selector: 'app-duplicate-group-list',
@@ -34,6 +40,9 @@ import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
     MatChipsModule,
     MatTooltipModule,
     MatCheckboxModule,
+    MatSortModule,
+    MatSelectModule,
+    MatFormFieldModule,
     FileSizePipe,
   ],
   templateUrl: './duplicate-group-list.component.html',
@@ -52,6 +61,20 @@ export class DuplicateGroupListComponent implements OnInit {
   // Pagination
   pageIndex = 0;
   pageSize = 20;
+
+  // Sorting
+  sortColumn = signal<SortColumn>('totalSize');
+  sortDirection = signal<SortDirection>('desc');
+
+  // Filtering
+  statusFilter = signal<string>('');
+  statusOptions = [
+    { value: '', label: 'All Status' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'proposed', label: 'Proposed' },
+    { value: 'auto-selected', label: 'Auto-selected' },
+    { value: 'validated', label: 'Validated' },
+  ];
 
   // Table columns
   displayedColumns = [
@@ -89,9 +112,12 @@ export class DuplicateGroupListComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.duplicateService.getAll(this.pageIndex + 1, this.pageSize).subscribe({
+    const status = this.statusFilter() || undefined;
+    this.duplicateService.getAll(this.pageIndex + 1, this.pageSize, status).subscribe({
       next: (response: PagedResponse<DuplicateGroupDto>) => {
-        this.groups.set(response.items);
+        // Apply client-side sorting since API doesn't support sort params
+        const sortedItems = this.sortGroups(response.items);
+        this.groups.set(sortedItems);
         this.totalItems.set(response.totalItems);
         this.loading.set(false);
       },
@@ -111,7 +137,16 @@ export class DuplicateGroupListComponent implements OnInit {
   }
 
   getThumbnailUrl(group: DuplicateGroupDto, index: number = 0): string {
-    // Get thumbnail URL for a specific file in the group
+    // In list view, files array is empty for performance.
+    // Use firstFileThumbnailPath or construct from group hash (all files share the same hash)
+    if (group.firstFileThumbnailPath) {
+      return `/thumbnails/${group.firstFileThumbnailPath}`;
+    }
+    // All files in a duplicate group have the same hash, so we can use it for thumbnails
+    if (group.hash) {
+      return `/thumbnails/thumbs/${group.hash}.jpg`;
+    }
+    // If files are loaded (e.g., from detail view), use them
     if (group.files && group.files.length > index) {
       const file = group.files[index];
       return this.duplicateService.getThumbnailUrl(file.id, file.thumbnailPath, file.fileHash);
@@ -120,7 +155,8 @@ export class DuplicateGroupListComponent implements OnInit {
   }
 
   hasMultipleFiles(group: DuplicateGroupDto): boolean {
-    return group.files && group.files.length >= 2;
+    // Use fileCount since files array is empty in list view
+    return group.fileCount >= 2;
   }
 
   isResolved(group: DuplicateGroupDto): boolean {
@@ -166,5 +202,65 @@ export class DuplicateGroupListComponent implements OnInit {
         console.error('Failed to auto-select original:', err);
       },
     });
+  }
+
+  onSortChange(sort: Sort): void {
+    if (!sort.active || !sort.direction) {
+      // Reset to default sort
+      this.sortColumn.set('totalSize');
+      this.sortDirection.set('desc');
+    } else {
+      this.sortColumn.set(sort.active as SortColumn);
+      this.sortDirection.set(sort.direction as SortDirection);
+    }
+
+    // Re-sort current data
+    const sortedGroups = this.sortGroups(this.groups());
+    this.groups.set(sortedGroups);
+  }
+
+  onFilterChange(status: string): void {
+    this.statusFilter.set(status);
+    this.pageIndex = 0; // Reset to first page
+    this.selectedGroupIds.set(new Set());
+    this.loadGroups();
+  }
+
+  private sortGroups(groups: DuplicateGroupDto[]): DuplicateGroupDto[] {
+    const column = this.sortColumn();
+    const direction = this.sortDirection();
+
+    if (!direction) {
+      return groups;
+    }
+
+    const multiplier = direction === 'asc' ? 1 : -1;
+
+    return [...groups].sort((a, b) => {
+      let comparison = 0;
+
+      switch (column) {
+        case 'fileCount':
+          comparison = a.fileCount - b.fileCount;
+          break;
+        case 'totalSize':
+          comparison = a.totalSize - b.totalSize;
+          break;
+        case 'potentialSavings':
+          comparison = a.potentialSavings - b.potentialSavings;
+          break;
+        case 'status':
+          comparison = (a.status || '').localeCompare(b.status || '');
+          break;
+      }
+
+      return comparison * multiplier;
+    });
+  }
+
+  getStatusLabel(status: string | null): string {
+    if (!status) return 'Pending';
+    const option = this.statusOptions.find(o => o.value === status);
+    return option?.label || status.charAt(0).toUpperCase() + status.slice(1);
   }
 }

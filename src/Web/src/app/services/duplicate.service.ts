@@ -116,6 +116,44 @@ export class DuplicateService {
   }
 
   /**
+   * Queues non-original files for deletion for multiple groups.
+   * Returns total files queued across all groups.
+   */
+  deleteNonOriginalsForGroups(groupIds: string[]): Observable<{ totalFilesQueued: number; groupsProcessed: number }> {
+    // Process groups sequentially to avoid overwhelming the API
+    return new Observable((observer) => {
+      let totalFilesQueued = 0;
+      let groupsProcessed = 0;
+      let index = 0;
+
+      const processNext = () => {
+        if (index >= groupIds.length) {
+          observer.next({ totalFilesQueued, groupsProcessed });
+          observer.complete();
+          return;
+        }
+
+        this.deleteNonOriginals(groupIds[index]).subscribe({
+          next: (result) => {
+            totalFilesQueued += result.filesQueued;
+            groupsProcessed++;
+            index++;
+            processNext();
+          },
+          error: (err) => {
+            console.warn(`Failed to queue deletion for group ${groupIds[index]}:`, err);
+            // Continue with next group even if one fails
+            index++;
+            processNext();
+          },
+        });
+      };
+
+      processNext();
+    });
+  }
+
+  /**
    * Gets the thumbnail URL for a file.
    * Priority:
    * 1. If thumbnailPath exists, use direct MinIO URL via Traefik
