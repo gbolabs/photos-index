@@ -38,7 +38,8 @@ describe('GalleryComponent', () => {
     shutterSpeed: null,
     lastError: null,
     retryCount: 0,
-    isHidden: false
+    isHidden: false,
+    isDeleted: false
   };
 
   const mockPagedResponse: PagedResponse<IndexedFileDto> = {

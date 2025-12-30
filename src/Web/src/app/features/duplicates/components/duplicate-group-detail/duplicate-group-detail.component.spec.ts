@@ -2,16 +2,28 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { signal } from '@angular/core';
 import { DuplicateGroupDetailComponent } from './duplicate-group-detail.component';
 import { DuplicateService } from '../../../../services/duplicate.service';
+import { CleanerSignalRService, DeleteFileResult } from '../../../../services/cleaner-signalr.service';
 import { DuplicateGroupDto, IndexedFileDto } from '../../../../models';
 
 describe('DuplicateGroupDetailComponent', () => {
   let component: DuplicateGroupDetailComponent;
   let fixture: ComponentFixture<DuplicateGroupDetailComponent>;
   let duplicateService: DuplicateService;
+
+  // Mock CleanerSignalRService
+  const mockCleanerSignalRService = {
+    connected: signal(false),
+    deleteComplete$: new Subject<DeleteFileResult>(),
+    jobComplete$: new Subject<{ jobId: string; succeeded: number; failed: number; skipped: number }>(),
+    cleanerConnected$: new Subject<{ cleanerId: string; hostname: string }>(),
+    cleanerDisconnected$: new Subject<string>(),
+    cleanerStatus$: new Subject<any>(),
+    deleteProgress$: new Subject<{ jobId: string; fileId: string; status: string }>(),
+  };
 
   const mockFile1: IndexedFileDto = {
     id: 'file-1',
@@ -38,6 +50,7 @@ describe('DuplicateGroupDetailComponent', () => {
     lastError: null,
     retryCount: 0,
     isHidden: false,
+    isDeleted: false,
   };
 
   const mockFile2: IndexedFileDto = {
@@ -65,6 +78,7 @@ describe('DuplicateGroupDetailComponent', () => {
     lastError: null,
     retryCount: 0,
     isHidden: false,
+    isDeleted: false,
   };
 
   const mockGroup: DuplicateGroupDto = {
@@ -91,6 +105,7 @@ describe('DuplicateGroupDetailComponent', () => {
       imports: [DuplicateGroupDetailComponent],
       providers: [
         DuplicateService,
+        { provide: CleanerSignalRService, useValue: mockCleanerSignalRService },
         provideHttpClient(),
         provideHttpClientTesting(),
         provideNoopAnimations(),

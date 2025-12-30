@@ -1,9 +1,23 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { Subject } from 'rxjs';
+import { signal } from '@angular/core';
 import { Duplicates } from './duplicates';
 import { DuplicateService } from '../../services/duplicate.service';
+import { CleanerSignalRService, DeleteFileResult } from '../../services/cleaner-signalr.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+
+// Mock CleanerSignalRService
+const mockCleanerSignalRService = {
+  connected: signal(false),
+  deleteComplete$: new Subject<DeleteFileResult>(),
+  jobComplete$: new Subject<{ jobId: string; succeeded: number; failed: number; skipped: number }>(),
+  cleanerConnected$: new Subject<{ cleanerId: string; hostname: string }>(),
+  cleanerDisconnected$: new Subject<string>(),
+  cleanerStatus$: new Subject<any>(),
+  deleteProgress$: new Subject<{ jobId: string; fileId: string; status: string }>(),
+};
 
 describe('Duplicates', () => {
   let component: Duplicates;
@@ -14,6 +28,7 @@ describe('Duplicates', () => {
       imports: [Duplicates],
       providers: [
         DuplicateService,
+        { provide: CleanerSignalRService, useValue: mockCleanerSignalRService },
         provideHttpClient(),
         provideHttpClientTesting(),
         {

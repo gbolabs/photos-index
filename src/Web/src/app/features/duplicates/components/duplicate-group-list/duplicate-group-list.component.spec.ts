@@ -44,6 +44,7 @@ describe('DuplicateGroupListComponent', () => {
     lastError: null,
     retryCount: 0,
     isHidden: false,
+    isDeleted: false,
   };
 
   const mockGroup1: DuplicateGroupDto = {

@@ -31,7 +31,8 @@ describe('GalleryTileComponent', () => {
     shutterSpeed: null,
     lastError: null,
     retryCount: 0,
-    isHidden: false
+    isHidden: false,
+    isDeleted: false
   };
 
   beforeEach(async () => {
