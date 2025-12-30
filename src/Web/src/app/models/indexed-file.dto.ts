@@ -29,6 +29,11 @@ export interface IndexedFileDto {
   isHidden: boolean;
   hiddenCategory?: 'Manual' | 'FolderRule';
   hiddenAt?: string;
+
+  // Deletion/Archive status
+  isDeleted: boolean;
+  deletedAt?: string;
+  archivePath?: string;
 }
 
 /**

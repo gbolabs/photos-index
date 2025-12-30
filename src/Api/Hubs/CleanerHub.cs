@@ -94,11 +94,42 @@ public class CleanerHub : Hub<ICleanerClient>
 
     /// <summary>
     /// Called by CleanerService when a file delete completes.
+    /// Updates the database and notifies UI clients.
     /// </summary>
     public async Task ReportDeleteComplete(DeleteFileResult result)
     {
-        _logger.LogInformation("Delete complete: Job={JobId}, File={FileId}, Success={Success}",
-            result.JobId, result.FileId, result.Success);
+        _logger.LogInformation("Delete complete: Job={JobId}, File={FileId}, Success={Success}, DryRun={DryRun}",
+            result.JobId, result.FileId, result.Success, result.WasDryRun);
+
+        // Update file status in database (only if not dry run and successful)
+        if (result.Success && !result.WasDryRun)
+        {
+            try
+            {
+                var scopeFactory = Context.GetHttpContext()?.RequestServices.GetService<IServiceScopeFactory>();
+                if (scopeFactory != null)
+                {
+                    using var scope = scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<Database.PhotosDbContext>();
+
+                    var file = await db.IndexedFiles.FindAsync(result.FileId);
+                    if (file != null)
+                    {
+                        file.IsDeleted = true;
+                        file.DeletedAt = DateTime.UtcNow;
+                        file.ArchivePath = result.ArchivePath;
+                        await db.SaveChangesAsync();
+                        _logger.LogInformation("Updated file {FileId} as deleted with archive path {ArchivePath}",
+                            result.FileId, result.ArchivePath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update file {FileId} deletion status", result.FileId);
+            }
+        }
+
         await Clients.Group("ui").DeleteComplete(result);
     }
 

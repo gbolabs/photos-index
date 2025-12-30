@@ -119,7 +119,11 @@ public class DuplicateService : IDuplicateService
                 GpsLongitude = f.GpsLongitude,
                 Iso = f.Iso,
                 Aperture = f.Aperture,
-                ShutterSpeed = f.ShutterSpeed
+                ShutterSpeed = f.ShutterSpeed,
+                // Deletion/Archive status
+                IsDeleted = f.IsDeleted,
+                DeletedAt = f.DeletedAt,
+                ArchivePath = f.ArchivePath
             }).ToList()
         };
     }
