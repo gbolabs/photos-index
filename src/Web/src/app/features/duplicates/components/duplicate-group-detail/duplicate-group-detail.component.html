@@ -101,6 +101,19 @@
           Delete Duplicates
         </button>
       }
+      <button
+        mat-stroked-button
+        (click)="refreshMetadata()"
+        [disabled]="reprocessing()"
+        matTooltip="Re-extract EXIF metadata (Date Taken, camera info, GPS) for all files in this group"
+      >
+        @if (reprocessing()) {
+          <mat-spinner diameter="18"></mat-spinner>
+        } @else {
+          <mat-icon>refresh</mat-icon>
+        }
+        Refresh Metadata
+      </button>
       @if (comparisonMode()) {
         <button mat-button (click)="clearComparison()">
           <mat-icon>close</mat-icon>

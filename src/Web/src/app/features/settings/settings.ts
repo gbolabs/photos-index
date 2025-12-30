@@ -8,6 +8,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../core/api.service';
+import { ReprocessService } from '../../services/reprocess.service';
 import { ScanDirectoryDto, CreateScanDirectoryRequest, UpdateScanDirectoryRequest } from '../../core/models';
 import { DirectoryListComponent } from './components/directory-list/directory-list.component';
 import { DirectoryFormDialogComponent, DirectoryFormDialogData } from './components/directory-form-dialog/directory-form-dialog.component';
@@ -33,6 +34,7 @@ import { HiddenFoldersComponent } from './components/hidden-folders/hidden-folde
 })
 export class Settings implements OnInit {
   private apiService = inject(ApiService);
+  private reprocessService = inject(ReprocessService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private destroyRef = inject(DestroyRef);
@@ -168,5 +170,43 @@ export class Settings implements OnInit {
   onRefresh(): void {
     this.loadDirectories();
     this.snackBar.open('Directories refreshed', 'Close', { duration: 2000 });
+  }
+
+  onRefreshMetadata(directory: ScanDirectoryDto): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '450px',
+      data: {
+        title: 'Refresh Metadata',
+        message: `Re-extract EXIF metadata (Date Taken, camera info, GPS) for all ${directory.fileCount} files in "${directory.path}"?\n\nThis may take a while for large directories.`,
+        confirmText: 'Refresh',
+        cancelText: 'Cancel',
+      } as ConfirmDialogData,
+    });
+
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed: boolean) => {
+        if (confirmed) {
+          this.reprocessService.reprocessDirectory(directory.id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: (result) => {
+                if (result.success) {
+                  this.snackBar.open(
+                    `Queued ${result.queuedCount} files for metadata refresh`,
+                    'Close',
+                    { duration: 5000 }
+                  );
+                } else {
+                  this.snackBar.open(result.error || 'Failed to queue refresh', 'Close', { duration: 5000 });
+                }
+              },
+              error: (error) => {
+                console.error('Error refreshing metadata:', error);
+                this.snackBar.open('Failed to refresh metadata', 'Close', { duration: 5000 });
+              },
+            });
+        }
+      });
   }
 }

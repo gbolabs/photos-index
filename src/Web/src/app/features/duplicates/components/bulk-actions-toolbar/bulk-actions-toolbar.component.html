@@ -58,7 +58,7 @@
         mat-raised-button
         color="warn"
         (click)="deleteSelectedDuplicates()"
-        [disabled]="loading() || scanning() || deleting()"
+        [disabled]="loading() || scanning() || deleting() || refreshingMetadata()"
         matTooltip="Delete duplicates from selected groups"
       >
         @if (deleting()) {
@@ -67,6 +67,19 @@
           <mat-icon>delete_sweep</mat-icon>
         }
         Delete Selected
+      </button>
+      <button
+        mat-stroked-button
+        (click)="refreshSelectedMetadata()"
+        [disabled]="loading() || scanning() || deleting() || refreshingMetadata()"
+        matTooltip="Re-extract EXIF metadata (Date Taken, camera info, GPS) for files in selected groups"
+      >
+        @if (refreshingMetadata()) {
+          <mat-spinner diameter="20"></mat-spinner>
+        } @else {
+          <mat-icon>refresh</mat-icon>
+        }
+        Refresh Metadata
       </button>
     }
 

@@ -28,6 +28,7 @@ export class DirectoryListComponent {
   edit = output<ScanDirectoryDto>();
   delete = output<ScanDirectoryDto>();
   toggle = output<ScanDirectoryDto>();
+  refreshMetadata = output<ScanDirectoryDto>();
 
   displayedColumns: string[] = ['path', 'status', 'fileCount', 'lastScanned', 'actions'];
 
@@ -41,6 +42,10 @@ export class DirectoryListComponent {
 
   onToggle(directory: ScanDirectoryDto): void {
     this.toggle.emit(directory);
+  }
+
+  onRefreshMetadata(directory: ScanDirectoryDto): void {
+    this.refreshMetadata.emit(directory);
   }
 
   formatDate(dateString: string | null): string {

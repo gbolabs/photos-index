@@ -55,6 +55,14 @@
           </button>
           <button
             mat-icon-button
+            (click)="onRefreshMetadata(directory)"
+            [disabled]="loading()"
+            matTooltip="Refresh EXIF metadata for all files"
+          >
+            <mat-icon>refresh</mat-icon>
+          </button>
+          <button
+            mat-icon-button
             color="primary"
             (click)="onEdit(directory)"
             [disabled]="loading()"

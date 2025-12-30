@@ -175,6 +175,28 @@ export class ReprocessService {
     return this.http.post<ReprocessResult>(`/api/reprocess/filter/${filter}${params}`, {});
   }
 
+  /**
+   * Reprocess all files in a duplicate group to refresh metadata
+   */
+  reprocessDuplicateGroup(groupId: string): Observable<ReprocessResult> {
+    return this.http.post<ReprocessResult>(`/api/reprocess/duplicate-group/${groupId}`, {});
+  }
+
+  /**
+   * Reprocess files in multiple duplicate groups
+   */
+  reprocessDuplicateGroups(groupIds: string[]): Observable<ReprocessResult> {
+    return this.http.post<ReprocessResult>('/api/reprocess/duplicate-groups', { groupIds });
+  }
+
+  /**
+   * Reprocess all files in a directory
+   */
+  reprocessDirectory(directoryId: string, limit?: number): Observable<ReprocessResult> {
+    const params = limit ? `?limit=${limit}` : '';
+    return this.http.post<ReprocessResult>(`/api/reprocess/directory/${directoryId}${params}`, {});
+  }
+
   clearProgress(fileId?: string): void {
     if (fileId) {
       const progress = this.progressSubject.value;
