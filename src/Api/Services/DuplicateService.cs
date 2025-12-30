@@ -103,7 +103,16 @@ public class DuplicateService : IDuplicateService
                 DuplicateGroupId = f.DuplicateGroupId,
                 IsHidden = f.IsHidden,
                 HiddenCategory = f.HiddenCategory?.ToString(),
-                HiddenAt = f.HiddenAt
+                HiddenAt = f.HiddenAt,
+                // EXIF metadata fields
+                DateTaken = f.DateTaken,
+                CameraMake = f.CameraMake,
+                CameraModel = f.CameraModel,
+                GpsLatitude = f.GpsLatitude,
+                GpsLongitude = f.GpsLongitude,
+                Iso = f.Iso,
+                Aperture = f.Aperture,
+                ShutterSpeed = f.ShutterSpeed
             }).ToList()
         };
     }
