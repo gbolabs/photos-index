@@ -17,6 +17,27 @@
   background-color: rgba(0, 0, 0, 0.04);
 }
 
+.drawer-sidenav {
+  display: flex;
+  flex-direction: column;
+}
+
+mat-nav-list {
+  flex: 1;
+}
+
+.sidenav-footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  text-align: center;
+
+  .version-text {
+    font-size: 11px;
+    color: rgba(0, 0, 0, 0.54);
+    font-family: monospace;
+  }
+}
+
 // Mobile responsive adjustments
 @media (max-width: 768px) {
   .drawer-container {

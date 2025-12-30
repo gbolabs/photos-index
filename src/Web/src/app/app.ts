@@ -6,6 +6,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { VersionService } from './services/version.service';
 
 @Component({
   selector: 'app-root',
@@ -24,13 +25,15 @@ import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 })
 export class App implements OnInit, OnDestroy {
   title = 'Photos Index';
-  
+
   @ViewChild('drawer') drawer!: MatDrawer;
-  
+
   private breakpointObserver = inject(BreakpointObserver);
+  private versionService = inject(VersionService);
   private breakpointSubscription?: any;
-  
+
   isMobile = false;
+  appVersion = this.versionService.getDisplayVersion();
   
   ngOnInit(): void {
     // Observe breakpoint changes to switch between mobile and desktop layouts
