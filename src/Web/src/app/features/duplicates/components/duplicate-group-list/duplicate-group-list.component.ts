@@ -165,6 +165,30 @@ export class DuplicateGroupListComponent implements OnInit {
     return group.resolvedAt !== null && group.originalFileId !== null;
   }
 
+  getStatusIcon(status: string | null): string {
+    switch (status) {
+      case 'Pending': return 'hourglass_empty';
+      case 'AutoSelected': return 'auto_fix_high';
+      case 'Validated': return 'check_circle';
+      case 'Cleaning': return 'cleaning_services';
+      case 'CleaningFailed': return 'error';
+      case 'Cleaned': return 'delete_forever';
+      default: return 'hourglass_empty';
+    }
+  }
+
+  getStatusClass(status: string | null): string {
+    switch (status) {
+      case 'Pending': return 'status-pending';
+      case 'AutoSelected': return 'status-auto-selected';
+      case 'Validated': return 'status-validated';
+      case 'Cleaning': return 'status-cleaning';
+      case 'CleaningFailed': return 'status-failed';
+      case 'Cleaned': return 'status-cleaned';
+      default: return 'status-pending';
+    }
+  }
+
   viewGroup(group: DuplicateGroupDto): void {
     this.groupSelected.emit(group);
   }
