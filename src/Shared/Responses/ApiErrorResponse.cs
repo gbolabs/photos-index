@@ -38,4 +38,11 @@ public record ApiErrorResponse
         Code = "INTERNAL_ERROR",
         TraceId = traceId
     };
+
+    public static ApiErrorResponse ServiceUnavailable(string message, string? traceId = null) => new()
+    {
+        Message = message,
+        Code = "SERVICE_UNAVAILABLE",
+        TraceId = traceId
+    };
 }

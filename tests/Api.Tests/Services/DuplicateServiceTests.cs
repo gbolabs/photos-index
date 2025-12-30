@@ -1,10 +1,13 @@
+using Api.Hubs;
 using Api.Services;
 using Database;
 using Database.Entities;
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Shared.Dtos;
 using Shared.Requests;
 using Xunit;
 
@@ -13,6 +16,7 @@ namespace Api.Tests.Services;
 public class DuplicateServiceTests : IDisposable
 {
     private readonly PhotosDbContext _dbContext;
+    private readonly Mock<IHubContext<CleanerHub, ICleanerClient>> _mockCleanerHub;
     private readonly Mock<ILogger<DuplicateService>> _mockLogger;
     private readonly DuplicateService _service;
 
@@ -23,8 +27,9 @@ public class DuplicateServiceTests : IDisposable
             .Options;
 
         _dbContext = new PhotosDbContext(options);
+        _mockCleanerHub = new Mock<IHubContext<CleanerHub, ICleanerClient>>();
         _mockLogger = new Mock<ILogger<DuplicateService>>();
-        _service = new DuplicateService(_dbContext, _mockLogger.Object);
+        _service = new DuplicateService(_dbContext, _mockCleanerHub.Object, _mockLogger.Object);
     }
 
     public void Dispose()
