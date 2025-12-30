@@ -103,8 +103,9 @@ public class PhotosDbContext : DbContext
 
             entity.Property(e => e.Status)
                 .IsRequired()
+                .HasConversion<string>()
                 .HasMaxLength(20)
-                .HasDefaultValue("pending");
+                .HasDefaultValue(Enums.DuplicateGroupStatus.Pending);
 
             // Indexes
             entity.HasIndex(e => e.Hash);

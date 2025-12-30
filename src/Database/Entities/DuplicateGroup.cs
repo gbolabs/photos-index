@@ -1,3 +1,5 @@
+using Database.Enums;
+
 namespace Database.Entities;
 
 public class DuplicateGroup
@@ -14,12 +16,30 @@ public class DuplicateGroup
 
     public DateTime CreatedAt { get; set; }
 
-    // Validation fields for batch processing
-    public string Status { get; set; } = "pending"; // pending, proposed, auto-selected, conflict, validated, cleaned
+    /// <summary>
+    /// Current workflow status. See ADR-014 for status definitions.
+    /// </summary>
+    public DuplicateGroupStatus Status { get; set; } = DuplicateGroupStatus.Pending;
 
+    /// <summary>
+    /// When the group was validated (status changed to Validated).
+    /// </summary>
     public DateTime? ValidatedAt { get; set; }
 
+    /// <summary>
+    /// ID of the file chosen to be kept (the original).
+    /// </summary>
     public Guid? KeptFileId { get; set; }
+
+    /// <summary>
+    /// When the cleaning job started processing this group.
+    /// </summary>
+    public DateTime? CleaningStartedAt { get; set; }
+
+    /// <summary>
+    /// When the cleaning job completed (success or failure).
+    /// </summary>
+    public DateTime? CleaningCompletedAt { get; set; }
 
     // Keyboard review session fields
     public DateTime? LastReviewedAt { get; set; }

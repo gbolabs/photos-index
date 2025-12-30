@@ -70,10 +70,12 @@ export class DuplicateGroupListComponent implements OnInit {
   statusFilter = signal<string>('');
   statusOptions = [
     { value: '', label: 'All Status' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'proposed', label: 'Proposed' },
-    { value: 'auto-selected', label: 'Auto-selected' },
-    { value: 'validated', label: 'Validated' },
+    { value: 'Pending', label: 'Pending' },
+    { value: 'AutoSelected', label: 'Auto-selected' },
+    { value: 'Validated', label: 'Validated' },
+    { value: 'Cleaning', label: 'Cleaning' },
+    { value: 'CleaningFailed', label: 'Failed' },
+    { value: 'Cleaned', label: 'Cleaned' },
   ];
 
   // Table columns

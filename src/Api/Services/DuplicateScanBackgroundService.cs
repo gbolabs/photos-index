@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Database;
+using Database.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using Api.Hubs;
@@ -158,7 +159,7 @@ public class DuplicateScanBackgroundService : BackgroundService
                     Hash = hash,
                     FileCount = files.Count,
                     TotalSize = files.Sum(f => f.FileSize),
-                    Status = "pending",
+                    Status = DuplicateGroupStatus.Pending,
                     CreatedAt = DateTime.UtcNow
                 };
                 dbContext.DuplicateGroups.Add(group);

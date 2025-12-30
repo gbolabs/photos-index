@@ -1,5 +1,6 @@
 using Database;
 using Database.Entities;
+using Database.Enums;
 using Microsoft.EntityFrameworkCore;
 using Shared.Dtos;
 using Shared.Requests;
@@ -133,7 +134,7 @@ public class OriginalSelectionService : IOriginalSelectionService
 
         if (request.Scope == "pending")
         {
-            query = query.Where(g => g.Status == "pending" || g.Status == "conflict");
+            query = query.Where(g => g.Status == DuplicateGroupStatus.Pending);
         }
 
         var groups = await query.ToListAsync(ct);
@@ -172,7 +173,7 @@ public class OriginalSelectionService : IOriginalSelectionService
 
                 group.Status = result.Status;
 
-                if (result.Status == "conflict")
+                if (result.SelectedFile == null)
                 {
                     conflicts++;
                 }
@@ -213,10 +214,10 @@ public class OriginalSelectionService : IOriginalSelectionService
     private SelectionResult SelectOriginalWithScoring(List<IndexedFile> files, SelectionConfigDto config)
     {
         if (files.Count == 0)
-            return new SelectionResult(null, "pending");
+            return new SelectionResult(null, DuplicateGroupStatus.Pending);
 
         if (files.Count == 1)
-            return new SelectionResult(files[0], "auto-selected");
+            return new SelectionResult(files[0], DuplicateGroupStatus.AutoSelected);
 
         var scores = files
             .Select(f => new { File = f, Score = CalculateScore(f, config) })
@@ -229,10 +230,10 @@ public class OriginalSelectionService : IOriginalSelectionService
         // If scores are too close, mark as conflict (needs manual selection)
         if (topScore - runnerUpScore < config.ConflictThreshold)
         {
-            return new SelectionResult(null, "conflict");
+            return new SelectionResult(null, DuplicateGroupStatus.Pending);
         }
 
-        return new SelectionResult(scores[0].File, "auto-selected");
+        return new SelectionResult(scores[0].File, DuplicateGroupStatus.AutoSelected);
     }
 
     private int CalculateScore(IndexedFile file, SelectionConfigDto config)
@@ -279,7 +280,7 @@ public class OriginalSelectionService : IOriginalSelectionService
         return score;
     }
 
-    private static DuplicateGroupDto CreateGroupDto(DuplicateGroup group, Guid? selectedFileId, string status)
+    private static DuplicateGroupDto CreateGroupDto(DuplicateGroup group, Guid? selectedFileId, DuplicateGroupStatus status)
     {
         return new DuplicateGroupDto
         {
@@ -290,7 +291,7 @@ public class OriginalSelectionService : IOriginalSelectionService
             ResolvedAt = group.ResolvedAt,
             CreatedAt = group.CreatedAt,
             OriginalFileId = selectedFileId,
-            Status = status,
+            Status = status.ToString(),
             ValidatedAt = group.ValidatedAt,
             KeptFileId = selectedFileId,
             Files = group.Files.Select(f => new IndexedFileDto
@@ -312,5 +313,5 @@ public class OriginalSelectionService : IOriginalSelectionService
         };
     }
 
-    private record SelectionResult(IndexedFile? SelectedFile, string Status);
+    private record SelectionResult(IndexedFile? SelectedFile, DuplicateGroupStatus Status);
 }

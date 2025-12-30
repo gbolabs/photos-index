@@ -2,6 +2,7 @@ using Api.Hubs;
 using Api.Services;
 using Database;
 using Database.Entities;
+using Database.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var validatedGroup = new DuplicateGroup
@@ -59,7 +60,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 3,
             TotalSize = 3000,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -71,7 +72,7 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         result.Items.Should().HaveCount(1);
-        result.Items.First().Status.Should().Be("pending");
+        result.Items.First().Status.Should().Be("Pending");
         result.TotalItems.Should().Be(1);
     }
 
@@ -85,7 +86,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var validatedGroup = new DuplicateGroup
@@ -94,7 +95,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 3,
             TotalSize = 3000,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -121,7 +122,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             ValidatedAt = validatedAt,
             KeptFileId = keptFileId,
             CreatedAt = DateTime.UtcNow
@@ -135,7 +136,7 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         var dto = result.Items.First();
-        dto.Status.Should().Be("validated");
+        dto.Status.Should().Be("Validated");
         dto.ValidatedAt.Should().BeCloseTo(validatedAt, TimeSpan.FromSeconds(1));
         dto.KeptFileId.Should().Be(keptFileId);
     }
@@ -154,7 +155,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -163,7 +164,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 3,
             TotalSize = 3000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group3 = new DuplicateGroup
@@ -172,7 +173,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash3",
             FileCount = 2,
             TotalSize = 1500,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -191,7 +192,7 @@ public class DuplicateServiceTests : IDisposable
         count.Should().Be(2);
 
         var validated = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "validated")
+            .Where(g => g.Status == DuplicateGroupStatus.Validated)
             .ToListAsync();
 
         validated.Should().HaveCount(2);
@@ -200,7 +201,7 @@ public class DuplicateServiceTests : IDisposable
         validated.All(g => g.ValidatedAt.HasValue).Should().BeTrue();
 
         var stillPending = await _dbContext.DuplicateGroups.FindAsync(group3.Id);
-        stillPending!.Status.Should().Be("pending");
+        stillPending!.Status.Should().Be(DuplicateGroupStatus.Pending);
     }
 
     [Fact]
@@ -213,7 +214,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -247,7 +248,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -278,7 +279,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -344,7 +345,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = $"hash{i}",
             FileCount = 2,
             TotalSize = 1000 * i, // Different sizes for ordering
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         }).ToList();
 
@@ -364,7 +365,7 @@ public class DuplicateServiceTests : IDisposable
         result.Remaining.Should().Be(5);
 
         var validated = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "validated")
+            .Where(g => g.Status == DuplicateGroupStatus.Validated)
             .ToListAsync();
 
         validated.Should().HaveCount(5);
@@ -380,7 +381,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 1000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -389,7 +390,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 5000, // Largest
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group3 = new DuplicateGroup
@@ -398,7 +399,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash3",
             FileCount = 2,
             TotalSize = 3000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -415,7 +416,7 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         var validated = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "validated")
+            .Where(g => g.Status == DuplicateGroupStatus.Validated)
             .OrderByDescending(g => g.TotalSize)
             .ToListAsync();
 
@@ -434,7 +435,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = $"pending{i}",
             FileCount = 2,
             TotalSize = 1000 * i,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         }).ToList();
 
@@ -444,7 +445,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = $"auto{i}",
             FileCount = 2,
             TotalSize = 2000 * i,
-            Status = "auto-selected",
+            Status = DuplicateGroupStatus.AutoSelected,
             CreatedAt = DateTime.UtcNow
         }).ToList();
 
@@ -466,14 +467,14 @@ public class DuplicateServiceTests : IDisposable
         result.Remaining.Should().Be(2); // 5 pending - 3 validated = 2 remaining
 
         var validated = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "validated")
+            .Where(g => g.Status == DuplicateGroupStatus.Validated)
             .ToListAsync();
 
         validated.Should().HaveCount(3);
         validated.All(g => pendingGroups.Select(p => p.Id).Contains(g.Id)).Should().BeTrue();
 
         var stillAutoSelected = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "auto-selected")
+            .Where(g => g.Status == DuplicateGroupStatus.AutoSelected)
             .ToListAsync();
 
         stillAutoSelected.Should().HaveCount(3);
@@ -489,7 +490,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = $"hash{i}",
             FileCount = 2,
             TotalSize = 1000 * i,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         }).ToList();
 
@@ -536,7 +537,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = $"hash{i}",
             FileCount = 2,
             TotalSize = 1000 * i,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         }).ToList();
 
@@ -554,7 +555,7 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         var validated = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "validated")
+            .Where(g => g.Status == DuplicateGroupStatus.Validated)
             .ToListAsync();
 
         validated.All(g => g.ValidatedAt.HasValue).Should().BeTrue();
@@ -575,7 +576,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             ValidatedAt = DateTime.UtcNow.AddHours(-1),
             KeptFileId = Guid.NewGuid(),
             CreatedAt = DateTime.UtcNow
@@ -596,7 +597,7 @@ public class DuplicateServiceTests : IDisposable
         count.Should().Be(1);
 
         var updated = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        updated!.Status.Should().Be("pending");
+        updated!.Status.Should().Be(DuplicateGroupStatus.Pending);
         updated.ValidatedAt.Should().BeNull();
         updated.KeptFileId.Should().BeNull();
     }
@@ -611,7 +612,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = $"hash{i}",
             FileCount = 2,
             TotalSize = 1000 * i,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             ValidatedAt = DateTime.UtcNow.AddHours(-1),
             KeptFileId = Guid.NewGuid(),
             CreatedAt = DateTime.UtcNow
@@ -632,7 +633,7 @@ public class DuplicateServiceTests : IDisposable
         count.Should().Be(3);
 
         var pending = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "pending")
+            .Where(g => g.Status == DuplicateGroupStatus.Pending)
             .ToListAsync();
 
         pending.Should().HaveCount(3);
@@ -640,7 +641,7 @@ public class DuplicateServiceTests : IDisposable
         pending.All(g => !g.KeptFileId.HasValue).Should().BeTrue();
 
         var stillValidated = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "validated")
+            .Where(g => g.Status == DuplicateGroupStatus.Validated)
             .ToListAsync();
 
         stillValidated.Should().HaveCount(2);
@@ -690,7 +691,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             ValidatedAt = validatedAt,
             KeptFileId = keptFileId,
             CreatedAt = DateTime.UtcNow
@@ -709,7 +710,7 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         var updated = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        updated!.Status.Should().Be("pending");
+        updated!.Status.Should().Be(DuplicateGroupStatus.Pending);
         updated.ValidatedAt.Should().BeNull();
         updated.KeptFileId.Should().BeNull();
     }
@@ -728,7 +729,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             ValidatedAt = null,
             KeptFileId = null,
             CreatedAt = DateTime.UtcNow
@@ -747,7 +748,7 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         var validated = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        validated!.Status.Should().Be("validated");
+        validated!.Status.Should().Be(DuplicateGroupStatus.Validated);
         validated.ValidatedAt.Should().NotBeNull();
         validated.KeptFileId.Should().NotBeNull();
     }
@@ -762,7 +763,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             ValidatedAt = DateTime.UtcNow.AddHours(-1),
             KeptFileId = Guid.NewGuid(),
             CreatedAt = DateTime.UtcNow
@@ -780,7 +781,7 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         var pending = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        pending!.Status.Should().Be("pending");
+        pending!.Status.Should().Be(DuplicateGroupStatus.Pending);
         pending.ValidatedAt.Should().BeNull();
         pending.KeptFileId.Should().BeNull();
     }
@@ -795,7 +796,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -813,7 +814,7 @@ public class DuplicateServiceTests : IDisposable
         await _service.ValidateDuplicatesAsync(validateRequest, CancellationToken.None);
 
         var afterValidation = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        afterValidation!.Status.Should().Be("validated");
+        afterValidation!.Status.Should().Be(DuplicateGroupStatus.Validated);
         afterValidation.ValidatedAt.Should().NotBeNull();
         afterValidation.KeptFileId.Should().Be(keptFileId);
 
@@ -825,7 +826,7 @@ public class DuplicateServiceTests : IDisposable
         await _service.UndoValidationAsync(undoRequest, CancellationToken.None);
 
         var afterUndo = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        afterUndo!.Status.Should().Be("pending");
+        afterUndo!.Status.Should().Be(DuplicateGroupStatus.Pending);
         afterUndo.ValidatedAt.Should().BeNull();
         afterUndo.KeptFileId.Should().BeNull();
 
@@ -837,7 +838,7 @@ public class DuplicateServiceTests : IDisposable
         await _service.ValidateDuplicatesAsync(revalidateRequest, CancellationToken.None);
 
         var afterRevalidation = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        afterRevalidation!.Status.Should().Be("validated");
+        afterRevalidation!.Status.Should().Be(DuplicateGroupStatus.Validated);
         afterRevalidation.ValidatedAt.Should().NotBeNull();
         afterRevalidation.KeptFileId.Should().BeNull(); // Not provided in second validation
     }
@@ -866,7 +867,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 3,
             TotalSize = 3000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -915,7 +916,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -924,7 +925,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group3 = new DuplicateGroup
@@ -933,7 +934,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash3",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1028,7 +1029,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 3,
             TotalSize = 3000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1083,7 +1084,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -1092,7 +1093,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1176,9 +1177,9 @@ public class DuplicateServiceTests : IDisposable
         // Verify groups are auto-selected with kept file set
         var updatedGroup1 = await _dbContext.DuplicateGroups.FindAsync(group1.Id);
         var updatedGroup2 = await _dbContext.DuplicateGroups.FindAsync(group2.Id);
-        updatedGroup1!.Status.Should().Be("auto-selected");
+        updatedGroup1!.Status.Should().Be(DuplicateGroupStatus.AutoSelected);
         updatedGroup1.KeptFileId.Should().Be(file1a.Id);
-        updatedGroup2!.Status.Should().Be("auto-selected");
+        updatedGroup2!.Status.Should().Be(DuplicateGroupStatus.AutoSelected);
         updatedGroup2.KeptFileId.Should().Be(file2a.Id);
     }
 
@@ -1192,7 +1193,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1246,7 +1247,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow.AddMinutes(-10)
         };
         var group2 = new DuplicateGroup
@@ -1255,7 +1256,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow.AddMinutes(-5) // Created later
         };
 
@@ -1334,7 +1335,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 1000, // Smallest
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -1343,7 +1344,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000, // Middle
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group3 = new DuplicateGroup
@@ -1352,7 +1353,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash3",
             FileCount = 2,
             TotalSize = 3000, // Largest
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1379,7 +1380,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 1000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -1388,7 +1389,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000, // Largest - first in order
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1415,7 +1416,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 1000, // Smallest - last in order
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -1424,7 +1425,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1451,7 +1452,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 1000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var pendingGroup2 = new DuplicateGroup
@@ -1460,7 +1461,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var validatedGroup = new DuplicateGroup
@@ -1469,7 +1470,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash3",
             FileCount = 2,
             TotalSize = 3000, // Largest but validated
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1496,7 +1497,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 1000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1527,7 +1528,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1668,7 +1669,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1712,7 +1713,7 @@ public class DuplicateServiceTests : IDisposable
         updatedFile2!.IsDuplicate.Should().BeTrue();
 
         var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        updatedGroup!.Status.Should().Be("proposed");
+        updatedGroup!.Status.Should().Be(DuplicateGroupStatus.AutoSelected);
         updatedGroup.KeptFileId.Should().Be(file1.Id);
     }
 
@@ -1726,7 +1727,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "proposed",
+            Status = DuplicateGroupStatus.AutoSelected,
             KeptFileId = Guid.NewGuid(),
             CreatedAt = DateTime.UtcNow
         };
@@ -1742,7 +1743,7 @@ public class DuplicateServiceTests : IDisposable
         result.Message.Should().Be("Group validated");
 
         var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        updatedGroup!.Status.Should().Be("validated");
+        updatedGroup!.Status.Should().Be(DuplicateGroupStatus.Validated);
         updatedGroup.ValidatedAt.Should().NotBeNull();
     }
 
@@ -1756,7 +1757,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             KeptFileId = null,
             CreatedAt = DateTime.UtcNow
         };
@@ -1782,7 +1783,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
         var group2 = new DuplicateGroup
@@ -1791,7 +1792,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 1000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -1807,7 +1808,7 @@ public class DuplicateServiceTests : IDisposable
 
         var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group1.Id);
         updatedGroup!.LastReviewedAt.Should().NotBeNull();
-        updatedGroup.Status.Should().Be("pending"); // Status unchanged
+        updatedGroup.Status.Should().Be(DuplicateGroupStatus.Pending); // Status unchanged
     }
 
     [Fact]
@@ -1820,7 +1821,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "proposed",
+            Status = DuplicateGroupStatus.AutoSelected,
             KeptFileId = Guid.NewGuid(),
             CreatedAt = DateTime.UtcNow
         };
@@ -1859,10 +1860,10 @@ public class DuplicateServiceTests : IDisposable
 
         // Assert
         result.Success.Should().BeTrue();
-        result.Message.Should().Contain("Reverted from proposed to pending");
+        result.Message.Should().Contain("Reverted from AutoSelected to pending");
 
         var updatedGroup = await _dbContext.DuplicateGroups.FindAsync(group.Id);
-        updatedGroup!.Status.Should().Be("pending");
+        updatedGroup!.Status.Should().Be(DuplicateGroupStatus.Pending);
         updatedGroup.KeptFileId.Should().BeNull();
         updatedGroup.ValidatedAt.Should().BeNull();
     }
@@ -1888,7 +1889,7 @@ public class DuplicateServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 

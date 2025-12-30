@@ -1,5 +1,6 @@
 using Database;
 using Database.Entities;
+using Database.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Shared.Dtos;
@@ -483,7 +484,7 @@ public class IndexedFileService : IIndexedFileService
                     Hash = hash,
                     FileCount = files.Count,
                     TotalSize = files.Sum(f => f.FileSize),
-                    Status = "pending",
+                    Status = DuplicateGroupStatus.Pending,
                     CreatedAt = DateTime.UtcNow
                 };
                 _dbContext.DuplicateGroups.Add(group);

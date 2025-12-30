@@ -1,5 +1,6 @@
 using Api.Hubs;
 using Database;
+using Database.Enums;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Shared.Dtos;
@@ -31,10 +32,11 @@ public class DuplicateService : IDuplicateService
     {
         var query = _dbContext.DuplicateGroups.AsNoTracking();
 
-        // Apply status filter if provided
-        if (!string.IsNullOrWhiteSpace(statusFilter))
+        // Apply status filter if provided (parse string to enum)
+        if (!string.IsNullOrWhiteSpace(statusFilter) &&
+            Enum.TryParse<DuplicateGroupStatus>(statusFilter, ignoreCase: true, out var status))
         {
-            query = query.Where(g => g.Status == statusFilter);
+            query = query.Where(g => g.Status == status);
         }
 
         var totalItems = await query.CountAsync(ct);
@@ -54,7 +56,7 @@ public class DuplicateService : IDuplicateService
                 OriginalFileId = g.Files.Where(f => !f.IsDuplicate).Select(f => (Guid?)f.Id).FirstOrDefault(),
                 Files = new List<IndexedFileDto>(), // Don't load files in list view
                 FirstFileThumbnailPath = g.Files.Where(f => !f.IsHidden).Select(f => f.ThumbnailPath).FirstOrDefault(),
-                Status = g.Status,
+                Status = g.Status.ToString(),
                 ValidatedAt = g.ValidatedAt,
                 KeptFileId = g.KeptFileId
             })
@@ -88,7 +90,7 @@ public class DuplicateService : IDuplicateService
             ResolvedAt = group.ResolvedAt,
             CreatedAt = group.CreatedAt,
             OriginalFileId = group.Files.FirstOrDefault(f => !f.IsDuplicate)?.Id,
-            Status = group.Status,
+            Status = group.Status.ToString(),
             ValidatedAt = group.ValidatedAt,
             KeptFileId = group.KeptFileId,
             Files = group.Files
@@ -386,7 +388,7 @@ public class DuplicateService : IDuplicateService
                 group.KeptFileId = keptFileId;
             }
 
-            group.Status = "validated";
+            group.Status = DuplicateGroupStatus.Validated;
             group.ValidatedAt = DateTime.UtcNow;
             count++;
         }
@@ -400,8 +402,12 @@ public class DuplicateService : IDuplicateService
 
     public async Task<ValidateBatchResponse> ValidateBatchAsync(ValidateBatchRequest request, CancellationToken ct)
     {
-        // Default to "pending" if no filter provided
-        var statusFilter = string.IsNullOrWhiteSpace(request.StatusFilter) ? "pending" : request.StatusFilter;
+        // Default to Pending if no filter provided or invalid
+        var statusFilter = DuplicateGroupStatus.Pending;
+        if (!string.IsNullOrWhiteSpace(request.StatusFilter))
+        {
+            Enum.TryParse<DuplicateGroupStatus>(request.StatusFilter, ignoreCase: true, out statusFilter);
+        }
 
         var query = _dbContext.DuplicateGroups
             .Include(g => g.Files)
@@ -423,7 +429,7 @@ public class DuplicateService : IDuplicateService
                 group.KeptFileId = keptFile.Id;
             }
 
-            group.Status = "validated";
+            group.Status = DuplicateGroupStatus.Validated;
             group.ValidatedAt = DateTime.UtcNow;
             validated++;
         }
@@ -454,7 +460,7 @@ public class DuplicateService : IDuplicateService
         foreach (var group in groups)
         {
             // Reset all validation fields
-            group.Status = "pending";
+            group.Status = DuplicateGroupStatus.Pending;
             group.ValidatedAt = null;
             group.KeptFileId = null;
             count++;
@@ -530,7 +536,7 @@ public class DuplicateService : IDuplicateService
                     Hash = hash,
                     FileCount = files.Count,
                     TotalSize = files.Sum(f => f.FileSize),
-                    Status = "pending",
+                    Status = DuplicateGroupStatus.Pending,
                     CreatedAt = DateTime.UtcNow
                 };
                 _dbContext.DuplicateGroups.Add(group);
@@ -675,7 +681,7 @@ public class DuplicateService : IDuplicateService
             }
 
             group.KeptFileId = selectedFile.Id;
-            group.Status = "auto-selected";
+            group.Status = DuplicateGroupStatus.AutoSelected;
             updated++;
         }
 
@@ -706,7 +712,7 @@ public class DuplicateService : IDuplicateService
         var groups = await _dbContext.DuplicateGroups
             .AsNoTracking()
             .Include(g => g.Files)
-            .Where(g => g.Status != "cleaned")
+            .Where(g => g.Status != DuplicateGroupStatus.Cleaned)
             .ToListAsync(ct);
 
         return groups
@@ -729,7 +735,7 @@ public class DuplicateService : IDuplicateService
         var groups = await _dbContext.DuplicateGroups
             .AsNoTracking()
             .Include(g => g.Files)
-            .Where(g => g.Status == "pending" || g.Status == "conflict")
+            .Where(g => g.Status == DuplicateGroupStatus.Pending)
             .OrderBy(g => g.CreatedAt)
             .ToListAsync(ct);
 
@@ -766,9 +772,9 @@ public class DuplicateService : IDuplicateService
         var query = _dbContext.DuplicateGroups.AsNoTracking();
 
         // Apply status filter if provided
-        if (!string.IsNullOrWhiteSpace(statusFilter))
+        if (!string.IsNullOrWhiteSpace(statusFilter) && Enum.TryParse<DuplicateGroupStatus>(statusFilter, ignoreCase: true, out var status))
         {
-            query = query.Where(g => g.Status == statusFilter);
+            query = query.Where(g => g.Status == status);
         }
 
         // Get ordered list of group IDs (same ordering as GetGroupsAsync)
@@ -827,10 +833,10 @@ public class DuplicateService : IDuplicateService
 
         // Create new session
         var totalGroups = await _dbContext.DuplicateGroups
-            .CountAsync(g => g.Status == "pending" || g.Status == "proposed", ct);
+            .CountAsync(g => g.Status == DuplicateGroupStatus.Pending || g.Status == DuplicateGroupStatus.AutoSelected, ct);
 
         var firstGroup = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "pending" || g.Status == "proposed")
+            .Where(g => g.Status == DuplicateGroupStatus.Pending || g.Status == DuplicateGroupStatus.AutoSelected)
             .OrderByDescending(g => g.TotalSize)
             .Select(g => g.Id)
             .FirstOrDefaultAsync(ct);
@@ -902,7 +908,7 @@ public class DuplicateService : IDuplicateService
         targetFile.IsDuplicate = false;
 
         // Update group status to "proposed"
-        group.Status = "proposed";
+        group.Status = DuplicateGroupStatus.AutoSelected;
         group.KeptFileId = fileId;
         group.LastReviewedAt = DateTime.UtcNow;
 
@@ -941,11 +947,11 @@ public class DuplicateService : IDuplicateService
         if (group is null)
             return new ReviewActionResultDto { Success = false, Message = "Group not found" };
 
-        if (group.Status != "proposed" && group.KeptFileId is null)
+        if (group.Status != DuplicateGroupStatus.AutoSelected && group.KeptFileId is null)
             return new ReviewActionResultDto { Success = false, Message = "Group has no proposed original" };
 
         // Update status to validated
-        group.Status = "validated";
+        group.Status = DuplicateGroupStatus.Validated;
         group.ValidatedAt = DateTime.UtcNow;
         group.LastReviewedAt = DateTime.UtcNow;
 
@@ -1030,7 +1036,7 @@ public class DuplicateService : IDuplicateService
 
         // Reset group to pending state
         var previousStatus = group.Status;
-        group.Status = "pending";
+        group.Status = DuplicateGroupStatus.Pending;
         group.KeptFileId = null;
         group.ValidatedAt = null;
         group.LastReviewedAt = DateTime.UtcNow;
@@ -1054,11 +1060,11 @@ public class DuplicateService : IDuplicateService
         if (session != null)
         {
             // Adjust counts based on previous status
-            if (previousStatus == "proposed")
+            if (previousStatus == DuplicateGroupStatus.AutoSelected)
             {
                 session.GroupsProposed = Math.Max(0, session.GroupsProposed - 1);
             }
-            else if (previousStatus == "validated")
+            else if (previousStatus == DuplicateGroupStatus.Validated)
             {
                 session.GroupsValidated = Math.Max(0, session.GroupsValidated - 1);
             }
@@ -1094,7 +1100,7 @@ public class DuplicateService : IDuplicateService
         }
 
         var remaining = await _dbContext.DuplicateGroups
-            .CountAsync(g => g.Status == "pending", ct);
+            .CountAsync(g => g.Status == DuplicateGroupStatus.Pending, ct);
 
         var total = session.TotalGroups > 0 ? session.TotalGroups : 1;
         var processed = session.GroupsProposed + session.GroupsValidated + session.GroupsSkipped;
@@ -1104,7 +1110,7 @@ public class DuplicateService : IDuplicateService
         var nextGroupId = session.CurrentGroupId.HasValue
             ? await GetNextUnreviewedGroupIdAsync(session.CurrentGroupId.Value, ct)
             : await _dbContext.DuplicateGroups
-                .Where(g => g.Status == "pending")
+                .Where(g => g.Status == DuplicateGroupStatus.Pending)
                 .OrderByDescending(g => g.TotalSize)
                 .Select(g => g.Id)
                 .FirstOrDefaultAsync(ct);
@@ -1124,7 +1130,7 @@ public class DuplicateService : IDuplicateService
     {
         // Get ordered list of pending/proposed groups
         var orderedGroupIds = await _dbContext.DuplicateGroups
-            .Where(g => g.Status == "pending" || g.Status == "proposed")
+            .Where(g => g.Status == DuplicateGroupStatus.Pending || g.Status == DuplicateGroupStatus.AutoSelected)
             .OrderByDescending(g => g.TotalSize)
             .Select(g => g.Id)
             .ToListAsync(ct);

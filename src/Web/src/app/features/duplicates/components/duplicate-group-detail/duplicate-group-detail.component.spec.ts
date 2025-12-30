@@ -92,7 +92,7 @@ describe('DuplicateGroupDetailComponent', () => {
     resolvedAt: null,
     createdAt: '2024-01-01T10:00:00Z',
     firstFileThumbnailPath: null,
-    status: 'pending',
+    status: 'Pending',
     validatedAt: null,
     keptFileId: null,
     lastReviewedAt: null,

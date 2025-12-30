@@ -1,6 +1,7 @@
 using Api.Services;
 using Database;
 using Database.Entities;
+using Database.Enums;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -191,7 +192,7 @@ public class OriginalSelectionServiceTests : IDisposable
             Hash = "hash123",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow,
             Files = new List<IndexedFile>
             {
@@ -236,7 +237,7 @@ public class OriginalSelectionServiceTests : IDisposable
             .Include(g => g.Files)
             .FirstAsync();
 
-        updatedGroup.Status.Should().Be("auto-selected");
+        updatedGroup.Status.Should().Be(DuplicateGroupStatus.AutoSelected);
         var original = updatedGroup.Files.FirstOrDefault(f => !f.IsDuplicate);
         original.Should().NotBeNull();
         original!.FilePath.Should().Contain("/photos/"); // Higher priority path
@@ -252,7 +253,7 @@ public class OriginalSelectionServiceTests : IDisposable
             Hash = "hash123",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow,
             Files = new List<IndexedFile>
             {
@@ -293,7 +294,7 @@ public class OriginalSelectionServiceTests : IDisposable
         result.Conflicts.Should().Be(1);
 
         var updatedGroup = await _dbContext.DuplicateGroups.FirstAsync();
-        updatedGroup.Status.Should().Be("conflict");
+        updatedGroup.Status.Should().Be(DuplicateGroupStatus.Pending);
     }
 
     [Fact]
@@ -306,7 +307,7 @@ public class OriginalSelectionServiceTests : IDisposable
             Hash = "hash123",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow,
             Files = new List<IndexedFile>
             {
@@ -351,7 +352,7 @@ public class OriginalSelectionServiceTests : IDisposable
 
         // Original group should be unchanged
         var unchangedGroup = await _dbContext.DuplicateGroups.FirstAsync();
-        unchangedGroup.Status.Should().Be("pending"); // Still pending
+        unchangedGroup.Status.Should().Be(DuplicateGroupStatus.Pending); // Still pending
     }
 
     [Fact]
@@ -364,7 +365,7 @@ public class OriginalSelectionServiceTests : IDisposable
             Hash = "hash1",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "pending",
+            Status = DuplicateGroupStatus.Pending,
             CreatedAt = DateTime.UtcNow,
             Files = new List<IndexedFile>
             {
@@ -399,7 +400,7 @@ public class OriginalSelectionServiceTests : IDisposable
             Hash = "hash2",
             FileCount = 2,
             TotalSize = 2000,
-            Status = "validated",
+            Status = DuplicateGroupStatus.Validated,
             CreatedAt = DateTime.UtcNow,
             Files = new List<IndexedFile>
             {

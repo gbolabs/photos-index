@@ -58,7 +58,7 @@ describe('DuplicateGroupListComponent', () => {
     originalFileId: null,
     files: [],
     firstFileThumbnailPath: 'thumbs/abc123.jpg',
-    status: 'pending',
+    status: 'Pending',
     validatedAt: null,
     keptFileId: null,
     lastReviewedAt: null,
@@ -73,7 +73,7 @@ describe('DuplicateGroupListComponent', () => {
     fileCount: 2,
     totalSize: 2048000,
     potentialSavings: 1024000,
-    status: 'auto-selected',
+    status: 'AutoSelected',
     originalFileId: 'file-2',
   };
 
@@ -84,7 +84,7 @@ describe('DuplicateGroupListComponent', () => {
     fileCount: 4,
     totalSize: 4096000,
     potentialSavings: 3072000,
-    status: 'validated',
+    status: 'Validated',
     resolvedAt: '2024-01-20T10:00:00Z',
     originalFileId: 'file-3',
     validatedAt: '2024-01-20T10:00:00Z',
@@ -159,7 +159,7 @@ describe('DuplicateGroupListComponent', () => {
 
     it('should show filter bar even when no groups match filter', () => {
       mockDuplicateService.getAll.mockReturnValue(of(emptyPagedResponse));
-      component.statusFilter.set('validated');
+      component.statusFilter.set('Validated');
       fixture.detectChanges();
 
       component.loadGroups();
@@ -171,7 +171,7 @@ describe('DuplicateGroupListComponent', () => {
 
     it('should show "No Matching Groups" when filter returns empty results', () => {
       mockDuplicateService.getAll.mockReturnValue(of(emptyPagedResponse));
-      component.statusFilter.set('validated');
+      component.statusFilter.set('Validated');
       fixture.detectChanges();
 
       component.loadGroups();
@@ -204,16 +204,16 @@ describe('DuplicateGroupListComponent', () => {
     it('should pass status filter to service', () => {
       fixture.detectChanges();
 
-      component.onFilterChange('pending');
+      component.onFilterChange('Pending');
 
-      expect(mockDuplicateService.getAll).toHaveBeenCalledWith(1, 20, 'pending');
+      expect(mockDuplicateService.getAll).toHaveBeenCalledWith(1, 20, 'Pending');
     });
 
     it('should reset page index when filter changes', () => {
       fixture.detectChanges();
 
       component.pageIndex = 5;
-      component.onFilterChange('validated');
+      component.onFilterChange('Validated');
 
       expect(component.pageIndex).toBe(0);
     });
@@ -222,16 +222,16 @@ describe('DuplicateGroupListComponent', () => {
       fixture.detectChanges();
 
       component.selectedGroupIds.set(new Set(['group-1', 'group-2']));
-      component.onFilterChange('pending');
+      component.onFilterChange('Pending');
 
       expect(component.selectedGroupIds().size).toBe(0);
     });
 
     it('should have correct status options', () => {
       expect(component.statusOptions).toContainEqual({ value: '', label: 'All Status' });
-      expect(component.statusOptions).toContainEqual({ value: 'pending', label: 'Pending' });
-      expect(component.statusOptions).toContainEqual({ value: 'validated', label: 'Validated' });
-      expect(component.statusOptions).toContainEqual({ value: 'auto-selected', label: 'Auto-selected' });
+      expect(component.statusOptions).toContainEqual({ value: 'Pending', label: 'Pending' });
+      expect(component.statusOptions).toContainEqual({ value: 'Validated', label: 'Validated' });
+      expect(component.statusOptions).toContainEqual({ value: 'AutoSelected', label: 'Auto-selected' });
     });
   });
 
@@ -434,9 +434,9 @@ describe('DuplicateGroupListComponent', () => {
 
   describe('status labels', () => {
     it('should return correct status labels', () => {
-      expect(component.getStatusLabel('pending')).toBe('Pending');
-      expect(component.getStatusLabel('validated')).toBe('Validated');
-      expect(component.getStatusLabel('auto-selected')).toBe('Auto-selected');
+      expect(component.getStatusLabel('Pending')).toBe('Pending');
+      expect(component.getStatusLabel('Validated')).toBe('Validated');
+      expect(component.getStatusLabel('AutoSelected')).toBe('Auto-selected');
       expect(component.getStatusLabel(null)).toBe('Pending');
       expect(component.getStatusLabel('unknown')).toBe('Unknown');
     });
