@@ -10,6 +10,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DuplicateService, DuplicateScanJob } from '../../../../services/duplicate.service';
+import { ReprocessService } from '../../../../services/reprocess.service';
 import { FileStatisticsDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
 import { SelectionPreferencesDialogComponent } from '../selection-preferences-dialog/selection-preferences-dialog.component';
@@ -36,6 +37,7 @@ import { interval, Subscription, takeWhile } from 'rxjs';
 })
 export class BulkActionsToolbarComponent implements OnDestroy {
   private duplicateService = inject(DuplicateService);
+  private reprocessService = inject(ReprocessService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private pollSubscription?: Subscription;
@@ -50,6 +52,7 @@ export class BulkActionsToolbarComponent implements OnDestroy {
   // State
   loading = signal(false);
   deleting = signal(false);
+  refreshingMetadata = signal(false);
   stats = signal<FileStatisticsDto | null>(null);
   scanJob = signal<DuplicateScanJob | null>(null);
   scanning = signal(false);
@@ -199,6 +202,36 @@ export class BulkActionsToolbarComponent implements OnDestroy {
         console.error('Failed to delete duplicates:', err);
         this.deleting.set(false);
         this.snackBar.open('Failed to queue deletions', 'Dismiss', { duration: 3000 });
+      },
+    });
+  }
+
+  refreshSelectedMetadata(): void {
+    const groupIds = this.selectedGroupIds();
+    if (groupIds.length === 0) {
+      this.snackBar.open('Please select groups to refresh metadata', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    this.refreshingMetadata.set(true);
+    this.reprocessService.reprocessDuplicateGroups(groupIds).subscribe({
+      next: (result) => {
+        this.refreshingMetadata.set(false);
+        if (result.success) {
+          this.snackBar.open(
+            `Queued ${result.queuedCount} files for metadata refresh from ${groupIds.length} groups`,
+            'Dismiss',
+            { duration: 5000 }
+          );
+          this.actionCompleted.emit();
+        } else {
+          this.snackBar.open(result.error || 'Failed to queue metadata refresh', 'Dismiss', { duration: 5000 });
+        }
+      },
+      error: (err) => {
+        console.error('Failed to refresh metadata:', err);
+        this.refreshingMetadata.set(false);
+        this.snackBar.open('Failed to queue metadata refresh', 'Dismiss', { duration: 3000 });
       },
     });
   }

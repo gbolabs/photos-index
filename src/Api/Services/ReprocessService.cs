@@ -10,6 +10,9 @@ public interface IReprocessService
     Task<ReprocessResult> ReprocessFileAsync(Guid fileId, CancellationToken ct);
     Task<ReprocessResult> ReprocessFilesAsync(IEnumerable<Guid> fileIds, CancellationToken ct);
     Task<ReprocessResult> ReprocessByFilterAsync(ReprocessFilter filter, int? limit, CancellationToken ct);
+    Task<ReprocessResult> ReprocessDuplicateGroupAsync(Guid groupId, CancellationToken ct);
+    Task<ReprocessResult> ReprocessDuplicateGroupsAsync(IEnumerable<Guid> groupIds, CancellationToken ct);
+    Task<ReprocessResult> ReprocessDirectoryAsync(Guid directoryId, int? limit, CancellationToken ct);
 }
 
 public class ReprocessService : IReprocessService
@@ -120,6 +123,108 @@ public class ReprocessService : IReprocessService
 
         _logger.LogInformation("Sent reprocess command for {Count} files with filter {Filter}",
             files.Count, filter);
+
+        return ReprocessResult.Queued(files.Count);
+    }
+
+    public async Task<ReprocessResult> ReprocessDuplicateGroupAsync(Guid groupId, CancellationToken ct)
+    {
+        var group = await _dbContext.DuplicateGroups
+            .Include(g => g.Files)
+            .FirstOrDefaultAsync(g => g.Id == groupId, ct);
+
+        if (group is null)
+            return new ReprocessResult(false, 0, $"Duplicate group not found: {groupId}");
+
+        if (group.Files.Count == 0)
+            return ReprocessResult.Queued(0);
+
+        if (IndexerHub.GetConnectedIndexerCount() == 0)
+            return ReprocessResult.NoIndexerConnected();
+
+        // Reset processing state for all files in the group
+        foreach (var file in group.Files)
+        {
+            file.MetadataProcessedAt = null;
+            file.ThumbnailProcessedAt = null;
+            file.LastError = null;
+        }
+        await _dbContext.SaveChangesAsync(ct);
+
+        var requests = group.Files.Select(f => new ReprocessFileRequest(f.Id, f.FilePath)).ToList();
+        await _hubContext.Clients.All.SendAsync("ReprocessFiles", requests, ct);
+
+        _logger.LogInformation("Sent reprocess command for {Count} files in duplicate group {GroupId}",
+            group.Files.Count, groupId);
+
+        return ReprocessResult.Queued(group.Files.Count);
+    }
+
+    public async Task<ReprocessResult> ReprocessDuplicateGroupsAsync(IEnumerable<Guid> groupIds, CancellationToken ct)
+    {
+        var groupIdList = groupIds.ToList();
+        var files = await _dbContext.IndexedFiles
+            .Where(f => f.DuplicateGroupId != null && groupIdList.Contains(f.DuplicateGroupId.Value))
+            .ToListAsync(ct);
+
+        if (files.Count == 0)
+            return ReprocessResult.Queued(0);
+
+        if (IndexerHub.GetConnectedIndexerCount() == 0)
+            return ReprocessResult.NoIndexerConnected();
+
+        // Reset processing state
+        foreach (var file in files)
+        {
+            file.MetadataProcessedAt = null;
+            file.ThumbnailProcessedAt = null;
+            file.LastError = null;
+        }
+        await _dbContext.SaveChangesAsync(ct);
+
+        var requests = files.Select(f => new ReprocessFileRequest(f.Id, f.FilePath)).ToList();
+        await _hubContext.Clients.All.SendAsync("ReprocessFiles", requests, ct);
+
+        _logger.LogInformation("Sent reprocess command for {Count} files in {GroupCount} duplicate groups",
+            files.Count, groupIdList.Count);
+
+        return ReprocessResult.Queued(files.Count);
+    }
+
+    public async Task<ReprocessResult> ReprocessDirectoryAsync(Guid directoryId, int? limit, CancellationToken ct)
+    {
+        var directory = await _dbContext.ScanDirectories.FindAsync([directoryId], ct);
+        if (directory is null)
+            return new ReprocessResult(false, 0, $"Directory not found: {directoryId}");
+
+        var query = _dbContext.IndexedFiles
+            .Where(f => f.FilePath.StartsWith(directory.Path))
+            .OrderBy(f => f.IndexedAt);
+
+        var files = limit.HasValue
+            ? await query.Take(limit.Value).ToListAsync(ct)
+            : await query.ToListAsync(ct);
+
+        if (files.Count == 0)
+            return ReprocessResult.Queued(0);
+
+        if (IndexerHub.GetConnectedIndexerCount() == 0)
+            return ReprocessResult.NoIndexerConnected();
+
+        // Reset processing state
+        foreach (var file in files)
+        {
+            file.MetadataProcessedAt = null;
+            file.ThumbnailProcessedAt = null;
+            file.LastError = null;
+        }
+        await _dbContext.SaveChangesAsync(ct);
+
+        var requests = files.Select(f => new ReprocessFileRequest(f.Id, f.FilePath)).ToList();
+        await _hubContext.Clients.All.SendAsync("ReprocessFiles", requests, ct);
+
+        _logger.LogInformation("Sent reprocess command for {Count} files in directory {DirectoryPath}",
+            files.Count, directory.Path);
 
         return ReprocessResult.Queued(files.Count);
     }

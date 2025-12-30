@@ -20,6 +20,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { DuplicateService, DirectoryPatternDto, GroupNavigationDto, SelectionSessionDto } from '../../../../services/duplicate.service';
+import { ReprocessService } from '../../../../services/reprocess.service';
 import { DuplicateGroupDto, IndexedFileDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
 import { ImageComparisonComponent } from '../image-comparison/image-comparison.component';
@@ -50,6 +51,7 @@ import { KeyboardHelpDialogComponent } from '../keyboard-help-dialog/keyboard-he
 })
 export class DuplicateGroupDetailComponent implements OnChanges {
   private duplicateService = inject(DuplicateService);
+  private reprocessService = inject(ReprocessService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
 
@@ -72,6 +74,9 @@ export class DuplicateGroupDetailComponent implements OnChanges {
   // Pattern-related state
   patternInfo = signal<DirectoryPatternDto | null>(null);
   applyingPattern = signal(false);
+
+  // Reprocessing state
+  reprocessing = signal(false);
 
   // Navigation state
   navigation = signal<GroupNavigationDto | null>(null);
@@ -312,6 +317,38 @@ export class DuplicateGroupDetailComponent implements OnChanges {
       },
       error: (err) => {
         console.error('Failed to delete non-originals:', err);
+      },
+    });
+  }
+
+  /**
+   * Refresh metadata for all files in the current group.
+   * Re-extracts EXIF data including DateTaken, camera info, GPS, etc.
+   */
+  refreshMetadata(): void {
+    const g = this.group();
+    if (!g) return;
+
+    this.reprocessing.set(true);
+    this.reprocessService.reprocessDuplicateGroup(g.id).subscribe({
+      next: (result) => {
+        this.reprocessing.set(false);
+        if (result.success) {
+          this.snackBar.open(
+            `Queued ${result.queuedCount} file${result.queuedCount !== 1 ? 's' : ''} for metadata refresh`,
+            'OK',
+            { duration: 3000 }
+          );
+          // Reload after a short delay to allow processing to start
+          setTimeout(() => this.loadGroup(), 2000);
+        } else {
+          this.snackBar.open(result.error || 'Failed to queue metadata refresh', 'Dismiss', { duration: 5000 });
+        }
+      },
+      error: (err) => {
+        this.reprocessing.set(false);
+        console.error('Failed to refresh metadata:', err);
+        this.snackBar.open('Failed to refresh metadata', 'Dismiss', { duration: 5000 });
       },
     });
   }

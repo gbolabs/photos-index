@@ -71,7 +71,44 @@ public class ReprocessController : ControllerBase
         };
         return Ok(stats);
     }
+
+    /// <summary>
+    /// Reprocess all files in a duplicate group
+    /// </summary>
+    [HttpPost("duplicate-group/{groupId:guid}")]
+    public async Task<ActionResult<ReprocessResult>> ReprocessDuplicateGroup(Guid groupId, CancellationToken ct)
+    {
+        var result = await _reprocessService.ReprocessDuplicateGroupAsync(groupId, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>
+    /// Reprocess files in multiple duplicate groups
+    /// </summary>
+    [HttpPost("duplicate-groups")]
+    public async Task<ActionResult<ReprocessResult>> ReprocessDuplicateGroups(
+        [FromBody] ReprocessDuplicateGroupsRequest request,
+        CancellationToken ct)
+    {
+        var result = await _reprocessService.ReprocessDuplicateGroupsAsync(request.GroupIds, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>
+    /// Reprocess all files in a directory
+    /// </summary>
+    [HttpPost("directory/{directoryId:guid}")]
+    public async Task<ActionResult<ReprocessResult>> ReprocessDirectory(
+        Guid directoryId,
+        [FromQuery] int? limit,
+        CancellationToken ct)
+    {
+        var result = await _reprocessService.ReprocessDirectoryAsync(directoryId, limit, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
 }
+
+public record ReprocessDuplicateGroupsRequest(IEnumerable<Guid> GroupIds);
 
 public record ReprocessFilesRequest(IEnumerable<Guid> FileIds);
 
