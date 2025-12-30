@@ -82,10 +82,12 @@ export class DuplicateTableViewComponent implements OnInit {
   statusFilter = signal<string>('');
   statusOptions = [
     { value: '', label: 'All' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'proposed', label: 'Proposed' },
-    { value: 'auto-selected', label: 'Auto-selected' },
-    { value: 'validated', label: 'Validated' },
+    { value: 'Pending', label: 'Pending' },
+    { value: 'AutoSelected', label: 'Auto-selected' },
+    { value: 'Validated', label: 'Validated' },
+    { value: 'Cleaning', label: 'Cleaning' },
+    { value: 'CleaningFailed', label: 'Failed' },
+    { value: 'Cleaned', label: 'Cleaned' },
   ];
 
   // Table columns
@@ -346,10 +348,12 @@ export class DuplicateTableViewComponent implements OnInit {
 
   getStatusClass(status: string): string {
     switch (status) {
-      case 'pending': return 'status-pending';
-      case 'proposed': return 'status-proposed';
-      case 'auto-selected': return 'status-auto-selected';
-      case 'validated': return 'status-validated';
+      case 'Pending': return 'status-pending';
+      case 'AutoSelected': return 'status-auto-selected';
+      case 'Validated': return 'status-validated';
+      case 'Cleaning': return 'status-cleaning';
+      case 'CleaningFailed': return 'status-failed';
+      case 'Cleaned': return 'status-cleaned';
       default: return '';
     }
   }

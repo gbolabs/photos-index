@@ -72,7 +72,7 @@ describe('DuplicateService', () => {
       originalFileId: null,
       files: [],
       firstFileThumbnailPath: null,
-      status: 'pending',
+      status: 'Pending',
       validatedAt: null,
       keptFileId: null,
       lastReviewedAt: null,

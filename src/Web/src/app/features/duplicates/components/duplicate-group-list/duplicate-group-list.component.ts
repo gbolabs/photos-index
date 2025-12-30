@@ -70,10 +70,12 @@ export class DuplicateGroupListComponent implements OnInit {
   statusFilter = signal<string>('');
   statusOptions = [
     { value: '', label: 'All Status' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'proposed', label: 'Proposed' },
-    { value: 'auto-selected', label: 'Auto-selected' },
-    { value: 'validated', label: 'Validated' },
+    { value: 'Pending', label: 'Pending' },
+    { value: 'AutoSelected', label: 'Auto-selected' },
+    { value: 'Validated', label: 'Validated' },
+    { value: 'Cleaning', label: 'Cleaning' },
+    { value: 'CleaningFailed', label: 'Failed' },
+    { value: 'Cleaned', label: 'Cleaned' },
   ];
 
   // Table columns
@@ -161,6 +163,30 @@ export class DuplicateGroupListComponent implements OnInit {
 
   isResolved(group: DuplicateGroupDto): boolean {
     return group.resolvedAt !== null && group.originalFileId !== null;
+  }
+
+  getStatusIcon(status: string | null): string {
+    switch (status) {
+      case 'Pending': return 'hourglass_empty';
+      case 'AutoSelected': return 'auto_fix_high';
+      case 'Validated': return 'check_circle';
+      case 'Cleaning': return 'cleaning_services';
+      case 'CleaningFailed': return 'error';
+      case 'Cleaned': return 'delete_forever';
+      default: return 'hourglass_empty';
+    }
+  }
+
+  getStatusClass(status: string | null): string {
+    switch (status) {
+      case 'Pending': return 'status-pending';
+      case 'AutoSelected': return 'status-auto-selected';
+      case 'Validated': return 'status-validated';
+      case 'Cleaning': return 'status-cleaning';
+      case 'CleaningFailed': return 'status-failed';
+      case 'Cleaned': return 'status-cleaned';
+      default: return 'status-pending';
+    }
   }
 
   viewGroup(group: DuplicateGroupDto): void {
