@@ -49,7 +49,8 @@ describe('FileDetailComponent', () => {
     shutterSpeed: '1/250',
     lastError: null,
     retryCount: 0,
-    isHidden: false
+    isHidden: false,
+    isDeleted: false
   };
 
   const createComponent = async (fileId: string | null = '123e4567-e89b-12d3-a456-426614174000') => {

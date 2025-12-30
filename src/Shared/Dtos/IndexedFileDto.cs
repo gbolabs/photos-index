@@ -31,4 +31,9 @@ public record IndexedFileDto
     public bool IsHidden { get; init; }
     public string? HiddenCategory { get; init; }
     public DateTime? HiddenAt { get; init; }
+
+    // Deletion/Archive status
+    public bool IsDeleted { get; init; }
+    public DateTime? DeletedAt { get; init; }
+    public string? ArchivePath { get; init; }
 }

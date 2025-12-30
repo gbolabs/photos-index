@@ -174,11 +174,21 @@
           [class.original]="isOriginal(file)"
           [class.in-comparison]="isInComparison(file)"
           [class.keyboard-focused]="isFocused(i)"
+          [class.archived]="isArchived(file)"
+          [class.deleted]="isDeleted(file)"
           (click)="selectFile(file)"
         >
           <!-- Position number for keyboard selection -->
           @if (keyboardMode() && i < 9) {
             <div class="keyboard-hint">{{ i + 1 }}</div>
+          }
+
+          <!-- Archived/Deleted badge -->
+          @if (isArchived(file)) {
+            <div class="archived-badge" [matTooltip]="getArchivePath(file) || 'Archived'">
+              <mat-icon>{{ isDeleted(file) ? 'delete_forever' : 'archive' }}</mat-icon>
+              {{ isDeleted(file) ? 'Deleted' : 'Archived' }}
+            </div>
           }
 
           @if (isOriginal(file)) {

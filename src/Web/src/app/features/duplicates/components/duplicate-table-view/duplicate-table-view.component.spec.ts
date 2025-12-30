@@ -50,6 +50,7 @@ describe('DuplicateTableViewComponent', () => {
     lastError: null,
     retryCount: 0,
     isHidden: false,
+    isDeleted: false,
   };
 
   const mockFile2: IndexedFileDto = {

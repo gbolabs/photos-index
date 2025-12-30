@@ -6,6 +6,8 @@ import {
   signal,
   computed,
   OnChanges,
+  OnInit,
+  OnDestroy,
   SimpleChanges,
   HostListener,
 } from '@angular/core';
@@ -19,8 +21,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { Subject, takeUntil } from 'rxjs';
 import { DuplicateService, DirectoryPatternDto, GroupNavigationDto, SelectionSessionDto } from '../../../../services/duplicate.service';
 import { ReprocessService } from '../../../../services/reprocess.service';
+import { CleanerSignalRService, DeleteFileResult } from '../../../../services/cleaner-signalr.service';
 import { DuplicateGroupDto, IndexedFileDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
 import { ImageComparisonComponent } from '../image-comparison/image-comparison.component';
@@ -49,11 +53,17 @@ import { KeyboardHelpDialogComponent } from '../keyboard-help-dialog/keyboard-he
   templateUrl: './duplicate-group-detail.component.html',
   styleUrl: './duplicate-group-detail.component.scss',
 })
-export class DuplicateGroupDetailComponent implements OnChanges {
+export class DuplicateGroupDetailComponent implements OnChanges, OnInit, OnDestroy {
   private duplicateService = inject(DuplicateService);
   private reprocessService = inject(ReprocessService);
+  private cleanerSignalR = inject(CleanerSignalRService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private destroy$ = new Subject<void>();
+
+  // Track files that have been deleted/archived in real-time
+  deletedFileIds = signal<Set<string>>(new Set());
+  archivedFileIds = signal<Map<string, string>>(new Map()); // fileId -> archivePath
 
   // Input
   groupId = input<string>();
@@ -114,12 +124,106 @@ export class DuplicateGroupDetailComponent implements OnChanges {
     return Array.from(dirs).sort();
   });
 
+  ngOnInit(): void {
+    // Subscribe to real-time deletion events
+    this.cleanerSignalR.deleteComplete$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((result) => this.handleDeleteComplete(result));
+
+    // Subscribe to job completion events
+    this.cleanerSignalR.jobComplete$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((job) => {
+        this.snackBar.open(
+          `Deletion job complete: ${job.succeeded} succeeded, ${job.failed} failed, ${job.skipped} skipped`,
+          'OK',
+          { duration: 5000 }
+        );
+      });
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['groupId'] && this.groupId()) {
+      // Reset deletion tracking when navigating to a new group
+      this.deletedFileIds.set(new Set());
+      this.archivedFileIds.set(new Map());
       this.loadGroup();
       this.loadPatternInfo();
       this.loadNavigation();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  /**
+   * Handle real-time deletion complete events from SignalR.
+   * Updates local state to show files as deleted/archived immediately.
+   */
+  private handleDeleteComplete(result: DeleteFileResult): void {
+    const currentFiles = this.files();
+    const affectedFile = currentFiles.find(f => f.id === result.fileId);
+
+    if (!affectedFile) return; // Not a file in this group
+
+    if (result.success) {
+      if (result.wasDryRun) {
+        this.snackBar.open(
+          `[DRY RUN] Would archive: ${affectedFile.fileName}`,
+          'OK',
+          { duration: 3000 }
+        );
+        // Mark as archived even in dry-run mode for visual feedback
+        const archived = new Map(this.archivedFileIds());
+        archived.set(result.fileId, result.archivePath || 'dry-run');
+        this.archivedFileIds.set(archived);
+      } else {
+        this.snackBar.open(
+          `Archived: ${affectedFile.fileName}`,
+          'OK',
+          { duration: 3000 }
+        );
+        // Update local tracking
+        const deleted = new Set(this.deletedFileIds());
+        deleted.add(result.fileId);
+        this.deletedFileIds.set(deleted);
+
+        if (result.archivePath) {
+          const archived = new Map(this.archivedFileIds());
+          archived.set(result.fileId, result.archivePath);
+          this.archivedFileIds.set(archived);
+        }
+      }
+    } else {
+      this.snackBar.open(
+        `Failed to delete ${affectedFile.fileName}: ${result.error || 'Unknown error'}`,
+        'Dismiss',
+        { duration: 5000 }
+      );
+    }
+  }
+
+  /**
+   * Check if a file has been deleted (not dry-run).
+   */
+  isDeleted(file: IndexedFileDto): boolean {
+    return file.isDeleted || this.deletedFileIds().has(file.id);
+  }
+
+  /**
+   * Check if a file has been archived (including dry-run).
+   */
+  isArchived(file: IndexedFileDto): boolean {
+    return !!file.archivePath || this.archivedFileIds().has(file.id);
+  }
+
+  /**
+   * Get archive path for a file.
+   */
+  getArchivePath(file: IndexedFileDto): string | null {
+    return file.archivePath || this.archivedFileIds().get(file.id) || null;
   }
 
   loadGroup(): void {
