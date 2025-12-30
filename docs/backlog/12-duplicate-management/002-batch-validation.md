@@ -1,11 +1,18 @@
 # 002: Batch Validation & Undo
 
-**Status**: 🔲 Not Started
+**Status**: ⚠️ Partially Superseded
 **Priority**: P1
 **Issue**: [#68](https://github.com/gbolabs/photos-index/issues/68)
 **Branch**: `feature/batch-validation`
 **Estimated Complexity**: Medium-High
 **Target Release**: v0.2.0
+
+> **Note**: The status workflow design in this document has been superseded by:
+> - [ADR-014: DuplicateGroup Status Workflow](../../adrs/014-duplicate-group-status-workflow.md)
+> - [006-status-workflow.md](./006-status-workflow.md)
+>
+> This document remains valid for batch validation UI/UX patterns only.
+> Status definitions (pending/validated/cleaned) are replaced by a 6-status enum.
 
 ## Objective
 
