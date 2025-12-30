@@ -8,6 +8,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DuplicateService, DuplicateScanJob } from '../../../../services/duplicate.service';
 import { FileStatisticsDto } from '../../../../models';
 import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
@@ -27,6 +28,7 @@ import { interval, Subscription, takeWhile } from 'rxjs';
     MatTooltipModule,
     MatChipsModule,
     MatDialogModule,
+    MatSnackBarModule,
     FileSizePipe,
   ],
   templateUrl: './bulk-actions-toolbar.component.html',
@@ -35,6 +37,7 @@ import { interval, Subscription, takeWhile } from 'rxjs';
 export class BulkActionsToolbarComponent implements OnDestroy {
   private duplicateService = inject(DuplicateService);
   private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
   private pollSubscription?: Subscription;
 
   // Inputs
@@ -46,6 +49,7 @@ export class BulkActionsToolbarComponent implements OnDestroy {
 
   // State
   loading = signal(false);
+  deleting = signal(false);
   stats = signal<FileStatisticsDto | null>(null);
   scanJob = signal<DuplicateScanJob | null>(null);
   scanning = signal(false);
@@ -161,6 +165,41 @@ export class BulkActionsToolbarComponent implements OnDestroy {
     dialogRef.afterClosed().subscribe(() => {
       this.loadStats();
       this.actionCompleted.emit();
+    });
+  }
+
+  deleteSelectedDuplicates(): void {
+    const groupIds = this.selectedGroupIds();
+    if (groupIds.length === 0) {
+      this.snackBar.open('Please select groups to delete duplicates', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    const confirmed = confirm(
+      `Queue duplicates from ${groupIds.length} group${groupIds.length !== 1 ? 's' : ''} for deletion?\n\n` +
+      'This will delete all non-original files from the selected groups.\n' +
+      'Only groups with an original file selected will be processed.'
+    );
+
+    if (!confirmed) return;
+
+    this.deleting.set(true);
+    this.duplicateService.deleteNonOriginalsForGroups(groupIds).subscribe({
+      next: (result) => {
+        this.deleting.set(false);
+        this.snackBar.open(
+          `Queued ${result.totalFilesQueued} files for deletion from ${result.groupsProcessed} groups`,
+          'Dismiss',
+          { duration: 5000 }
+        );
+        this.loadStats();
+        this.actionCompleted.emit();
+      },
+      error: (err) => {
+        console.error('Failed to delete duplicates:', err);
+        this.deleting.set(false);
+        this.snackBar.open('Failed to queue deletions', 'Dismiss', { duration: 3000 });
+      },
     });
   }
 }
