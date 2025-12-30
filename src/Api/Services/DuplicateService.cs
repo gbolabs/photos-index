@@ -1,4 +1,6 @@
+using Api.Hubs;
 using Database;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Shared.Dtos;
 using Shared.Requests;
@@ -12,11 +14,16 @@ namespace Api.Services;
 public class DuplicateService : IDuplicateService
 {
     private readonly PhotosDbContext _dbContext;
+    private readonly IHubContext<CleanerHub, ICleanerClient> _cleanerHub;
     private readonly ILogger<DuplicateService> _logger;
 
-    public DuplicateService(PhotosDbContext dbContext, ILogger<DuplicateService> logger)
+    public DuplicateService(
+        PhotosDbContext dbContext,
+        IHubContext<CleanerHub, ICleanerClient> cleanerHub,
+        ILogger<DuplicateService> logger)
     {
         _dbContext = dbContext;
+        _cleanerHub = cleanerHub;
         _logger = logger;
     }
 
@@ -239,10 +246,39 @@ public class DuplicateService : IDuplicateService
 
         var nonOriginals = group.Files.Where(f => f.IsDuplicate).ToList();
 
-        // In a real implementation, this would queue files for the cleaner service
-        // For now, we just mark the group as resolved
-        group.ResolvedAt = DateTime.UtcNow;
+        if (nonOriginals.Count == 0)
+        {
+            _logger.LogWarning("No non-original files to delete in group {GroupId}", groupId);
+            return 0;
+        }
 
+        // Check if any cleaner is connected
+        if (!CleanerHub.HasConnectedCleaner())
+        {
+            _logger.LogWarning("No cleaner service connected, cannot queue deletion for group {GroupId}", groupId);
+            throw new InvalidOperationException("No cleaner service connected. Please ensure the cleaner service is running.");
+        }
+
+        // Send deletion requests to connected cleaner services via SignalR
+        var jobId = Guid.NewGuid();
+        var deleteRequests = nonOriginals.Select(f => new DeleteFileRequest
+        {
+            JobId = jobId,
+            FileId = f.Id,
+            FilePath = f.FilePath,
+            FileHash = f.FileHash,
+            FileSize = f.FileSize,
+            Category = DeleteCategory.HashDuplicate
+        }).ToList();
+
+        _logger.LogInformation("Sending {Count} delete requests to cleaner for group {GroupId}",
+            deleteRequests.Count, groupId);
+
+        // Send batch delete request
+        await _cleanerHub.Clients.All.DeleteFiles(deleteRequests);
+
+        // Mark the group as resolved
+        group.ResolvedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
 
         _logger.LogInformation("Queued {Count} files for deletion from group {GroupId}",
