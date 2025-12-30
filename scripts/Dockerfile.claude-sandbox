@@ -4,13 +4,17 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get install -y nodejs
 
-# Install tools (including Python for upload server)
+# Install tools (including Python for upload server and EXIF processing tools)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     jq \
     vim \
     python3 \
+    exiftool \
+    libimage-exiftool-perl \
+    exiv2 \
+    jhead \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -49,8 +53,7 @@ RUN chmod +x /opt/upload-server.py
 # Switch to non-root user
 USER claude
 
-# Create config directories for plugins and auth (will be mounted as volume)
-# Create share directory for file exchange
-RUN mkdir -p /home/claude/.claude /home/claude/.anthropic /share
+# Create config directories for plugins, auth, and file sharing (will be mounted as volume)
+RUN mkdir -p /home/claude/.claude /home/claude/.anthropic /home/claude/share
 
 ENTRYPOINT ["/entrypoint.sh"]

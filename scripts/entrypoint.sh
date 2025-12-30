@@ -23,7 +23,7 @@ echo "✅ code-server running at http://0.0.0.0:8443"
 echo "🚀 Starting upload server on 0.0.0.0:8888..."
 python3 /opt/upload-server.py > /tmp/upload-server.log 2>&1 &
 echo "✅ Upload server running at http://0.0.0.0:8888"
-echo "   Drop/paste files there → available at /share in container"
+echo "   Drop/paste files there → available at ~/share in container"
 echo ""
 
 # Clone repo if in clone mode (or update if already cloned)

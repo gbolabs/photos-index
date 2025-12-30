@@ -16,7 +16,7 @@ import cgi
 import base64
 import re
 
-UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/share"))
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/home/claude/share"))
 PORT = int(os.environ.get("UPLOAD_PORT", 8888))
 
 HTML_PAGE = """<!DOCTYPE html>
