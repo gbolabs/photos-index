@@ -58,6 +58,18 @@ export class FileMetadataTableComponent {
         value: f.fileHash,
         icon: 'fingerprint',
       },
+    ];
+
+    // Date Taken from EXIF is the most important date - show first if available
+    if (f.dateTaken) {
+      rows.push({
+        label: 'Date Taken (EXIF)',
+        value: this.formatDate(f.dateTaken),
+        icon: 'camera_alt',
+      });
+    }
+
+    rows.push(
       {
         label: 'Created Date',
         value: this.formatDate(f.createdAt),
@@ -73,7 +85,7 @@ export class FileMetadataTableComponent {
         value: this.formatDate(f.indexedAt),
         icon: 'update',
       },
-    ];
+    );
 
     if (f.duplicateGroupId) {
       rows.push({

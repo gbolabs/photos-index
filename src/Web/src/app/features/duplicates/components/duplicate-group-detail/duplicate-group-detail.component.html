@@ -214,9 +214,9 @@
                 <mat-icon>sd_storage</mat-icon>
                 <span>{{ file.fileSize | fileSize }}</span>
               </div>
-              <div class="meta-item">
-                <mat-icon>calendar_today</mat-icon>
-                <span>{{ formatDate(file.createdAt) }}</span>
+              <div class="meta-item" [matTooltip]="file.dateTaken ? 'Date Taken (EXIF)' : 'File Created Date'">
+                <mat-icon>{{ file.dateTaken ? 'camera_alt' : 'calendar_today' }}</mat-icon>
+                <span>{{ formatDate(file.dateTaken || file.createdAt) }}</span>
               </div>
             </div>
           </mat-card-content>
