@@ -41,6 +41,10 @@ RUN npm run build -- --configuration production
 # Runtime stage - nginx to serve static files (slim variant is ~3x smaller)
 FROM docker.io/library/nginx:alpine-slim AS runtime
 
+# Accept version as build arg and set as environment variable
+ARG BUILD_VERSION=unknown
+ENV APP_VERSION=${BUILD_VERSION}
+
 # Install curl for healthcheck
 RUN apk add --no-cache curl
 

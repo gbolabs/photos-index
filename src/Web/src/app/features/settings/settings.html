@@ -44,4 +44,29 @@
   <div class="settings__section">
     <app-hidden-folders />
   </div>
+
+  <!-- About Section -->
+  <mat-divider class="settings__divider"></mat-divider>
+  <div class="settings__section settings__about">
+    <h2>About</h2>
+    <mat-card class="about-card">
+      <mat-card-content>
+        <div class="about-info">
+          <div class="about-logo">
+            <mat-icon>photo_library</mat-icon>
+          </div>
+          <div class="about-details">
+            <h3>Photos Index</h3>
+            <p class="version">{{ appVersion }}</p>
+            <p class="description">Photo indexing and deduplication application for NAS storage.</p>
+            <p class="links">
+              <a href="https://github.com/gbolabs/photos-index" target="_blank" rel="noopener noreferrer">
+                <mat-icon>code</mat-icon> GitHub
+              </a>
+            </p>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
 </div>

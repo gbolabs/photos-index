@@ -16,11 +16,15 @@ mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf
 
 echo "Nginx configured to listen on port: ${NGINX_PORT}"
 
+# Get version from environment (set at build time or runtime)
+export APP_VERSION=${APP_VERSION:-unknown}
+
 # Create env-config.js with runtime environment variables
 cat <<EOF > /usr/share/nginx/html/assets/env-config.js
 window.__env = window.__env || {};
 window.__env.apiUrl = '${API_URL}';
 window.__env.production = ${PRODUCTION};
+window.__env.version = '${APP_VERSION}';
 EOF
 
 echo "Environment configuration created:"

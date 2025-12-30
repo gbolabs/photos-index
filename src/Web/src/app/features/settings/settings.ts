@@ -6,9 +6,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCardModule } from '@angular/material/card';
+import { MatDividerModule } from '@angular/material/divider';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../core/api.service';
 import { ReprocessService } from '../../services/reprocess.service';
+import { VersionService } from '../../services/version.service';
 import { ScanDirectoryDto, CreateScanDirectoryRequest, UpdateScanDirectoryRequest } from '../../core/models';
 import { DirectoryListComponent } from './components/directory-list/directory-list.component';
 import { DirectoryFormDialogComponent, DirectoryFormDialogData } from './components/directory-form-dialog/directory-form-dialog.component';
@@ -26,6 +29,8 @@ import { HiddenFoldersComponent } from './components/hidden-folders/hidden-folde
     MatSnackBarModule,
     MatDialogModule,
     MatTooltipModule,
+    MatCardModule,
+    MatDividerModule,
     DirectoryListComponent,
     HiddenFoldersComponent,
   ],
@@ -35,6 +40,7 @@ import { HiddenFoldersComponent } from './components/hidden-folders/hidden-folde
 export class Settings implements OnInit {
   private apiService = inject(ApiService);
   private reprocessService = inject(ReprocessService);
+  private versionService = inject(VersionService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private destroyRef = inject(DestroyRef);
@@ -42,6 +48,7 @@ export class Settings implements OnInit {
   directories = signal<ScanDirectoryDto[]>([]);
   loading = signal(true);
   error = signal<string | null>(null);
+  appVersion = this.versionService.getDisplayVersion();
 
   ngOnInit(): void {
     this.loadDirectories();
