@@ -263,8 +263,39 @@ public class DuplicateService : IDuplicateService
             throw new InvalidOperationException("No cleaner service connected. Please ensure the cleaner service is running.");
         }
 
-        // Send deletion requests to connected cleaner services via SignalR
+        // Create cleaner job and job files in database first
         var jobId = Guid.NewGuid();
+        var cleanerJob = new Database.Entities.CleanerJob
+        {
+            Id = jobId,
+            Status = CleanerJobStatus.Pending,
+            Category = DeleteCategory.HashDuplicate,
+            DryRun = false, // Dry-run is controlled by cleaner service config
+            TotalFiles = nonOriginals.Count,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        foreach (var file in nonOriginals)
+        {
+            cleanerJob.Files.Add(new Database.Entities.CleanerJobFile
+            {
+                Id = Guid.NewGuid(),
+                CleanerJobId = jobId,
+                FileId = file.Id,
+                FilePath = file.FilePath,
+                FileHash = file.FileHash,
+                FileSize = file.FileSize,
+                Status = CleanerFileStatus.Pending
+            });
+        }
+
+        _dbContext.CleanerJobs.Add(cleanerJob);
+        await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Created cleaner job {JobId} with {Count} files for group {GroupId}",
+            jobId, nonOriginals.Count, groupId);
+
+        // Send deletion requests to connected cleaner services via SignalR
         var deleteRequests = nonOriginals.Select(f => new DeleteFileRequest
         {
             JobId = jobId,
@@ -275,11 +306,12 @@ public class DuplicateService : IDuplicateService
             Category = DeleteCategory.HashDuplicate
         }).ToList();
 
-        _logger.LogInformation("Sending {Count} delete requests to cleaner for group {GroupId}",
-            deleteRequests.Count, groupId);
-
         // Send batch delete request
         await _cleanerHub.Clients.All.DeleteFiles(deleteRequests);
+
+        // Mark the job as started
+        cleanerJob.StartedAt = DateTime.UtcNow;
+        cleanerJob.Status = CleanerJobStatus.InProgress;
 
         // Mark the group as resolved
         group.ResolvedAt = DateTime.UtcNow;
