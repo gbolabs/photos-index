@@ -79,9 +79,8 @@ services:
       # API connection (TrueNAS) - HTTPS on port 8053
       API_BASE_URL: https://tn.isago.ch:8053
 
-      # DRY-RUN mode - SAFETY FIRST!
-      # Set to "false" only when you're ready to enable actual deletions
-      DRY_RUN: "true"
+      # DRY-RUN mode - Set to "true" to preview deletions without actually removing files
+      DRY_RUN: "false"
 
       # OpenTelemetry - send traces to TrueNAS Jaeger
       OTEL_EXPORTER_OTLP_ENDPOINT: http://192.168.114.31:4317
