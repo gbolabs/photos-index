@@ -25,6 +25,22 @@
           <td mat-cell *matCellDef="let row" class="value-cell">{{ row.value }}</td>
         </ng-container>
 
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+          <td mat-cell *matCellDef="let row" class="actions-cell">
+            @if (row.copyable) {
+              <button
+                mat-icon-button
+                class="copy-button"
+                (click)="copyToClipboard(row.value, row.label)"
+                [matTooltip]="copiedField() === row.label ? 'Copied!' : 'Copy to clipboard'"
+              >
+                <mat-icon>{{ copiedField() === row.label ? 'check' : 'content_copy' }}</mat-icon>
+              </button>
+            }
+          </td>
+        </ng-container>
+
         <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
       </table>
     </mat-card-content>

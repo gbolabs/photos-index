@@ -42,7 +42,7 @@ export class FilesPage extends BasePage {
     super(page);
 
     // Search and filters
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
+    this.searchInput = page.locator('input[type="search"], input[matInput], mat-form-field input').first();
     this.searchButton = page.getByRole('button', { name: /search/i });
     this.clearSearchButton = page.getByRole('button', { name: /clear/i });
     this.filterButton = page.getByRole('button', { name: /filter/i });

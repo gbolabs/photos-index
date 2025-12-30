@@ -190,6 +190,13 @@ export class Files implements OnInit {
     this.onSearch();
   }
 
+  filterByHash(hash: string | null, event: Event): void {
+    event.stopPropagation();
+    if (!hash) return;
+    this.searchQuery = `hash:${hash}`;
+    this.onSearch();
+  }
+
   getFolderPath(filePath: string): string {
     const lastSlash = filePath.lastIndexOf('/');
     return lastSlash > 0 ? filePath.substring(0, lastSlash) : filePath;

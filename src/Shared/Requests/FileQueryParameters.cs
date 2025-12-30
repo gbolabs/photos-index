@@ -40,5 +40,6 @@ public enum FileSortBy
     Size,
     CreatedAt,
     ModifiedAt,
-    IndexedAt
+    IndexedAt,
+    DateTaken
 }

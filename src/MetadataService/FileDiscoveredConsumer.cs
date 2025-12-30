@@ -129,9 +129,24 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
         result = default;
         if (string.IsNullOrWhiteSpace(value)) return false;
 
-        // EXIF format: "YYYY:MM:DD HH:MM:SS"
+        // Skip invalid placeholder values
+        if (value.StartsWith("0000:") || value.Trim() == "")
+            return false;
+
+        // Common EXIF date formats
+        var formats = new[]
+        {
+            "yyyy:MM:dd HH:mm:ss",       // Standard EXIF format
+            "yyyy:MM:dd HH:mm:ss.fff",   // With milliseconds
+            "yyyy:MM:dd",                 // Date only
+            "yyyy-MM-dd HH:mm:ss",       // ISO-like
+            "yyyy-MM-ddTHH:mm:ss",       // ISO 8601
+            "yyyy-MM-ddTHH:mm:sszzz",    // ISO 8601 with timezone
+            "yyyy:MM:dd HH:mm:sszzz",    // EXIF with timezone
+        };
+
         // Use AssumeUniversal to ensure the DateTime has Kind=Utc for PostgreSQL compatibility
-        if (DateTime.TryParseExact(value, "yyyy:MM:dd HH:mm:ss",
+        if (DateTime.TryParseExact(value, formats,
             System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
             out result))
@@ -139,6 +154,7 @@ public class FileDiscoveredConsumer : IConsumer<FileDiscoveredMessage>
             return true;
         }
 
+        // Fallback to general parsing
         if (DateTime.TryParse(value, System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
             out result))

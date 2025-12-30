@@ -119,7 +119,7 @@ public class MetadataExtractor : IMetadataExtractor
     private DateTime? ExtractDateTaken(ExifProfile? exif, string filePath)
     {
         if (exif is null)
-            return GetFileFallbackDate(filePath);
+            return null;
 
         // Try DateTimeOriginal first (when photo was taken)
         if (exif.TryGetValue(ExifTag.DateTimeOriginal, out var dateOriginal) && dateOriginal?.Value is not null)
@@ -142,35 +142,44 @@ public class MetadataExtractor : IMetadataExtractor
                 return date;
         }
 
-        return GetFileFallbackDate(filePath);
-    }
-
-    private static DateTime? GetFileFallbackDate(string filePath)
-    {
-        try
-        {
-            return File.GetLastWriteTimeUtc(filePath);
-        }
-        catch
-        {
-            return null;
-        }
+        // Return null if no EXIF date found - don't fall back to file system dates
+        return null;
     }
 
     private static bool TryParseExifDate(string value, out DateTime date)
     {
-        // EXIF date format: "YYYY:MM:DD HH:MM:SS"
+        date = default;
+
+        // Skip invalid placeholder values
+        if (string.IsNullOrWhiteSpace(value) || value.StartsWith("0000:"))
+            return false;
+
+        // Common EXIF date formats
         var formats = new[]
         {
-            "yyyy:MM:dd HH:mm:ss",
-            "yyyy:MM:dd",
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-MM-ddTHH:mm:ss"
+            "yyyy:MM:dd HH:mm:ss",       // Standard EXIF format
+            "yyyy:MM:dd HH:mm:ss.fff",   // With milliseconds
+            "yyyy:MM:dd",                 // Date only
+            "yyyy-MM-dd HH:mm:ss",       // ISO-like
+            "yyyy-MM-ddTHH:mm:ss",       // ISO 8601
+            "yyyy-MM-ddTHH:mm:sszzz",    // ISO 8601 with timezone
+            "yyyy:MM:dd HH:mm:sszzz",    // EXIF with timezone
         };
 
-        return DateTime.TryParseExact(
+        // Try exact formats first
+        if (DateTime.TryParseExact(
             value,
             formats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out date))
+        {
+            return true;
+        }
+
+        // Fallback to general parsing
+        return DateTime.TryParse(
+            value,
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
             out date);

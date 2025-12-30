@@ -181,7 +181,7 @@ describe('FileDetailComponent', () => {
       mockFileService.getById.mockReturnValue(of(mockFile));
     });
 
-    it('should copy path and show success notification', async () => {
+    it('should copy path and set copied field signal', async () => {
       const clipboardWriteText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, {
         clipboard: { writeText: clipboardWriteText }
@@ -193,7 +193,7 @@ describe('FileDetailComponent', () => {
       await component.copyPath();
 
       expect(clipboardWriteText).toHaveBeenCalledWith('/photos/vacation/beach.jpg');
-      expect(mockNotificationService.success).toHaveBeenCalledWith('File path copied to clipboard');
+      expect(component.copiedField()).toBe('path');
     });
 
     it('should show error notification when copy fails', async () => {
@@ -207,7 +207,7 @@ describe('FileDetailComponent', () => {
 
       await component.copyPath();
 
-      expect(mockNotificationService.error).toHaveBeenCalledWith('Failed to copy path to clipboard');
+      expect(mockNotificationService.error).toHaveBeenCalledWith('Failed to copy to clipboard');
     });
 
     it('should not copy when file is not loaded', async () => {

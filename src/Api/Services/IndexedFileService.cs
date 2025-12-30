@@ -120,6 +120,15 @@ public class IndexedFileService : IIndexedFileService
                     dbQuery = dbQuery.Where(f => false);
                 }
             }
+            else if (search.StartsWith("hash:", StringComparison.OrdinalIgnoreCase))
+            {
+                // Filter by file hash (exact or prefix match)
+                var hashFilter = search[5..].Trim().ToLower();
+                if (!string.IsNullOrEmpty(hashFilter))
+                {
+                    dbQuery = dbQuery.Where(f => f.FileHash != null && f.FileHash.ToLower().StartsWith(hashFilter));
+                }
+            }
             else
             {
                 // Default: search by filename
@@ -146,6 +155,9 @@ public class IndexedFileService : IIndexedFileService
             FileSortBy.ModifiedAt => query.SortDescending
                 ? dbQuery.OrderByDescending(f => f.ModifiedAt)
                 : dbQuery.OrderBy(f => f.ModifiedAt),
+            FileSortBy.DateTaken => query.SortDescending
+                ? dbQuery.OrderByDescending(f => f.DateTaken)
+                : dbQuery.OrderBy(f => f.DateTaken),
             _ => query.SortDescending
                 ? dbQuery.OrderByDescending(f => f.IndexedAt)
                 : dbQuery.OrderBy(f => f.IndexedAt)

@@ -57,5 +57,6 @@ export enum FileSortBy {
   Size = 'Size',
   CreatedAt = 'CreatedAt',
   ModifiedAt = 'ModifiedAt',
-  IndexedAt = 'IndexedAt'
+  IndexedAt = 'IndexedAt',
+  DateTaken = 'DateTaken'
 }

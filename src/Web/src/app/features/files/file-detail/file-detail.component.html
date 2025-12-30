@@ -58,11 +58,20 @@
         <mat-card-content>
           <div class="info-grid">
             <div class="info-row">
+              <span class="info-label">File ID:</span>
+              <span class="info-value hash">
+                {{ file()!.id }}
+                <button mat-icon-button class="copy-btn" (click)="copyToClipboard(file()!.id, 'id')" [matTooltip]="copiedField() === 'id' ? 'Copied!' : 'Copy ID'">
+                  <mat-icon>{{ copiedField() === 'id' ? 'check' : 'content_copy' }}</mat-icon>
+                </button>
+              </span>
+            </div>
+            <div class="info-row">
               <span class="info-label">File Path:</span>
               <span class="info-value">
                 {{ file()!.filePath }}
-                <button mat-icon-button (click)="copyPath()" matTooltip="Copy path">
-                  <mat-icon>content_copy</mat-icon>
+                <button mat-icon-button class="copy-btn" (click)="copyPath()" [matTooltip]="copiedField() === 'path' ? 'Copied!' : 'Copy path'">
+                  <mat-icon>{{ copiedField() === 'path' ? 'check' : 'content_copy' }}</mat-icon>
                 </button>
                 <button mat-icon-button (click)="filterByPath()" matTooltip="Show files in same folder">
                   <mat-icon>folder_open</mat-icon>
@@ -79,7 +88,12 @@
             </div>
             <div class="info-row">
               <span class="info-label">File Hash:</span>
-              <span class="info-value hash">{{ file()!.fileHash }}</span>
+              <span class="info-value hash">
+                {{ file()!.fileHash }}
+                <button mat-icon-button class="copy-btn" (click)="copyToClipboard(file()!.fileHash, 'hash')" [matTooltip]="copiedField() === 'hash' ? 'Copied!' : 'Copy hash'">
+                  <mat-icon>{{ copiedField() === 'hash' ? 'check' : 'content_copy' }}</mat-icon>
+                </button>
+              </span>
             </div>
             <div class="info-row">
               <span class="info-label">Created:</span>
@@ -187,7 +201,12 @@
             <p>This file is part of a duplicate group.</p>
             <div class="info-row">
               <span class="info-label">Duplicate Group ID:</span>
-              <span class="info-value">{{ file()!.duplicateGroupId }}</span>
+              <span class="info-value hash">
+                {{ file()!.duplicateGroupId }}
+                <button mat-icon-button class="copy-btn" (click)="copyToClipboard(file()!.duplicateGroupId!, 'groupId')" [matTooltip]="copiedField() === 'groupId' ? 'Copied!' : 'Copy Group ID'">
+                  <mat-icon>{{ copiedField() === 'groupId' ? 'check' : 'content_copy' }}</mat-icon>
+                </button>
+              </span>
             </div>
             <div class="actions">
               <a

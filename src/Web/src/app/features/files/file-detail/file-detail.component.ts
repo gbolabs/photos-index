@@ -43,6 +43,7 @@ export class FileDetailComponent implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   file = signal<IndexedFileDto | null>(null);
+  copiedField = signal<string | null>(null);
 
   ngOnInit(): void {
     const fileId = this.route.snapshot.paramMap.get('id');
@@ -79,13 +80,17 @@ export class FileDetailComponent implements OnInit {
   async copyPath(): Promise<void> {
     const fileData = this.file();
     if (!fileData) return;
+    await this.copyToClipboard(fileData.filePath, 'path');
+  }
 
+  async copyToClipboard(value: string, fieldName: string): Promise<void> {
     try {
-      await navigator.clipboard.writeText(fileData.filePath);
-      this.notificationService.success('File path copied to clipboard');
+      await navigator.clipboard.writeText(value);
+      this.copiedField.set(fieldName);
+      setTimeout(() => this.copiedField.set(null), 2000);
     } catch (err) {
-      console.error('Failed to copy path:', err);
-      this.notificationService.error('Failed to copy path to clipboard');
+      console.error('Failed to copy:', err);
+      this.notificationService.error('Failed to copy to clipboard');
     }
   }
 

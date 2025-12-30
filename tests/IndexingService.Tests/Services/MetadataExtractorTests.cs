@@ -100,18 +100,18 @@ public class MetadataExtractorTests : IDisposable
     }
 
     [Fact]
-    public async Task ExtractAsync_NoExif_FallsBackToFileDate()
+    public async Task ExtractAsync_NoExif_ReturnsNullDateTaken()
     {
-        // Arrange
+        // Arrange - Create image without EXIF data
         var filePath = CreateTestImage(100, 100);
-        var fileDate = File.GetLastWriteTimeUtc(filePath);
 
         // Act
         var result = await _extractor.ExtractAsync(filePath, CancellationToken.None);
 
-        // Assert
+        // Assert - DateTaken should be null when no EXIF date exists
+        // (filesystem dates are stored separately as CreatedAt/ModifiedAt)
         result.Success.Should().BeTrue();
-        result.DateTaken.Should().BeCloseTo(fileDate, TimeSpan.FromSeconds(1));
+        result.DateTaken.Should().BeNull();
     }
 
     [Fact]

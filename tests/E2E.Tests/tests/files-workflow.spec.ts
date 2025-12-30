@@ -51,8 +51,9 @@ test.describe('Files - Search Functionality', () => {
   });
 
   test('should have search input with placeholder', async ({ page }) => {
-    const searchInput = page.locator('input[placeholder*="search" i], input[placeholder*="Search" i]');
-    await expect(searchInput.first()).toBeVisible();
+    // Search input may have various placeholders like "Search", "filename or prefix:value", etc.
+    const searchInput = page.locator('mat-form-field input[matInput]').first();
+    await expect(searchInput).toBeVisible();
   });
 
   test('should have search button', async ({ page }) => {
@@ -61,7 +62,7 @@ test.describe('Files - Search Functionality', () => {
   });
 
   test('should show clear button when search has value', async ({ page }) => {
-    const searchInput = page.locator('input[placeholder*="search" i]').first();
+    const searchInput = page.locator('mat-form-field input[matInput]').first();
     await searchInput.fill('test');
 
     // Clear button should appear
@@ -70,7 +71,7 @@ test.describe('Files - Search Functionality', () => {
   });
 
   test('should clear search on clear button click', async ({ page }) => {
-    const searchInput = page.locator('input[placeholder*="search" i]').first();
+    const searchInput = page.locator('mat-form-field input[matInput]').first();
     await searchInput.fill('test');
 
     const clearButton = page.locator('button').filter({ has: page.locator('mat-icon:text("close")') }).first();
@@ -83,7 +84,7 @@ test.describe('Files - Search Functionality', () => {
   });
 
   test('should trigger search on Enter key', async ({ page }) => {
-    const searchInput = page.locator('input[placeholder*="search" i]').first();
+    const searchInput = page.locator('mat-form-field input[matInput]').first();
     await searchInput.fill('photo');
     await searchInput.press('Enter');
 
@@ -302,7 +303,7 @@ test.describe('Files - Empty and Error States', () => {
 
   test('should show clear search button in empty state when searching', async ({ page }) => {
     // First enter a search that might return no results
-    const searchInput = page.locator('input[placeholder*="search" i]').first();
+    const searchInput = page.locator('mat-form-field input[matInput]').first();
     await searchInput.fill('nonexistentfilenamethatwontmatch12345');
 
     const searchButton = page.getByRole('button', { name: 'Search', exact: true });
