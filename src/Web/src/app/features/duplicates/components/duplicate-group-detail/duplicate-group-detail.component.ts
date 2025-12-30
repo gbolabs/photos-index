@@ -93,6 +93,12 @@ export class DuplicateGroupDetailComponent implements OnChanges {
     return g?.resolvedAt !== null && g?.originalFileId !== null;
   });
 
+  /** True when an original file has been selected (proposed, auto-selected, or validated) */
+  hasOriginalSelected = computed(() => {
+    const g = this.group();
+    return g?.originalFileId !== null && g?.originalFileId !== undefined;
+  });
+
   /** Unique directories from the files in this group */
   uniqueDirectories = computed(() => {
     const fileList = this.files();
