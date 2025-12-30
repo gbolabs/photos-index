@@ -281,4 +281,91 @@ describe('DuplicateGroupDetailComponent', () => {
     const result = component.getDownloadUrl(mockFile1);
     expect(result).toBe('/api/download/file-1');
   });
+
+  describe('hasOriginalSelected', () => {
+    it('should return true when originalFileId is set', () => {
+      const groupWithOriginal = { ...mockGroup, originalFileId: 'file-1' };
+      component.group.set(groupWithOriginal);
+      expect(component.hasOriginalSelected()).toBe(true);
+    });
+
+    it('should return false when originalFileId is null', () => {
+      const groupWithoutOriginal = { ...mockGroup, originalFileId: null };
+      component.group.set(groupWithoutOriginal);
+      expect(component.hasOriginalSelected()).toBe(false);
+    });
+
+    it('should return false when originalFileId is undefined', () => {
+      const groupWithUndefined = { ...mockGroup, originalFileId: undefined };
+      component.group.set(groupWithUndefined as any);
+      expect(component.hasOriginalSelected()).toBe(false);
+    });
+
+    it('should return false when group is null', () => {
+      component.group.set(null);
+      expect(component.hasOriginalSelected()).toBe(false);
+    });
+  });
+
+  describe('delete duplicates button visibility', () => {
+    it('should show delete button when original is selected but not resolved', () => {
+      // Original selected, but resolvedAt is null (not yet validated)
+      const groupWithOriginal = { ...mockGroup, originalFileId: 'file-1', resolvedAt: null };
+      component.group.set(groupWithOriginal);
+
+      expect(component.hasOriginalSelected()).toBe(true);
+      expect(component.isResolved()).toBe(false);
+    });
+
+    it('should show delete button when group is fully resolved', () => {
+      // Both originalFileId and resolvedAt are set
+      const resolvedGroup = { ...mockGroup, originalFileId: 'file-1', resolvedAt: '2024-01-02T10:00:00Z' };
+      component.group.set(resolvedGroup);
+
+      expect(component.hasOriginalSelected()).toBe(true);
+      expect(component.isResolved()).toBe(true);
+    });
+
+    it('should not show delete button when no original selected', () => {
+      const groupWithoutOriginal = { ...mockGroup, originalFileId: null };
+      component.group.set(groupWithoutOriginal);
+
+      expect(component.hasOriginalSelected()).toBe(false);
+    });
+  });
+
+  describe('deleteNonOriginals', () => {
+    it('should call service when confirmed', () => {
+      vi.spyOn(duplicateService, 'deleteNonOriginals').mockReturnValue(of({ filesQueued: 1 }));
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      vi.spyOn(component, 'loadGroup');
+
+      component.group.set(mockGroup);
+      component.deleteNonOriginals();
+
+      expect(duplicateService.deleteNonOriginals).toHaveBeenCalledWith('group-1');
+      expect(component.loadGroup).toHaveBeenCalled();
+    });
+
+    it('should not call service when cancelled', () => {
+      vi.spyOn(duplicateService, 'deleteNonOriginals').mockReturnValue(of({ filesQueued: 1 }));
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+      component.group.set(mockGroup);
+      component.deleteNonOriginals();
+
+      expect(duplicateService.deleteNonOriginals).not.toHaveBeenCalled();
+    });
+
+    it('should not call service when no originalFileId', () => {
+      vi.spyOn(duplicateService, 'deleteNonOriginals').mockReturnValue(of({ filesQueued: 1 }));
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+      const groupWithoutOriginal = { ...mockGroup, originalFileId: null };
+      component.group.set(groupWithoutOriginal);
+      component.deleteNonOriginals();
+
+      expect(duplicateService.deleteNonOriginals).not.toHaveBeenCalled();
+    });
+  });
 });
