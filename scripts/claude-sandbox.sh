@@ -75,15 +75,14 @@ Examples:
 
 Volumes:
   claude-workspace   Workspace for clone mode (survives crashes)
-  claude-config      Claude config and plugins (~/.claude, persists across runs)
+  claude-home        Entire /home/claude directory (configs, plugins, history, files)
   seq-data           Seq logs (with --otel, unless --no-persist)
-  ~/.claude-sandbox-share  Shared directory with host (mounted at /share)
 
 File Upload:
   A web upload server runs at http://localhost:8888 allowing you to:
   - Drag & drop files to upload them to the container
   - Paste images from clipboard (Ctrl+V / Cmd+V)
-  Files are saved to /share in the container (~/.claude-sandbox-share on host)
+  Files are saved to ~/share in the container (persisted in claude-home volume)
 
 Clean mode options (use with 'clean'):
   --containers       Remove sandbox containers (claude-sandbox, seq-otel, claude-api-logger)
@@ -160,7 +159,7 @@ REPO_URL="https://github.com/gbolabs/photos-index.git"
 CONTAINER_NAME="claude-sandbox"
 IMAGE_NAME="claude-sandbox:latest"
 WORKSPACE_VOLUME="claude-workspace"  # Volume for clone mode workspace
-CLAUDE_CONFIG_VOLUME="claude-config"  # Volume for ~/.claude (plugins, settings)
+CLAUDE_HOME_VOLUME="claude-home"  # Volume for /home/claude (persists everything)
 SHARE_DIR="${HOME}/.claude-sandbox-share"  # Shared directory with host for file exchange
 
 # Colors
@@ -394,19 +393,14 @@ run_mount_mode() {
     # Remove existing container if it exists (can't reuse name otherwise)
     podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
-    # Create claude config volume if it doesn't exist (for plugins persistence)
-    if ! podman volume exists "$CLAUDE_CONFIG_VOLUME"; then
-        log "Creating claude config volume: $CLAUDE_CONFIG_VOLUME"
-        podman volume create "$CLAUDE_CONFIG_VOLUME"
+    # Create claude home volume if it doesn't exist (persists entire home directory)
+    if ! podman volume exists "$CLAUDE_HOME_VOLUME"; then
+        log "Creating claude home volume: $CLAUDE_HOME_VOLUME"
+        podman volume create "$CLAUDE_HOME_VOLUME"
     fi
 
-    # Create share directory if it doesn't exist
-    if [[ ! -d "$SHARE_DIR" ]]; then
-        log "Creating share directory: $SHARE_DIR"
-        mkdir -p "$SHARE_DIR"
-    fi
-    log "Share directory: $SHARE_DIR (mounted at /share in container)"
-    log "Upload server: http://localhost:8888 (drag & drop files)"
+    log "Home directory: $CLAUDE_HOME_VOLUME volume (persists across runs)"
+    log "Upload server: http://localhost:8888 (drag & drop files to ~/share)"
 
     # shellcheck disable=SC2086
     podman run -it $rm_flag \
@@ -419,8 +413,7 @@ run_mount_mode() {
         -p 8443:8443 \
         -p 8888:8888 \
         -v "$(pwd):/workspace:Z" \
-        -v "$CLAUDE_CONFIG_VOLUME:/home/claude/.claude:Z" \
-        -v "$SHARE_DIR:/share:Z" \
+        -v "$CLAUDE_HOME_VOLUME:/home/claude:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
@@ -462,19 +455,14 @@ run_clone_mode() {
         log "Reusing existing workspace volume: $WORKSPACE_VOLUME"
     fi
 
-    # Create claude config volume if it doesn't exist (for plugins persistence)
-    if ! podman volume exists "$CLAUDE_CONFIG_VOLUME"; then
-        log "Creating claude config volume: $CLAUDE_CONFIG_VOLUME"
-        podman volume create "$CLAUDE_CONFIG_VOLUME"
+    # Create claude home volume if it doesn't exist (persists entire home directory)
+    if ! podman volume exists "$CLAUDE_HOME_VOLUME"; then
+        log "Creating claude home volume: $CLAUDE_HOME_VOLUME"
+        podman volume create "$CLAUDE_HOME_VOLUME"
     fi
 
-    # Create share directory if it doesn't exist
-    if [[ ! -d "$SHARE_DIR" ]]; then
-        log "Creating share directory: $SHARE_DIR"
-        mkdir -p "$SHARE_DIR"
-    fi
-    log "Share directory: $SHARE_DIR (mounted at /share in container)"
-    log "Upload server: http://localhost:8888 (drag & drop files)"
+    log "Home directory: $CLAUDE_HOME_VOLUME volume (persists across runs)"
+    log "Upload server: http://localhost:8888 (drag & drop files to ~/share)"
 
     # Remove existing container if it exists (can't reuse name otherwise)
     podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
@@ -492,8 +480,7 @@ run_clone_mode() {
         -p 8443:8443 \
         -p 8888:8888 \
         -v "$WORKSPACE_VOLUME:/workspace:Z" \
-        -v "$CLAUDE_CONFIG_VOLUME:/home/claude/.claude:Z" \
-        -v "$SHARE_DIR:/share:Z" \
+        -v "$CLAUDE_HOME_VOLUME:/home/claude:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
@@ -574,7 +561,7 @@ run_clean_mode() {
     # Clean volumes
     if [[ "$CLEAN_VOLUMES" == "true" ]]; then
         log "Removing volumes..."
-        for volume in "$WORKSPACE_VOLUME" "$CLAUDE_CONFIG_VOLUME" "seq-data"; do
+        for volume in "$WORKSPACE_VOLUME" "$CLAUDE_HOME_VOLUME" "seq-data"; do
             if podman volume exists "$volume" 2>/dev/null; then
                 log "  Removing volume: $volume"
                 podman volume rm "$volume" 2>/dev/null || true
