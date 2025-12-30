@@ -1,14 +1,17 @@
-import { Component, input } from '@angular/core';
+import { Component, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { IndexedFileDto } from '../../../../models';
 
 interface MetadataRow {
   label: string;
   value: string;
   icon: string;
+  copyable?: boolean;
 }
 
 @Component({
@@ -19,6 +22,8 @@ interface MetadataRow {
     MatCardModule,
     MatTableModule,
     MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
   ],
   templateUrl: './file-metadata-table.component.html',
   styleUrl: './file-metadata-table.component.scss',
@@ -26,13 +31,20 @@ interface MetadataRow {
 export class FileMetadataTableComponent {
   file = input<IndexedFileDto>();
 
-  displayedColumns = ['icon', 'label', 'value'];
+  displayedColumns = ['icon', 'label', 'value', 'actions'];
+  copiedField = signal<string | null>(null);
 
   getMetadataRows(): MetadataRow[] {
     const f = this.file();
     if (!f) return [];
 
     const rows: MetadataRow[] = [
+      {
+        label: 'File ID',
+        value: f.id,
+        icon: 'key',
+        copyable: true,
+      },
       {
         label: 'File Name',
         value: f.fileName,
@@ -57,6 +69,7 @@ export class FileMetadataTableComponent {
         label: 'File Hash (SHA-256)',
         value: f.fileHash,
         icon: 'fingerprint',
+        copyable: true,
       },
     ];
 
@@ -92,10 +105,21 @@ export class FileMetadataTableComponent {
         label: 'Duplicate Group ID',
         value: f.duplicateGroupId,
         icon: 'content_copy',
+        copyable: true,
       });
     }
 
     return rows;
+  }
+
+  async copyToClipboard(value: string, label: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(value);
+      this.copiedField.set(label);
+      setTimeout(() => this.copiedField.set(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   }
 
   private formatFileSize(bytes: number): string {

@@ -13,9 +13,14 @@
           <input
             matInput
             [(ngModel)]="searchQuery"
-            placeholder="Search by filename..."
+            placeholder="filename or prefix:value"
             (keyup.enter)="onSearch()"
           />
+          <mat-icon
+            matSuffix
+            matTooltip="Search by filename, or use prefixes: path:folder, hash:abc123, taken:2024-01-15, created:2024-01-15, modified:2024-01-15"
+            class="search-help-icon"
+          >help_outline</mat-icon>
           @if (searchQuery) {
             <button mat-icon-button matSuffix (click)="clearSearch()">
               <mat-icon>close</mat-icon>
@@ -28,6 +33,7 @@
           <mat-select [(value)]="sortBy" (selectionChange)="onSortChange()">
             <mat-option value="Name">Name</mat-option>
             <mat-option value="Size">Size</mat-option>
+            <mat-option value="DateTaken">Date Taken (EXIF)</mat-option>
             <mat-option value="CreatedAt">Created Date</mat-option>
             <mat-option value="ModifiedAt">Modified Date</mat-option>
             <mat-option value="IndexedAt">Indexed Date</mat-option>
