@@ -402,6 +402,12 @@ run_mount_mode() {
     log "Home directory: $CLAUDE_HOME_VOLUME volume (persists across runs)"
     log "Upload server: http://localhost:8888 (drag & drop files to ~/share)"
 
+    # Get Podman socket path
+    local podman_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
+    if [[ ! -S "$podman_socket" ]]; then
+        podman_socket="/run/user/$(id -u)/podman/podman.sock"
+    fi
+
     # shellcheck disable=SC2086
     podman run -it $rm_flag \
         --name "$CONTAINER_NAME" \
@@ -410,10 +416,12 @@ run_mount_mode() {
         -e GIT_AUTHOR_EMAIL="$git_email" \
         -e GIT_COMMITTER_NAME="$git_name" \
         -e GIT_COMMITTER_EMAIL="$git_email" \
+        -e DOCKER_HOST="unix:///var/run/docker.sock" \
         -p 8443:8443 \
         -p 8888:8888 \
         -v "$(pwd):/workspace:Z" \
         -v "$CLAUDE_HOME_VOLUME:/home/claude:Z" \
+        -v "$podman_socket:/var/run/docker.sock:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
@@ -467,6 +475,12 @@ run_clone_mode() {
     # Remove existing container if it exists (can't reuse name otherwise)
     podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
+    # Get Podman socket path
+    local podman_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
+    if [[ ! -S "$podman_socket" ]]; then
+        podman_socket="/run/user/$(id -u)/podman/podman.sock"
+    fi
+
     # shellcheck disable=SC2086
     podman run -it $rm_flag \
         --name "$CONTAINER_NAME" \
@@ -477,10 +491,12 @@ run_clone_mode() {
         -e GIT_COMMITTER_EMAIL="$git_email" \
         -e REPO_URL="$REPO_URL" \
         -e BRANCH="$branch" \
+        -e DOCKER_HOST="unix:///var/run/docker.sock" \
         -p 8443:8443 \
         -p 8888:8888 \
         -v "$WORKSPACE_VOLUME:/workspace:Z" \
         -v "$CLAUDE_HOME_VOLUME:/home/claude:Z" \
+        -v "$podman_socket:/var/run/docker.sock:Z" \
         $otel_args \
         $api_logger_args \
         "$IMAGE_NAME" \
