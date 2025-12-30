@@ -136,14 +136,23 @@ public class DuplicateGroupsController : ControllerBase
     [HttpDelete("{id:guid}/non-originals")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> DeleteNonOriginals(Guid id, CancellationToken ct = default)
     {
-        var count = await _service.QueueNonOriginalsForDeletionAsync(id, ct);
+        try
+        {
+            var count = await _service.QueueNonOriginalsForDeletionAsync(id, ct);
 
-        if (count == 0)
-            return NotFound(ApiErrorResponse.NotFound($"Duplicate group with ID {id} not found or has no duplicates"));
+            if (count == 0)
+                return NotFound(ApiErrorResponse.NotFound($"Duplicate group with ID {id} not found or has no duplicates"));
 
-        return Ok(new { filesQueued = count });
+            return Ok(new { filesQueued = count });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("cleaner"))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                ApiErrorResponse.ServiceUnavailable(ex.Message));
+        }
     }
 
     /// <summary>
