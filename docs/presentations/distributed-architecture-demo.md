@@ -36,11 +36,13 @@ style: |
   }
 ---
 
-# Distributed Photo Processing
+# Photos Index
 
-## From Monolith to Message-Driven Microservices
+## Distributed Photo Processing & Deduplication
 
-.NET 10, RabbitMQ, OpenTelemetry
+.NET 10, Angular 21, RabbitMQ, SignalR, OpenTelemetry
+
+**v0.10.0** - December 2025
 
 ---
 
@@ -73,6 +75,7 @@ style: |
 - Extract EXIF metadata (CPU intensive)
 - Generate thumbnails (CPU intensive)
 - Compute SHA256 hashes (I/O intensive)
+- **Find and manage duplicates**
 
 **Constraint:** Run on home NAS hardware
 
@@ -84,19 +87,19 @@ style: |
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Indexer   │────▶│     API     │────▶│    MinIO    │
+│   Indexer   │◄───►│     API     │────▶│    MinIO    │
 │  (Synology) │     │  (TrueNAS)  │     │  (Storage)  │
 └─────────────┘     └──────┬──────┘     └─────────────┘
-                          │ Publish
-                          ▼
-                   ┌─────────────┐
-                   │  RabbitMQ   │
-                   └──────┬──────┘
-         ┌────────────────┴────────────────┐
-         ▼                                 ▼
-┌─────────────────┐             ┌─────────────────┐
-│ MetadataService │             │ThumbnailService │
-└─────────────────┘             └─────────────────┘
+    SignalR                │ Publish
+                           ▼
+                    ┌─────────────┐
+                    │  RabbitMQ   │
+                    └──────┬──────┘
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                 ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────┐
+│ MetadataService │ │ThumbnailService │ │CleanerService│
+└─────────────────┘ └─────────────────┘ └─────────────┘
 ```
 
 ---
@@ -105,13 +108,28 @@ style: |
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | Angular 21 |
+| **Frontend** | Angular 21 with Signals |
 | **API** | .NET 10 / ASP.NET Core |
+| **Real-time** | SignalR (bidirectional) |
 | **Messaging** | RabbitMQ + MassTransit |
 | **Storage** | MinIO (S3-compatible) |
-| **Database** | PostgreSQL |
+| **Database** | PostgreSQL + EF Core |
 | **Observability** | Jaeger + OpenTelemetry |
 | **Proxy** | Traefik |
+
+---
+
+# Services Overview
+
+## 5 Microservices
+
+| Service | Role | Features |
+|---------|------|----------|
+| **API** | REST + SignalR hub | CRUD, real-time events |
+| **Indexer** | File discovery | Scan, hash, upload |
+| **Metadata** | EXIF extraction | Camera, GPS, dates |
+| **Thumbnail** | Image processing | Resize, optimize |
+| **Cleaner** | Safe deletion | Dry-run, archive, undo |
 
 ---
 
@@ -140,57 +158,66 @@ await _publishEndpoint.Publish(new FileDiscoveredMessage
 ```
 FileDiscoveredMessage
         │
-   ┌────┴────┐
-   ▼         ▼
-Queue A    Queue B
-   │         │
-   ▼         ▼
-Metadata  Thumbnail
-Service   Service
+   ┌────┼────┬────────┐
+   ▼    ▼    ▼        ▼
+Queue  Queue Queue   Queue
+   │    │    │        │
+   ▼    ▼    ▼        ▼
+Meta  Thumb  AI     Future
+Svc   Svc   Tag      Svc
 ```
 
 Each service gets **its own copy** of every message.
 
 ---
 
-# Fan-Out: The Implementation
+# Key Concept #3: Real-Time with SignalR
+
+## Bidirectional Communication
+
+```
+┌──────────┐      ┌─────────┐      ┌─────────────┐
+│  Angular │◄────►│   API   │◄────►│   Indexer   │
+│   (SPA)  │      │(SignalR)│      │  (Worker)   │
+└──────────┘      └─────────┘      └─────────────┘
+     │                 │                  │
+     │  ScanProgress   │   IndexerStatus  │
+     │◄────────────────│◄─────────────────│
+     │                 │                  │
+     │  DeletionStatus │   FileProcessed  │
+     │◄────────────────│◄─────────────────│
+```
+
+**Real-time updates without polling!**
+
+---
+
+# SignalR: The Implementation
 
 ```csharp
-// MetadataService/Program.cs
-cfg.ReceiveEndpoint("metadata-file-discovered", e =>
+// API Hub
+public class IndexerHub : Hub
 {
-    e.ConfigureConsumer<FileDiscoveredConsumer>(context);
-});
+    public async Task ReportStatus(IndexerStatusDto status)
+    {
+        await Clients.All.SendAsync("IndexerStatusUpdate", status);
+    }
 
-// ThumbnailService/Program.cs
-cfg.ReceiveEndpoint("thumbnail-file-discovered", e =>
-{
-    e.ConfigureConsumer<FileDiscoveredConsumer>(context);
+    public async Task ReportProgress(ScanProgressDto progress)
+    {
+        await Clients.All.SendAsync("ScanProgressUpdate", progress);
+    }
+}
+
+// Angular Service
+this.connection.on('ScanProgressUpdate', (progress) => {
+    this.scanProgress.set(progress);
 });
 ```
-
-**Critical:** Unique queue name per service type.
 
 ---
 
-# Gotcha: Competing Consumers
-
-## Same queue name = round-robin
-
-```
-Publisher → Queue → Instance1
-                  → Instance2  (round-robin)
-                  → Instance3
-```
-
-**Bug:** Both services used `FileDiscovered` queue
-Each file got metadata **OR** thumbnail, never both!
-
-**Fix:** Explicit unique queue names.
-
----
-
-# Key Concept #3: Distributed Tracing
+# Key Concept #4: Distributed Tracing
 
 ## OpenTelemetry + Jaeger
 
@@ -202,23 +229,102 @@ Trace: abc123
 │   └── FileDiscoveredMessage send
 ├── FileDiscovered (MetadataService)
 │   └── MetadataExtractedMessage send
-└── FileDiscovered (ThumbnailService)
-    └── ThumbnailGeneratedMessage send
+├── FileDiscovered (ThumbnailService)
+│   └── ThumbnailGeneratedMessage send
+└── FileDiscovered (CleanerService)
+    └── CleanupCompleteMessage send
 ```
 
 ---
 
-# Tracing: One Line of Code
+# Cleaner Service
 
-```csharp
-builder.AddPhotosIndexTelemetry("photos-index-api");
+## Safe Duplicate Removal
+
+```
+┌─────────────┐
+│   Trigger   │  API validates selection
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│   Dry-Run   │  Preview changes (optional)
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│   Archive   │  Move to trash directory
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│  Database   │  Mark as deleted, log action
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│   Notify    │  SignalR status update
+└─────────────┘
 ```
 
-**Auto-instrumentation:**
-- ASP.NET Core
-- EF Core / PostgreSQL
-- HTTP clients
-- MassTransit (propagates trace context!)
+---
+
+# Duplicate Status Workflow
+
+## 6-State Machine
+
+```
+┌─────────┐     ┌──────────────┐     ┌───────────┐
+│ Pending │────►│ AutoSelected │────►│ Validated │
+└─────────┘     └──────────────┘     └─────┬─────┘
+                       │                   │
+                       ▼                   ▼
+                  ┌─────────┐        ┌──────────┐
+                  │ Pending │◄───────│ Cleaning │
+                  └─────────┘        └────┬─────┘
+                       ▲           ┌──────┴──────┐
+                       │           ▼             ▼
+               ┌───────────────┐ ┌─────────┐
+               │CleaningFailed │ │ Cleaned │
+               └───────────────┘ └─────────┘
+```
+
+---
+
+# Duplicate Management UI
+
+## Power User Features
+
+| Feature | Shortcut |
+|---------|----------|
+| Navigate files | ← → |
+| Navigate groups | ↑ ↓ |
+| Select original | Space / 1-9 |
+| Auto-select | A |
+| Validate | V |
+| Execute cleanup | X |
+| Undo | U |
+| Help | ? |
+
+---
+
+# Gallery View
+
+## Infinite Scroll with Filters
+
+```
+┌──────────────────────────────────────────┐
+│ 🔍 Search    📷 Camera    📅 Date        │
+├──────────────────────────────────────────┤
+│ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐      │
+│ │ 📷 │ │ 📷 │ │ 📷 │ │ 📷 │ │ 📷 │      │
+│ └────┘ └────┘ └────┘ └────┘ └────┘      │
+│ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐      │
+│ │ 📷 │ │ 📷 │ │ 📷 │ │ 📷 │ │ 📷 │      │
+│ └────┘ └────┘ └────┘ └────┘ └────┘      │
+│              ↓ Loading...               │
+└──────────────────────────────────────────┘
+```
+
+- Lazy loading with intersection observer
+- Adjustable tile size
+- Camera and date filters
 
 ---
 
@@ -256,28 +362,62 @@ Perfect workload distribution!
 
 1. **Indexer**: Scan, SHA256 hash, HTTP upload
 2. **API**: Store metadata, 2x MinIO upload, publish message
-3. **RabbitMQ**: Fan-out to 2 queues
-4. **MetadataService**: Download, EXIF extract, delete
-5. **ThumbnailService**: Download, resize, upload, delete
-6. **API**: Receive results, update PostgreSQL
+3. **RabbitMQ**: Fan-out to queues
+4. **MetadataService**: Download, EXIF extract, delete temp
+5. **ThumbnailService**: Download, resize, upload
+6. **SignalR**: Real-time progress to UI
 
 All traced end-to-end in Jaeger!
 
 ---
 
-# Key Concept #4: Resource Cleanup
+# Incremental Indexing
 
-## Per-Service Object Keys
+## Scan Sessions
 
+```sql
+-- Track what's been scanned
+CREATE TABLE "ScanSessions" (
+    "Id" UUID PRIMARY KEY,
+    "DirectoryId" UUID NOT NULL,
+    "StartedAt" TIMESTAMPTZ,
+    "CompletedAt" TIMESTAMPTZ,
+    "FilesFound" INT,
+    "FilesProcessed" INT,
+    "Status" VARCHAR(20) -- Scanning, Completed, Failed
+);
 ```
-API uploads two copies:
-├── images/metadata/{hash}   → MetadataService deletes
-└── images/thumbnail/{hash}  → ThumbnailService deletes
 
-Result: Only thumbnails persist!
-```
+Only process **new and modified** files!
 
-**No coordination needed** - each service manages its own cleanup.
+---
+
+# Architecture Decisions
+
+## ADRs (Architecture Decision Records)
+
+| ADR | Decision |
+|-----|----------|
+| 007 | MassTransit for messaging |
+| 008 | SignalR for real-time |
+| 012 | Incremental indexing |
+| 013 | Cleaner service architecture |
+| 014 | Status workflow enum |
+| 015 | Auth with external IDP (planned) |
+
+---
+
+# Lessons Learned
+
+| Version | Bug | Root Cause |
+|---------|-----|------------|
+| v0.3.5 | DateTime save fails | Kind=Unspecified |
+| v0.3.6 | Metadata OR thumbnail | Competing consumers |
+| v0.3.8 | Images bucket fills up | No cleanup |
+| v0.9.0 | SignalR disconnect | No reconnection |
+| v0.10.0 | Status magic strings | No enum validation |
+
+**Observability made debugging easy.**
 
 ---
 
@@ -299,30 +439,35 @@ Service   Service    Embed    Detect   Tag
 
 ---
 
-# Future Consumer Ideas
+# Future: Authentication
 
-| Service | Technology | Purpose |
-|---------|------------|---------|
-| **VectorService** | CLIP embeddings | Semantic search |
-| **FaceService** | YOLO / InsightFace | Face detection |
-| **AITagService** | LLM (Ollama) | Auto-tagging |
-| **GeoService** | Reverse geocoding | Location names |
-| **DuplicateService** | pHash | Visual similarity |
+## Planned for v0.15.0+
 
-Each runs independently, scales independently.
+```
+┌───────────────┐     ┌─────────────────┐
+│  Infomaniak   │     │  Photos Index   │
+│    Login      │◄───►│     (OIDC)      │
+│   (OAuth2)    │     │                 │
+└───────────────┘     └─────────────────┘
+```
+
+- OpenID Connect with external IDP
+- Role-Based Access Control (RBAC)
+- 4 groups, 6 roles, 17 permissions
+- Complete audit trail
 
 ---
 
-# Lessons Learned
+# Roadmap
 
-| Version | Bug | Root Cause |
-|---------|-----|------------|
-| v0.3.5 | DateTime save fails | Kind=Unspecified |
-| v0.3.6 | Metadata OR thumbnail | Competing consumers |
-| v0.3.7 | @eaDir indexed | Missing exclusion |
-| v0.3.8 | Images bucket fills up | No cleanup |
-
-**Observability made debugging easy.**
+| Version | Features |
+|---------|----------|
+| **v0.10.0** ✅ | Status workflow, UX improvements |
+| v0.11.0 | Accessibility, skeleton loading |
+| v0.12.0 | Navigation, design system |
+| v0.15.0 | Authentication (OIDC) |
+| v0.16.0 | Authorization (RBAC) |
+| v1.0.0 | Production-ready release |
 
 ---
 
@@ -334,6 +479,7 @@ Each runs independently, scales independently.
 | Failures | Full outage | Partial |
 | Debugging | Log files | Traces |
 | Deployment | Full redeploy | Per-service |
+| Real-time | Polling | SignalR push |
 
 ---
 
@@ -346,22 +492,8 @@ Each runs independently, scales independently.
 **Use when:**
 - CPU-bound background processing
 - Need independent scaling
+- Real-time updates required
 - Observability is critical
-
----
-
-# Getting Started
-
-1. `dotnet add package MassTransit.RabbitMQ`
-
-2. Create a message:
-   ```csharp
-   public record OrderCreated { public Guid OrderId { get; init; } }
-   ```
-
-3. Publish from API, consume in worker
-
-4. Add OpenTelemetry for visibility
 
 ---
 
@@ -370,7 +502,8 @@ Each runs independently, scales independently.
 - **Jaeger UI:** Distributed traces
 - **RabbitMQ:** Queue stats
 - **Grafana:** Logs aggregation
-- **Web App:** Photo browser
+- **Web App:** Photo browser & duplicates
+- **SignalR:** Real-time progress
 
 All running on two NAS boxes at home!
 
@@ -379,6 +512,7 @@ All running on two NAS boxes at home!
 # Resources
 
 - **MassTransit:** masstransit.io
+- **SignalR:** docs.microsoft.com/signalr
 - **OpenTelemetry .NET:** opentelemetry.io/docs/instrumentation/net
 - **Jaeger:** jaegertracing.io
 - **This Project:** github.com/gbolabs/photos-index
@@ -389,7 +523,26 @@ All running on two NAS boxes at home!
 
 1. **Message-driven** decouples CPU-bound work
 2. **Fan-out** enables parallel processing
-3. **Distributed tracing** is essential
-4. **Start simple**, add complexity when needed
+3. **SignalR** for real-time bidirectional updates
+4. **Distributed tracing** is essential
+5. **State machines** enforce business rules
+6. **Start simple**, add complexity when needed
 
 **"Make it work, make it right, make it fast"**
+
+---
+
+# Questions?
+
+## github.com/gbolabs/photos-index
+
+```
+┌─────────────────────────────────────────────────┐
+│  Indexer ──► API ──► RabbitMQ ──► Services      │
+│     ▲                    │                      │
+│     │                    ▼                      │
+│     └──────── SignalR ◄──┴──► Angular UI        │
+└─────────────────────────────────────────────────┘
+```
+
+**v0.10.0** - December 2025
