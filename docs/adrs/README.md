@@ -48,6 +48,7 @@ An ADR is a short document that captures an important architectural decision alo
 | [012](./012-incremental-indexing.md) | Incremental Indexing with Scan Sessions | Accepted | 2025-12-29 |
 | [013](./013-cleaner-service-architecture.md) | Cleaner Service Architecture for Safe Duplicate Removal | Accepted | 2025-12-29 |
 | [014](./014-duplicate-group-status-workflow.md) | DuplicateGroup Status Workflow | Accepted | 2025-12-30 |
+| [015](./015-authentication-authorization.md) | Authentication and Authorization with External IDP | Proposed | 2025-12-31 |
 
 ## References
 
