@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
@@ -67,7 +68,8 @@ public static class OpenTelemetryExtensions
                             activity.SetTag("http.response.status_code", (int)httpResponseMessage.StatusCode);
                         };
                     })
-                    .AddEntityFrameworkCoreInstrumentation();
+                    .AddEntityFrameworkCoreInstrumentation()
+                    .AddNpgsql();  // Capture SQL query text in traces
 
                 // Add ASP.NET Core instrumentation if available (for API service)
                 try
